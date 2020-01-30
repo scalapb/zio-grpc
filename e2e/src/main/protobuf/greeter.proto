@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package example;
+
+message Request {
+    string name = 1;
+}
+
+message Response {
+    string resp = 1;
+}
+
+message Point {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+service MyService {
+  rpc Greet(Request) returns (Response);
+
+  rpc Points(Request) returns (stream Point);
+
+  // rpc ClientStreaming(stream Point) returns (stream Response);
+
+  rpc Bidi(stream Point) returns (stream Response);
+}
