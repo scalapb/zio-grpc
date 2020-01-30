@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package example;
+package examples;
 
 message Request {
     string name = 1;

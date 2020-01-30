@@ -1,6 +1,6 @@
 package example
 
-import example.greeter._
+import examples.greeter._
 import zio.clock.Clock
 import zio.{App, Schedule, ZIO}
 import zio.console._

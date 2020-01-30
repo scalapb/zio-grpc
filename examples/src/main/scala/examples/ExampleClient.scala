@@ -1,7 +1,7 @@
-package example
+package examples
 
 import io.grpc.ManagedChannelBuilder
-import example.greeter._
+import examples.greeter._
 import zio.console._
 import scalapb.grpc.zio.ZManagedChannel
 
