@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package scalapb.grpc.zio;
+
+message Request {
+    enum Scenario {
+        OK = 0;
+        ERROR = 1;
+        DELAY = 2;
+        DIE = 3;
+    }
+    Scenario scenario = 1;
+    int32 in = 2;
+}
+
+message Response {
+    string out = 1;
+}
+
+service TestService {
+    rpc Unary(Request) returns (Response);
+}

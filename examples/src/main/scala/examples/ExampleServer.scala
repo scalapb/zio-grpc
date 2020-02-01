@@ -10,7 +10,6 @@ import io.grpc.ServerBuilder
 import zio.blocking._
 import zio.console._
 import io.grpc.Status
-import io.grpc.Status
 import zio.Managed
 import zio.stream.ZSink
 

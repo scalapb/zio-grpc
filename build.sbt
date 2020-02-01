@@ -2,6 +2,8 @@ import Settings.stdSettings
 
 val grpcVersion = "1.26.0"
 
+ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
+
 ThisBuild / scalaVersion := "2.13.1"
 
 ThisBuild / crossScalaVersions := Seq("2.12.10", "2.13.1")
@@ -26,7 +28,7 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.0-RC17"
+val zioVersion = "1.0.0-RC17+305-a598d638-SNAPSHOT"
 
 lazy val core = project
   .in(file("core"))
@@ -75,6 +77,8 @@ lazy val e2e = project
   .settings(
     skip in publish := true,
     libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-test" % zioVersion % "test",
+      "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
       "io.grpc" % "grpc-netty" % grpcVersion
     ),
@@ -91,7 +95,4 @@ lazy val e2e = project
     ),
     Compile / PB.recompile := true, // always regenerate protos, not cache
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    fork := true,
-    cancelable in Global := true,
-    connectInput := true
   )

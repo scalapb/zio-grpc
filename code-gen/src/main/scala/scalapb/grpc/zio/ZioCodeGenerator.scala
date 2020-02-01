@@ -106,20 +106,22 @@ class ZioServicePrinter(
   val ModuleName = s"${service.name}"
 
   val valueName = s"${service.name(0).toLower}${service.name.tail}"
-  val servicePackageName: String = service.getFile.scalaPackageName
+  val servicePackageName: String = service.getFile.scalaPackage.fullName
 
   val Channel = "io.grpc.Channel"
   val CallOptions = "io.grpc.CallOptions"
+  private val PackageObjectName = service.getFile.scalaPackage / valueName
   val ClientCalls = "scalapb.grpc.zio.client.ClientCalls"
   val Metadata = "io.grpc.Metadata"
   val ZClientCall = "scalapb.grpc.zio.client.ZClientCall"
   val serverServiceDef = "_root_.io.grpc.ServerServiceDefinition"
 
   def printService(fp: FunctionalPrinter): FunctionalPrinter = {
-    fp.add(s"package ${service.getFile.scalaPackageName}", "")
-      .add(s"trait $ModuleName {")
-      .add(s"  val ${valueName}: ${ModuleName}.Service[Any] ")
-      .add("}")
+    fp.add(s"package ${servicePackageName}", "")
+      .add("")
+      .add(s"package object ${PackageObjectName.nameSymbol} {")
+      .indent
+      .add(s"type $ModuleName = zio.Has[$ModuleName.Service[Any]]")
       .add("")
       .add(s"object $ModuleName {")
       .indent
@@ -142,14 +144,14 @@ class ZioServicePrinter(
       .add("}")
       .add("")
       .add(
-        s"def clientService(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName} = new ${ModuleName} {"
+        s"def clientService(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName} = zio.Has("
       )
       .indent
       .add(
-        s"final val ${valueName}: ${ModuleName}.Service[Any] = client(channel, options, headers)"
+        s"client(channel, options, headers)"
       )
       .outdent
-      .add(s"}")
+      .add(s")")
       .add("")
       .add(s"object > extends ${ModuleName}.Service[$ModuleName] {")
       .indent
@@ -169,6 +171,8 @@ class ZioServicePrinter(
       .outdent
       .outdent
       .add(s"}")
+      .outdent
+      .add("}")
   }
 
   def methodSignature(method: MethodDescriptor, envType: String): String = {
@@ -241,16 +245,16 @@ class ZioServicePrinter(
       method: MethodDescriptor
   ): FunctionalPrinter = {
     val sig = methodSignature(method, envType = ModuleName) + " = "
-    val innerCall = s"_.${valueName}.${method.name}(request)"
+    val innerCall = s"_.get.${method.name}(request)"
     // TODO: fix stream accessors once ZIO >1.0.0-RC17 is released.
     val clientCall = method.streamType match {
       case StreamType.Unary => s"_root_.zio.ZIO.accessM($innerCall)"
       case StreamType.ClientStreaming =>
-        s"_root_.zio.ZIO.accessM(e => e.${valueName}.${method.name}(request.provide(e))"
+        s"_root_.zio.ZIO.accessM(e => e.get.${method.name}(request.provide(e))"
       case StreamType.ServerStreaming =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(_.${valueName}.${method.name}(request))"
+        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(_.get.${method.name}(request))"
       case StreamType.Bidirectional =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(e => e.${valueName}.${method.name}(request.provide(e)))"
+        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(e => e.get.${method.name}(request.provide(e)))"
     }
     fp.add(sig + clientCall)
   }
