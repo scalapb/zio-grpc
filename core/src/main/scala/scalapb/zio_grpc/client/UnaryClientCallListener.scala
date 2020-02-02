@@ -1,4 +1,4 @@
-package scalapb.grpc.zio.client
+package scalapb.zio_grpc.client
 
 import zio.Runtime
 import zio.Ref

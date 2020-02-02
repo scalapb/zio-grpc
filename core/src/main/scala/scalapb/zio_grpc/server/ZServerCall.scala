@@ -1,9 +1,9 @@
-package scalapb.grpc.zio.server
+package scalapb.zio_grpc.server
 
 import io.grpc.{ServerCall, Metadata, Status}
 import zio.ZIO
 import zio.UIO
-import scalapb.grpc.zio.GIO
+import scalapb.zio_grpc.GIO
 
 trait ZServerCall[Res] extends Any {
   def request(n: Int): GIO[Unit]

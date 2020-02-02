@@ -1,4 +1,4 @@
-package scalapb.grpc.zio
+package scalapb.zio_grpc
 
 import protocbridge.ProtocCodeGenerator
 import com.google.protobuf.CodedInputStream
@@ -9,7 +9,7 @@ import scalapb.compiler.ProtobufGenerator
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
 import protocbridge.Artifact
 import com.google.protobuf.Descriptors.FileDescriptor
-import scalapb.grpc.zio.compat.JavaConverters._
+import scalapb.zio_grpc.compat.JavaConverters._
 import scalapb.compiler.DescriptorImplicits
 import com.google.protobuf.Descriptors.ServiceDescriptor
 import com.google.protobuf.Descriptors.MethodDescriptor
@@ -111,9 +111,9 @@ class ZioServicePrinter(
   val Channel = "io.grpc.Channel"
   val CallOptions = "io.grpc.CallOptions"
   private val PackageObjectName = service.getFile.scalaPackage / valueName
-  val ClientCalls = "scalapb.grpc.zio.client.ClientCalls"
+  val ClientCalls = "scalapb.zio_grpc.client.ClientCalls"
   val Metadata = "io.grpc.Metadata"
-  val ZClientCall = "scalapb.grpc.zio.client.ZClientCall"
+  val ZClientCall = "scalapb.zio_grpc.client.ZClientCall"
   val serverServiceDef = "_root_.io.grpc.ServerServiceDefinition"
 
   def printService(fp: FunctionalPrinter): FunctionalPrinter = {
@@ -221,7 +221,7 @@ class ZioServicePrinter(
       fp: FunctionalPrinter,
       method: MethodDescriptor
   ): FunctionalPrinter = {
-    val CH = "_root_.scalapb.grpc.zio.server.ZioServerCallHandler"
+    val CH = "_root_.scalapb.zio_grpc.server.ZioServerCallHandler"
 
     val serverCall = method.streamType match {
       case StreamType.Unary           => "unaryCallHandler"

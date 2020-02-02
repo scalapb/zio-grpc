@@ -1,17 +1,16 @@
-package scalapb.grpc
+package scalapb
 
 import io.grpc.Status
-import _root_.zio.{IO, ZIO, Task}
-import _root_.zio.stream.{Stream, ZStream}
-import _root_.zio.ZLayer
-import _root_.zio.Managed
+import zio.{IO, ZIO, Task}
+import zio.stream.{Stream, ZStream}
+import zio.ZLayer
+import zio.Managed
+import zio.Has
 
 import io.grpc.ServerBuilder
 
+package object zio_grpc {
 
-package object zio {
-
-  import _root_.zio.Has
   type GIO[A] = IO[Status, A]
 
   type GRIO[R, A] = ZIO[R, Status, A]
@@ -34,11 +33,13 @@ package object zio {
     }
 
     def managed(builder: ServerBuilder[_]): Managed[Throwable, Service] =
-      Managed.make(ZIO.effect(builder.build.start))(
-        s => ZIO.effect(s.shutdown).ignore
-      ).map(new ServiceImpl(_))
+      Managed
+        .make(ZIO.effect(builder.build.start))(
+          s => ZIO.effect(s.shutdown).ignore
+        )
+        .map(new ServiceImpl(_))
 
     def fromManaged(zm: Managed[Throwable, io.grpc.Server]) =
-    ZLayer.fromManaged(zm.map(s => Has(new ServiceImpl(s))))
+      ZLayer.fromManaged(zm.map(s => Has(new ServiceImpl(s))))
   }
 }

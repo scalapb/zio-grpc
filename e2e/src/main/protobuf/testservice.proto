@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package scalapb.grpc.zio;
+package scalapb.zio_grpc;
 
 message Request {
     enum Scenario {

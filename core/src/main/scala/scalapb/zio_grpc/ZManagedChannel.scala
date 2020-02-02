@@ -1,4 +1,4 @@
-package scalapb.grpc.zio
+package scalapb.zio_grpc
 
 import zio.ZManaged
 import io.grpc.ManagedChannel

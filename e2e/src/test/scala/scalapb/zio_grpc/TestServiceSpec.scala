@@ -1,4 +1,4 @@
-package scalapb.grpc.zio
+package scalapb.zio_grpc
 
 import zio.test._
 import zio.test.Assertion._
@@ -6,11 +6,11 @@ import zio.ZIO
 import io.grpc.ServerBuilder
 import io.grpc.ManagedChannelBuilder
 import zio.ZManaged
-import scalapb.grpc.zio.testservice._
+import scalapb.zio_grpc.testservice._
 import io.grpc.Status
 import io.grpc.Status.Code
-import scalapb.grpc.zio.testservice.testService.TestService
-import scalapb.grpc.zio.server.TestServiceImpl
+import scalapb.zio_grpc.testservice.testService.TestService
+import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
 import zio.test.environment._
 import zio.Has
@@ -25,7 +25,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
   def serverManaged[R](service: TestService.Service[R]): ZManaged[R, Nothing, Server] = {
     (for {
         rts <- ZManaged.fromEffect(ZIO.runtime[R])
-        mgd <- scalapb.grpc.zio.Server.managed(
+        mgd <- scalapb.zio_grpc.Server.managed(
           ServerBuilder
             .forPort(0)
             .addService(TestService.bindService(rts, service))
@@ -46,21 +46,20 @@ object TestServiceSpec extends DefaultRunnableSpec {
     client <- clientManaged(port)
   } yield (client ++ service))
 
-  def spec =
-    suite("TestServiceSpec")(
-      testM("unary request returns successful response") {
+  def unarySuite =
+    suite("unary request")(
+      testM("returns successful response") {
         for {
           resp <- TestService.>.unary(Request(Request.Scenario.OK, in = 12))
         } yield assert(resp)(equalTo(Response("Res12")))
       },
-      testM("unary request returns correct error response") {
+      testM("returns correct error response") {
         for {
           resp <- TestService.>.unary(Request(Request.Scenario.ERROR, in = 12)).run
-          x <- zio.test.environment.TestConsole.output
         } yield assert(resp)(
           fails(statusCode(equalTo((Status.INTERNAL.getCode)))))
       },
-      testM("client interrupts are caught by server") {
+      testM("catches client interrupts") {
         for {
           fiber <- TestService.>.unary(Request(Request.Scenario.DELAY, in = 12)).fork
           _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
@@ -68,10 +67,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
           exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
         } yield assert(exit.interrupted)(isTrue)
       },
-      testM("server crashes are reported to client") {
+      testM("returns response on failures") {
         for {
           resp <- TestService.>.unary(Request(Request.Scenario.DIE, in = 12)).run
         } yield assert(resp)(fails(statusCode(equalTo(Status.INTERNAL.getCode))))
       }
     ).provideLayer(layer ++ TestConsole.any)
+
+  def spec = suite("AllSpecs")(unarySuite)
 }

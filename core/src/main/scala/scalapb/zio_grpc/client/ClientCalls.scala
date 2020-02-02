@@ -1,8 +1,8 @@
-package scalapb.grpc.zio.client
+package scalapb.zio_grpc.client
 
-import scalapb.grpc.zio.GIO
-import scalapb.grpc.zio.GStream
-import scalapb.grpc.zio.GRStream
+import scalapb.zio_grpc.GIO
+import scalapb.zio_grpc.GStream
+import scalapb.zio_grpc.GRStream
 import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO

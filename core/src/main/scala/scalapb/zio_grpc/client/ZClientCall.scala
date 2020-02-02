@@ -1,9 +1,9 @@
-package scalapb.grpc.zio.client
+package scalapb.zio_grpc.client
 
 import io.grpc.ClientCall
 import io.grpc.ClientCall.Listener
 import io.grpc.Metadata
-import scalapb.grpc.zio.GIO
+import scalapb.zio_grpc.GIO
 
 trait ZClientCall[Req, Res] extends Any {
   def start(responseListener: Listener[Res], headers: Metadata): GIO[Unit]

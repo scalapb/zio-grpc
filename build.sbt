@@ -50,7 +50,7 @@ lazy val codeGen = project
   .settings(stdSettings)
   .settings(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-    buildInfoPackage := "scalapb.grpc.zio",
+    buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin" % scalapb.compiler.Version.scalapbVersion
@@ -67,7 +67,7 @@ lazy val codeGenUnix = project
         Some(sbtassembly.AssemblyPlugin.defaultUniversalScript(shebang = true))
     ),
     skip in publish := true,
-    Compile / mainClass := Some("scalapb.grpc.zio.ZioCodeGenerator")
+    Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
   )
 
 lazy val e2e = project

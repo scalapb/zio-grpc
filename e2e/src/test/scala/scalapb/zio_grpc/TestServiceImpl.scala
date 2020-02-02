@@ -1,10 +1,10 @@
-package scalapb.grpc.zio
+package scalapb.zio_grpc
 
-import scalapb.grpc.zio.testservice.Request
+import scalapb.zio_grpc.testservice.Request
 import zio.ZIO
-import scalapb.grpc.zio.testservice.Response
+import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
-import scalapb.grpc.zio.testservice.Request.Scenario
+import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.clock.Clock
 import zio.console.Console
 import zio.Has

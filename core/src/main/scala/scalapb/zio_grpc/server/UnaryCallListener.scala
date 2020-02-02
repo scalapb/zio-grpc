@@ -1,4 +1,4 @@
-package scalapb.grpc.zio.server
+package scalapb.zio_grpc.server
 
 import zio._
 import io.grpc.ServerCall.Listener

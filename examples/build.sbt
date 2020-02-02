@@ -6,7 +6,7 @@ val grpcVersion = "1.26.0"
 
 PB.targets in Compile := Seq(
   scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
-  scalapb.grpc.zio.ZioCodeGenerator -> (sourceManaged in Compile).value,
+  scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value,
 )
 
 

@@ -3,7 +3,7 @@ package examples
 import io.grpc.ManagedChannelBuilder
 import examples.greeter._
 import zio.console._
-import scalapb.grpc.zio.ZManagedChannel
+import scalapb.zio_grpc.ZManagedChannel
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =
