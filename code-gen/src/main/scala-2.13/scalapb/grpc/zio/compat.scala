@@ -1,5 +1,5 @@
 package scalapb.zio_grpc
 
 object compat {
-    val JavaConverters = scala.jdk.CollectionConverters
+  val JavaConverters = scala.jdk.CollectionConverters
 }

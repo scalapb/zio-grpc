@@ -23,12 +23,10 @@ package object zio_grpc {
 
   object Server {
     trait Service {
-      def asEnv = Has(this)
-
       def port: Task[Int]
     }
 
-    class ServiceImpl(underlying: io.grpc.Server) extends Service {
+    private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
       def port: Task[Int] = ZIO.effect(underlying.getPort())
     }
 

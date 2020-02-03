@@ -67,10 +67,12 @@ class UnaryCallListener[R, Req](
     runtime.unsafeRun {
       request.succeed(message).flatMap {
         case false =>
-          completed.fail(
-            Status.INTERNAL
-              .withDescription("Too many requests")
-          ).unit
+          completed
+            .fail(
+              Status.INTERNAL
+                .withDescription("Too many requests")
+            )
+            .unit
         case true =>
           ZIO.unit
       }

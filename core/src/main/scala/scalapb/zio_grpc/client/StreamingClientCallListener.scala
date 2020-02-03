@@ -29,11 +29,15 @@ class StreamingClientCallListener[Res](
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
-    runtime.unsafeRun(state.update({
-      case Initial            => HeadersReceived(headers)
-      case HeadersReceived(_) => Failure("onHeaders already called")
-      case f @ Failure(_)     => f
-    }).unit)
+    runtime.unsafeRun(
+      state
+        .update({
+          case Initial            => HeadersReceived(headers)
+          case HeadersReceived(_) => Failure("onHeaders already called")
+          case f @ Failure(_)     => f
+        })
+        .unit
+    )
 
   override def onMessage(message: Res): Unit =
     runtime.unsafeRun(queue.offer(Right(message)) *> call.request(1))
