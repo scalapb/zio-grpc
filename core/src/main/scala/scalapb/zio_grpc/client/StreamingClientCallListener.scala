@@ -9,6 +9,7 @@ import zio.Queue
 import zio.IO
 import StreamingCallState._
 import zio.stream.ZStream
+import zio.UIO
 
 sealed trait StreamingCallState[+Res]
 
@@ -59,7 +60,9 @@ class StreamingClientCallListener[Res](
 }
 
 object StreamingClientCallListener {
-  def make[Res](call: ZClientCall[_, Res]) =
+  def make[Res](
+      call: ZClientCall[_, Res]
+  ): UIO[StreamingClientCallListener[Res]] =
     for {
       runtime <- zio.ZIO.runtime[Any]
       state <- Ref.make[StreamingCallState[Res]](Initial)

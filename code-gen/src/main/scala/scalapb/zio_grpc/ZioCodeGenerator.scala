@@ -125,11 +125,18 @@ class ZioServicePrinter(
       .add("")
       .add(s"object $ModuleName {")
       .indent
-      .add(s"trait Service[R] {")
+      .add(s"trait Service[R] { self =>")
       .indent
       .print(service.getMethods().asScala.toVector)(
         printMethodSignature(envType = "R")
       )
+      .add("def provide_(env: R): Service[Any] = new Service[Any] {")
+      .indent
+      .print(service.getMethods().asScala.toVector)(
+        printMethodProvide
+      )
+      .outdent
+      .add("}")
       .outdent
       .add(s"}")
       .add("")
@@ -144,7 +151,7 @@ class ZioServicePrinter(
       .add("}")
       .add("")
       .add(
-        s"def clientService(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName} = zio.Has("
+        s"def clientService(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName} = _root_.zio.Has("
       )
       .indent
       .add(
@@ -153,11 +160,7 @@ class ZioServicePrinter(
       .outdent
       .add(s")")
       .add("")
-      .add(s"object > extends ${ModuleName}.Service[$ModuleName] {")
-      .indent
       .print(service.getMethods().asScala.toVector)(printAccessor)
-      .outdent
-      .add(s"}")
       .add("")
       .add(
         s"""def bindService[R](runtime: zio.Runtime[R], serviceImpl: ${ModuleName}.Service[R]): $serverServiceDef ="""
@@ -183,11 +186,11 @@ class ZioServicePrinter(
       case StreamType.Unary =>
         s"(request: $scalaInType): ${io(scalaOutType, envType)}"
       case StreamType.ClientStreaming =>
-        s"(request: ${stream(scalaInType, envType)}): ${io(scalaOutType, envType)}"
+        s"(request: ${stream(scalaInType, "Any")}): ${io(scalaOutType, envType)}"
       case StreamType.ServerStreaming =>
         s"(request: $scalaInType): ${stream(scalaOutType, envType)}"
       case StreamType.Bidirectional =>
-        s"(request: ${stream(scalaInType, envType)}): ${stream(scalaOutType, envType)}"
+        s"(request: ${stream(scalaInType, "Any")}): ${stream(scalaOutType, envType)}"
     })
   }
 
@@ -195,6 +198,15 @@ class ZioServicePrinter(
       envType: String
   )(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
     fp.add(methodSignature(method, envType))
+  }
+
+  def printMethodProvide(
+      fp: FunctionalPrinter,
+      method: MethodDescriptor
+  ): FunctionalPrinter = {
+    fp.add(
+      methodSignature(method, "Any") + s" = self.${method.name}(request).provide(env)"
+    )
   }
 
   def printClientImpl(
@@ -221,7 +233,7 @@ class ZioServicePrinter(
       fp: FunctionalPrinter,
       method: MethodDescriptor
   ): FunctionalPrinter = {
-    val CH = "_root_.scalapb.zio_grpc.server.ZioServerCallHandler"
+    val CH = "_root_.scalapb.zio_grpc.server.ZServerCallHandler"
 
     val serverCall = method.streamType match {
       case StreamType.Unary           => "unaryCallHandler"
@@ -246,15 +258,13 @@ class ZioServicePrinter(
   ): FunctionalPrinter = {
     val sig = methodSignature(method, envType = ModuleName) + " = "
     val innerCall = s"_.get.${method.name}(request)"
-    // TODO: fix stream accessors once ZIO >1.0.0-RC17 is released.
     val clientCall = method.streamType match {
-      case StreamType.Unary => s"_root_.zio.ZIO.accessM($innerCall)"
-      case StreamType.ClientStreaming =>
-        s"_root_.zio.ZIO.accessM(e => e.get.${method.name}(request.provide(e))"
+      case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
+      case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
       case StreamType.ServerStreaming =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(_.get.${method.name}(request))"
+        s"_root_.zio.stream.ZStream.accessStream($innerCall)"
       case StreamType.Bidirectional =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(e => e.get.${method.name}(request.provide(e)))"
+        s"_root_.zio.stream.ZStream.accessStream($innerCall)"
     }
     fp.add(sig + clientCall)
   }

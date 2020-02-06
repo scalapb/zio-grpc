@@ -2,22 +2,10 @@ package scalapb.zio_grpc.server
 
 import io.grpc.{ServerCall, Metadata, Status}
 import zio.ZIO
-import zio.UIO
 import scalapb.zio_grpc.GIO
 
-trait ZServerCall[Res] extends Any {
-  def request(n: Int): GIO[Unit]
-
-  def sendMessage(message: Res): GIO[Unit]
-
-  def sendHeaders(headers: Metadata): GIO[Unit]
-
-  def close(status: Status, metadata: Metadata): GIO[Unit]
-}
-
-class ZServerCallImpl[Req, Res](private val call: ServerCall[Req, Res])
-    extends AnyVal
-    with ZServerCall[Res] {
+/** Wrapper around [[io.grpc.ServerCall]] that lifts its effects into ZIO values */
+class ZServerCall[Res](private val call: ServerCall[_, Res]) extends AnyVal {
   def request(n: Int): GIO[Unit] = GIO.fromTask(ZIO.effect(call.request(n)))
 
   def sendMessage(message: Res): GIO[Unit] =
@@ -28,9 +16,4 @@ class ZServerCallImpl[Req, Res](private val call: ServerCall[Req, Res])
 
   def close(status: Status, metadata: Metadata): GIO[Unit] =
     GIO.fromTask(ZIO.effect(call.close(status, metadata)))
-}
-
-object ZServerCall {
-  def makeFrom[Req, Res](call: ServerCall[Req, Res]): UIO[ZServerCall[Res]] =
-    ZIO.succeed(new ZServerCallImpl(call))
 }

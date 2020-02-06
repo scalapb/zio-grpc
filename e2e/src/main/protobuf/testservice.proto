@@ -22,4 +22,8 @@ service TestService {
     rpc Unary(Request) returns (Response);
 
     rpc ServerStreaming(Request) returns (stream Response);
+
+    rpc ClientStreaming(stream Request) returns (Response);
+
+    rpc BidiStreaming(stream Request) returns (stream Response);
 }

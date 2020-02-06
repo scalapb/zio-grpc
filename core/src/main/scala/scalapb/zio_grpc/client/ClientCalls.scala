@@ -2,12 +2,11 @@ package scalapb.zio_grpc.client
 
 import scalapb.zio_grpc.GIO
 import scalapb.zio_grpc.GStream
-import scalapb.zio_grpc.GRStream
 import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO
 import io.grpc.Status
-import zio.stream.ZStream
+import zio.stream.Stream
 
 object ClientCalls {
   def exitHandler[Req, Res](
@@ -18,10 +17,11 @@ object ClientCalls {
   def anyExitHandler[Req, Res](
       call: ZClientCall[Req, Res]
   ) =
-    (_: Any, ex: Exit[Any, Any]) =>
-      ZIO.when(ex.interrupted) {
+    (_: Any, ex: Exit[Any, Any]) => {
+      ZIO.when(!ex.succeeded) {
         call.cancel("Interrupted").ignore
       }
+    }
 
   def unaryCall[Req, Res](
       call: ZClientCall[Req, Res],
@@ -42,12 +42,12 @@ object ClientCalls {
       headers: Metadata,
       req: Req
   ): GStream[Res] =
-    ZStream
-      .bracketExit[Any, Status, StreamingClientCallListener[Res]](
+    Stream
+      .bracketExit[Status, StreamingClientCallListener[Res]](
         StreamingClientCallListener.make[Res](call)
       )(anyExitHandler(call))
       .flatMap { listener: StreamingClientCallListener[Res] =>
-        ZStream
+        Stream
           .fromEffect(
             call.start(listener, headers) *>
               call.request(1) *>
@@ -57,23 +57,37 @@ object ClientCalls {
           .drain ++ listener.stream
       }
 
-  def bidiCall[R, Req, Res](
+  def clientStreamingCall[Req, Res](
       call: ZClientCall[Req, Res],
       headers: Metadata,
-      req: GRStream[R, Req]
-  ): GRStream[R, Res] =
-    ZStream
-      .bracketExit[R, Status, StreamingClientCallListener[Res]](
+      req: GStream[Req]
+  ): GIO[Res] =
+    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
+      listener =>
+        call.start(listener, headers) *>
+          call.request(1) *>
+          req.foreach(call.sendMessage) *>
+          call.halfClose() *>
+          listener.getValue.map(_._2)
+    }
+
+  def bidiCall[Req, Res](
+      call: ZClientCall[Req, Res],
+      headers: Metadata,
+      req: GStream[Req]
+  ): GStream[Res] =
+    Stream
+      .bracketExit[Status, StreamingClientCallListener[Res]](
         StreamingClientCallListener.make[Res](call)
       )(anyExitHandler(call))
       .flatMap { listener: StreamingClientCallListener[Res] =>
-        val init = ZStream
+        val init = Stream
           .fromEffect(
             call.start(listener, headers) *>
               call.request(1)
           )
           .drain
-        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ ZStream
+        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
           .fromEffect(call.halfClose())).drain
         sendRequestStream.merge(listener.stream)
       }
