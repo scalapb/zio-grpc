@@ -11,22 +11,29 @@ import zio.Has
 import zio.Promise
 import zio.UIO
 import zio.Exit
+import zio.ZLayer
+import zio.stream.ZStream
 
 package object server {
 
-  import zio.stream.ZStream
+import scala.collection.immutable.LazyList.cons
+
+import zio.Managed
+
+import zio.ZManaged
 
   type TestServiceImpl = Has[TestServiceImpl.Service]
 
   object TestServiceImpl {
+
     class Service(
         requestReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
-    ) extends testservice.testService.TestService.Service[Clock with Console] {
+    )(clock: Clock.Service, console: Console.Service) extends testservice.testService.TestService.Service[Any] {
       def unary(request: Request): ZIO[Clock with Console, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK =>
-            ZIO.succeed(Response(out = "Res" + request.in.toString))
+            console.putStrLn("foo") *> ZIO.succeed(Response(out = "Res" + request.in.toString))
           case Scenario.ERROR_NOW =>
             ZIO.fail(Status.INTERNAL.withDescription("FOO!"))
           case Scenario.DELAY => ZIO.never
@@ -64,10 +71,15 @@ package object server {
       def awaitExit = exit.await
     }
 
-    def make: UIO[Service] =
-      ZIO.mapN(
-        Promise.make[Nothing, Unit],
-        Promise.make[Nothing, Exit[Status, Response]]
-      )(new Service(_, _))
+    def make(clock: Clock.Service, console: Console.Service): UIO[TestServiceImpl] = for {
+      p1 <- Promise.make[Nothing, Unit]
+      p2 <- Promise.make[Nothing, Exit[Status, Response]]
+    } yield Has(new Service(p1, p2)(clock, console))
+
+    def zm(clock: Clock.Service, console: Console.Service): Managed[Nothing, TestServiceImpl] = ZManaged.fromEffect(make(clock, console))
+
+    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] = ZLayer.fromServicesM {
+      (clock: Clock.Service, console: Console.Service) => zm(clock, console)
+    }
   }
 }

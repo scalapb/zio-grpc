@@ -12,9 +12,7 @@ import io.grpc.Status.Code
 import scalapb.zio_grpc.testservice.testService.TestService
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
-import zio.test.environment._
 import zio.Has
-import zio.Managed
 import zio.stream.ZStream
 import zio.URIO
 import zio.stream.ZSink
@@ -24,56 +22,51 @@ object TestServiceSpec extends DefaultRunnableSpec {
   def statusCode(a: Assertion[Code]) =
     hasField[Status, Code]("code", _.getCode, a)
 
-  def testServiceManaged: Managed[Nothing, TestServiceImpl] =
-    ZManaged.fromEffect(TestServiceImpl.make.map(Has(_)))
+  val testServiceLayer: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
+    ZLayer.fromServiceM(TestServiceImpl.make)
+    ZLayer.fromEffect(TestServiceImpl.make.map(Has(_)))
 
-  def serverManaged[R](
-      service: TestService.Service[R]
-  ): ZManaged[R, Nothing, Server] = {
-    (for {
-      rts <- ZManaged.fromEffect(ZIO.runtime[R])
-      mgd <- Server.managed(
-        ServerBuilder
-          .forPort(0)
-          .addService(TestService.bindService(rts, service))
-      )
-    } yield Has(mgd)).orDie
-  }
+  val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
+    ZLayer.fromServiceManaged { service: TestService.Service =>
+      (for {
+        rts <- ZManaged.fromEffect(ZIO.runtime[R])
+        mgd <- Server.managed(
+          ServerBuilder
+            .forPort(0)
+            .addService(TestService.bindService(rts, service))
+        )
+      } yield Has(mgd)).orDie
+    }
 
-  def clientManaged(port: Int): Managed[Nothing, TestService] = {
-    ZManagedChannel
-      .make(
-        ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
-      )
-      .map(TestService.clientService(_))
-      .orDie
-  }
-
-  def layer =
-    ZLayer(for {
-      service <- testServiceManaged
-      server <- serverManaged(service.get)
-      port <- ZManaged.fromEffect(server.get.port).orDie
-      client <- clientManaged(port)
-    } yield (client ++ service))
+  val clientLayer: ZLayer[Server, Throwable, TestService] =
+    ZLayer.fromServiceManaged { ss: Server.Service =>
+      ZManaged.fromEffect(ss.port) >>= { port: Int =>
+        ZManagedChannel
+          .make(
+            ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
+          )
+          .map(TestService.clientService(_))
+          .orDie
+      }
+    }
 
   def unarySuite =
     suite("unary request")(
       testM("returns successful response") {
-        assertM(TestService.>.unary(Request(Request.Scenario.OK, in = 12)))(
+        assertM(TestService.unary(Request(Request.Scenario.OK, in = 12)))(
           equalTo(Response("Res12"))
         )
       },
       testM("returns correct error response") {
         assertM(
-          TestService.>.unary(Request(Request.Scenario.ERROR_NOW, in = 12)).run
+          TestService.unary(Request(Request.Scenario.ERROR_NOW, in = 12)).run
         )(
           fails(statusCode(equalTo((Status.INTERNAL.getCode))))
         )
       },
       testM("catches client interrupts") {
         for {
-          fiber <- TestService.>.unary(Request(Request.Scenario.DELAY, in = 12)).fork
+          fiber <- TestService.unary(Request(Request.Scenario.DELAY, in = 12)).fork
           _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
           _ <- fiber.interrupt
           exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
@@ -81,7 +74,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns response on failures") {
         assertM(
-          TestService.>.unary(Request(Request.Scenario.DIE, in = 12)).run
+          TestService.unary(Request(Request.Scenario.DIE, in = 12)).run
         )(
           fails(statusCode(equalTo(Status.INTERNAL.getCode)))
         )
@@ -114,14 +107,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns successful response") {
         assertM(
           collectWithError(
-            TestService.>.serverStreaming(Request(Request.Scenario.OK, in = 12))
+            TestService.serverStreaming(Request(Request.Scenario.OK, in = 12))
           )
         )(equalTo((List(Response("X1"), Response("X2")), None)))
       },
       testM("returns correct error response") {
         assertM(
           collectWithError(
-            TestService.>.serverStreaming(
+            TestService.serverStreaming(
               Request(Request.Scenario.ERROR_NOW, in = 12)
             )
           )
@@ -132,7 +125,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns correct error after two response") {
         assertM(
           collectWithError(
-            TestService.>.serverStreaming(
+            TestService.serverStreaming(
               Request(Request.Scenario.ERROR_AFTER, in = 12)
             )
           )
@@ -145,7 +138,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellations") {
         assertM(
-          TestService.>.serverStreaming(
+          TestService.serverStreaming(
             Request(Request.Scenario.DELAY, in = 12)
           ).peel(ZSink.collectAllN[Response](2)).use {
             case (b, rem) =>
@@ -161,7 +154,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns failure when failure") {
         assertM(
           collectWithError(
-            TestService.>.serverStreaming(
+            TestService.serverStreaming(
               Request(Request.Scenario.DIE, in = 12)
             )
           )
@@ -173,5 +166,5 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def spec =
     suite("AllSpecs")(unarySuite, serverStreamingSuite)
-      .provideLayer(layer ++ TestConsole.any ++ Annotations.live)
+      .provideLayer(testServiceLayer >>> serverLayer)
 }
