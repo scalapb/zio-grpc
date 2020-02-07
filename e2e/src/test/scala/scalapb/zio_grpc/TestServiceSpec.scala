@@ -17,19 +17,17 @@ import zio.stream.ZStream
 import zio.URIO
 import zio.stream.ZSink
 import zio.test.TestAspect._
+import zio.test.environment._
+import com.google.protobuf.DescriptorProtos.GeneratedCodeInfo.Annotation
 
 object TestServiceSpec extends DefaultRunnableSpec {
   def statusCode(a: Assertion[Code]) =
     hasField[Status, Code]("code", _.getCode, a)
 
-  val testServiceLayer: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-    ZLayer.fromServiceM(TestServiceImpl.make)
-    ZLayer.fromEffect(TestServiceImpl.make.map(Has(_)))
-
   val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
-    ZLayer.fromServiceManaged { service: TestService.Service =>
+    ZLayer.fromServiceManaged { service: TestServiceImpl.Service =>
       (for {
-        rts <- ZManaged.fromEffect(ZIO.runtime[R])
+        rts <- ZManaged.fromEffect(ZIO.runtime[Any])
         mgd <- Server.managed(
           ServerBuilder
             .forPort(0)
@@ -38,9 +36,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
       } yield Has(mgd)).orDie
     }
 
-  val clientLayer: ZLayer[Server, Throwable, TestService] =
+  val clientLayer: ZLayer[Server, Nothing, TestService] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
-      ZManaged.fromEffect(ss.port) >>= { port: Int =>
+      ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
         ZManagedChannel
           .make(
             ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
@@ -164,7 +162,8 @@ object TestServiceSpec extends DefaultRunnableSpec {
       }
     )
 
+  val f = liveEnvironment >>> TestServiceImpl.live >>> (TestServiceImpl.any ++ serverLayer) >>> (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
   def spec =
     suite("AllSpecs")(unarySuite, serverStreamingSuite)
-      .provideLayer(testServiceLayer >>> serverLayer)
+      .provideLayer(f)
 }

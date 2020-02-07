@@ -9,18 +9,11 @@ import zio.clock.Clock
 import zio.console.Console
 import zio.Has
 import zio.Promise
-import zio.UIO
 import zio.Exit
 import zio.ZLayer
 import zio.stream.ZStream
 
 package object server {
-
-import scala.collection.immutable.LazyList.cons
-
-import zio.Managed
-
-import zio.ZManaged
 
   type TestServiceImpl = Has[TestServiceImpl.Service]
 
@@ -28,9 +21,8 @@ import zio.ZManaged
 
     class Service(
         requestReceived: zio.Promise[Nothing, Unit],
-        exit: zio.Promise[Nothing, Exit[Status, Response]]
-    )(clock: Clock.Service, console: Console.Service) extends testservice.testService.TestService.Service[Any] {
-      def unary(request: Request): ZIO[Clock with Console, Status, Response] =
+        exit: zio.Promise[Nothing, Exit[Status, Response]])(clock: Clock.Service, console: Console.Service) extends testservice.testService.TestService.Service[Any] {
+      def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK =>
             console.putStrLn("foo") *> ZIO.succeed(Response(out = "Res" + request.in.toString))
@@ -43,7 +35,7 @@ import zio.ZManaged
 
       def serverStreaming(
           request: Request
-      ): ZStream[Clock with Console, Status, Response] = {
+      ): ZStream[Any, Status, Response] = {
         ZStream
           .fromEffect(requestReceived.succeed(()))
           .drain ++ (request.scenario match {
@@ -71,15 +63,14 @@ import zio.ZManaged
       def awaitExit = exit.await
     }
 
-    def make(clock: Clock.Service, console: Console.Service): UIO[TestServiceImpl] = for {
+    def make(clock: Clock.Service, console: Console.Service): zio.IO[Nothing, TestServiceImpl] = for {
       p1 <- Promise.make[Nothing, Unit]
       p2 <- Promise.make[Nothing, Exit[Status, Response]]
     } yield Has(new Service(p1, p2)(clock, console))
 
-    def zm(clock: Clock.Service, console: Console.Service): Managed[Nothing, TestServiceImpl] = ZManaged.fromEffect(make(clock, console))
+    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
+     ZLayer.fromServicesM[Clock.Service, Console.Service, Any, Nothing, TestServiceImpl](make(_, _))
 
-    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] = ZLayer.fromServicesM {
-      (clock: Clock.Service, console: Console.Service) => zm(clock, console)
-    }
+    val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
   }
 }
