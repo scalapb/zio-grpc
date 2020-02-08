@@ -26,7 +26,8 @@ package object zio_grpc {
       def port: Task[Int]
     }
 
-    private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
+    private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server)
+        extends Service {
       def port: Task[Int] = ZIO.effect(underlying.getPort())
     }
 

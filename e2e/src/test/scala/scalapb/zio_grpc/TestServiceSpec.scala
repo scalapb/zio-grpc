@@ -13,12 +13,11 @@ import scalapb.zio_grpc.testservice.testService.TestService
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
 import zio.Has
-import zio.stream.ZStream
+import zio.stream.{ZStream, ZSink, Stream}
 import zio.URIO
-import zio.stream.ZSink
 import zio.test.TestAspect._
-import zio.test.environment._
-import com.google.protobuf.DescriptorProtos.GeneratedCodeInfo.Annotation
+import scalapb.zio_grpc.testservice.Request.Scenario
+import zio.ZQueue
 
 object TestServiceSpec extends DefaultRunnableSpec {
   def statusCode(a: Assertion[Code]) =
@@ -64,7 +63,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client interrupts") {
         for {
-          fiber <- TestService.unary(Request(Request.Scenario.DELAY, in = 12)).fork
+          fiber <- TestService
+            .unary(Request(Request.Scenario.DELAY, in = 12))
+            .fork
           _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
           _ <- fiber.interrupt
           exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
@@ -136,17 +137,20 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellations") {
         assertM(
-          TestService.serverStreaming(
-            Request(Request.Scenario.DELAY, in = 12)
-          ).peel(ZSink.collectAllN[Response](2)).use {
-            case (b, rem) =>
-              for {
-                _ <- ZIO.effect(println("FOO"))
-                reminderFiber <- rem.runCollect.fork
-                _ <- reminderFiber.interrupt
-                exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
-              } yield exit.interrupted
-          }
+          TestService
+            .serverStreaming(
+              Request(Request.Scenario.DELAY, in = 12)
+            )
+            .peel(ZSink.collectAllN[Response](2))
+            .use {
+              case (b, rem) =>
+                for {
+                  _ <- ZIO.effect(println("FOO"))
+                  reminderFiber <- rem.runCollect.fork
+                  _ <- reminderFiber.interrupt
+                  exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
+                } yield exit.interrupted
+            }
         )(isTrue)
       } @@ ignore,
       testM("returns failure when failure") {
@@ -162,8 +166,108 @@ object TestServiceSpec extends DefaultRunnableSpec {
       }
     )
 
-  val f = liveEnvironment >>> TestServiceImpl.live >>> (TestServiceImpl.any ++ serverLayer) >>> (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
+  def clientStreamingSuite =
+    suite("client streaming request")(
+      testM("returns successful response") {
+        assertM(
+          TestService.clientStreaming(
+            Stream(
+              Request(Scenario.OK, in = 17),
+              Request(Scenario.OK, in = 12),
+              Request(Scenario.OK, in = 33)
+            )
+          )
+        )(equalTo(Response("62")))
+      },
+      testM("returns successful response on empty stream") {
+        assertM(
+          TestService.clientStreaming(
+            Stream.empty
+          )
+        )(equalTo(Response("0")))
+      },
+      testM("returns correct error response") {
+        assertM(
+          TestService
+            .clientStreaming(
+              Stream(
+                Request(Scenario.OK, in = 17),
+                Request(Scenario.OK, in = 12),
+                Request(Scenario.ERROR_NOW, in = 33)
+              )
+            )
+            .run
+        )(fails(statusCode(equalTo((Status.INTERNAL.getCode)))))
+      },
+      testM("catches client cancellation") {
+        assertM(for {
+          fiber <- TestService
+            .clientStreaming(
+              Stream(
+                Request(Scenario.OK, in = 17),
+                Request(Scenario.OK, in = 12),
+                Request(Scenario.DELAY, in = 33)
+              )
+            )
+            .fork
+          _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
+          _ <- fiber.interrupt
+          exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
+        } yield exit.interrupted)(isTrue)
+      },
+      testM("returns response on failures") {
+        assertM(
+          TestService
+            .clientStreaming(
+              Stream(
+                Request(Scenario.OK, in = 17),
+                Request(Scenario.OK, in = 12),
+                Request(Scenario.DIE, in = 33)
+              )
+            )
+            .run
+        )(fails(statusCode(equalTo((Status.INTERNAL.getCode)))))
+      }
+    )
+
+  def bidiStreamingSuite =
+    suite("bidi streaming request")(
+      testM("returns successful response") {
+        assertM((for {
+          q <- ZQueue.unbounded[Request].toManaged_
+          str = TestService.bidiStreaming(
+            Stream(Request(Scenario.OK, in = 1)) ++ Stream.fromQueue(q)
+          )
+          p1 <- str.peel(ZSink.collectAllN[Response](1))
+          (r1, rest1) = p1
+          _ <- q.offer(Request(Scenario.OK, in = 3)).toManaged_
+          p2 <- rest1.peel(ZSink.collectAllN[Response](3))
+          (r2, rest2) = p2
+          _ <- q.offer(Request(Scenario.OK, in = 5)).toManaged_
+          p3 <- rest2.peel(ZSink.collectAllN[Response](5))
+          (r3, rest3) = p3
+          _ <- q.shutdown.toManaged_
+          r4 <- rest3.runCollect.toManaged_
+        } yield (r1, r2, r3, r4)).use(ZIO.succeed(_)))(
+          equalTo(
+            (
+              List(Response("1")),
+              List.fill(3)(Response("3")),
+              List.fill(5)(Response("5")),
+              List(Response("DONE"))
+            )
+          )
+        )
+      },
+      testM("returns successful response") {}
+    )
+
+  val f = TestServiceImpl.live >>> (TestServiceImpl.any ++ serverLayer) >>> (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
   def spec =
-    suite("AllSpecs")(unarySuite, serverStreamingSuite)
-      .provideLayer(f)
+    suite("AllSpecs")(
+      unarySuite,
+      serverStreamingSuite,
+      clientStreamingSuite,
+      bidiStreamingSuite
+    ).provideLayer(f)
 }

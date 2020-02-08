@@ -4,7 +4,7 @@ import zio._
 import io.grpc.ServerCall.Listener
 import io.grpc.Status
 import io.grpc.Metadata
-import zio.stream.ZStream
+import zio.stream.{Stream, ZStream}
 
 trait CommonListener[R, Req, InputType] extends Listener[Req] {
   def serveInner(
@@ -35,7 +35,7 @@ object CommonListener {
       (ex.untraced match {
         case Exit.Success(_) =>
           call.close(Status.OK, new Metadata)
-        case Exit.Failure(Cause.Interrupt(_)) =>
+        case Exit.Failure(c) if c.interrupted =>
           call.close(
             Status.CANCELLED,
             new Metadata
@@ -128,7 +128,7 @@ class StreamingCallListener[R, Req](
     cancelled: Promise[Nothing, Unit],
     queue: Queue[Either[Option[Status], Req]]
 ) extends Listener[Req]
-    with CommonListener[R, Req, ZStream[R, Status, Req]] {
+    with CommonListener[R, Req, Stream[Status, Req]] {
   override def onCancel(): Unit = runtime.unsafeRun(cancelled.succeed(()).unit)
 
   override def onHalfClose(): Unit = {
@@ -141,7 +141,7 @@ class StreamingCallListener[R, Req](
     )
   }
   override def serveInner(
-      sendResponse: ZStream[R, Status, Req] => ZIO[R, Status, Unit],
+      sendResponse: Stream[Status, Req] => ZIO[R, Status, Unit],
       metadata: Metadata
   ) = {
     val requestStream = ZStream

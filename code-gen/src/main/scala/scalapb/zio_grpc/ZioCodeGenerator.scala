@@ -200,8 +200,13 @@ class ZioServicePrinter(
     fp.add(methodSignature(method, envType))
   }
 
-  def printMethodProvide(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
-    fp.add(methodSignature(method, "Any") + s" = self.${method.name}(request).provide(env)")
+  def printMethodProvide(
+      fp: FunctionalPrinter,
+      method: MethodDescriptor
+  ): FunctionalPrinter = {
+    fp.add(
+      methodSignature(method, "Any") + s" = self.${method.name}(request).provide(env)"
+    )
   }
 
   def printClientImpl(
@@ -253,15 +258,13 @@ class ZioServicePrinter(
   ): FunctionalPrinter = {
     val sig = methodSignature(method, envType = ModuleName) + " = "
     val innerCall = s"_.get.${method.name}(request)"
-    // TODO: fix stream accessors once ZIO >1.0.0-RC17 is released.
     val clientCall = method.streamType match {
-      case StreamType.Unary => s"_root_.zio.ZIO.accessM($innerCall)"
-      case StreamType.ClientStreaming =>
-        s"_root_.zio.ZIO.accessM(e => e.get.${method.name}(request.provide(e))"
+      case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
+      case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
       case StreamType.ServerStreaming =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(_.get.${method.name}(request))"
+        s"_root_.zio.stream.ZStream.accessStream($innerCall)"
       case StreamType.Bidirectional =>
-        s"_root_.zio.stream.ZStream.access[$ModuleName](identity).flatMap(e => e.get.${method.name}(request.provide(e)))"
+        s"_root_.zio.stream.ZStream.accessStream($innerCall)"
     }
     fp.add(sig + clientCall)
   }

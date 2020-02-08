@@ -5,7 +5,7 @@ import io.grpc.ServerCallHandler
 import io.grpc.ServerCall
 import io.grpc.Metadata
 import io.grpc.ServerCall.Listener
-import zio.stream.ZStream
+import zio.stream.{Stream, ZStream}
 import io.grpc.Status
 
 object ZioServerCallHandler {
@@ -54,7 +54,7 @@ object ZioServerCallHandler {
 
   def clientStreamingCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: ZStream[R, Status, Req] => ZIO[R, Status, Res]
+      impl: Stream[Status, Req] => ZIO[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
     handlerMaker(runtime, StreamingCallListener.make[R, Req])(
       (cl, c: ZServerCall[Res], m) => cl.serveUnary(c)(impl, m)
@@ -62,7 +62,7 @@ object ZioServerCallHandler {
 
   def bidiCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: ZStream[R, Status, Req] => ZStream[R, Status, Res]
+      impl: Stream[Status, Req] => ZStream[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
     handlerMaker(runtime, StreamingCallListener.make[R, Req])(
       (cl, c: ZServerCall[Res], m) => cl.serveStreaming(c)(impl, m)

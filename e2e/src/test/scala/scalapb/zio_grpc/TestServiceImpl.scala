@@ -5,15 +5,18 @@ import zio.ZIO
 import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
+import scalapb.zio_grpc.testservice.Request.Scenario._
 import zio.clock.Clock
 import zio.console.Console
 import zio.Has
 import zio.Promise
 import zio.Exit
 import zio.ZLayer
-import zio.stream.ZStream
+import zio.stream.{Stream, ZStream}
 
 package object server {
+
+  import zio.Schedule
 
   type TestServiceImpl = Has[TestServiceImpl.Service]
 
@@ -21,11 +24,15 @@ package object server {
 
     class Service(
         requestReceived: zio.Promise[Nothing, Unit],
-        exit: zio.Promise[Nothing, Exit[Status, Response]])(clock: Clock.Service, console: Console.Service) extends testservice.testService.TestService.Service[Any] {
+        exit: zio.Promise[Nothing, Exit[Status, Response]]
+    )(clock: Clock.Service, console: Console.Service)
+        extends testservice.testService.TestService.Service[Any] {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK =>
-            console.putStrLn("foo") *> ZIO.succeed(Response(out = "Res" + request.in.toString))
+            console.putStrLn("bar") *> ZIO.succeed(
+              Response(out = "Res" + request.in.toString)
+            )
           case Scenario.ERROR_NOW =>
             ZIO.fail(Status.INTERNAL.withDescription("FOO!"))
           case Scenario.DELAY => ZIO.never
@@ -58,18 +65,66 @@ package object server {
         }
       }
 
+      def clientStreaming(
+          request: Stream[Status, Request]
+      ): ZIO[Any, Status, Response] = {
+        requestReceived.succeed(()) *> request
+          .foldM(0)(
+            (state, req) =>
+              req.scenario match {
+                case OK    => ZIO.succeed(state + req.in)
+                case DELAY => ZIO.never
+                case DIE   => ZIO.die(new RuntimeException("foo"))
+                case ERROR_NOW =>
+                  ZIO.fail((Status.INTERNAL.withDescription("InternalError")))
+                case _: Scenario => ZIO.fail(Status.UNKNOWN)
+              }
+          )
+          .map(r => Response(r.toString))
+          .onExit(exit.succeed(_))
+      }
+
+      def bidiStreaming(
+          request: Stream[Status, Request]
+      ): Stream[Status, Response] =
+        ZStream.fromEffect(requestReceived.succeed(())).drain ++
+          (request.flatMap { r =>
+            r.scenario match {
+              case OK =>
+                Stream(Response(r.in.toString))
+                  .repeat(Schedule.recurs(r.in - 1))
+              case DELAY => Stream.never
+              case DIE   => Stream.die(new RuntimeException("FOO"))
+              case ERROR_NOW =>
+                Stream.fail(Status.INTERNAL.withDescription("InternalError"))
+              case _ => Stream.fail(Status.UNKNOWN)
+            }
+          } ++ Stream(Response("DONE"))).catchAllCause { c =>
+            Stream.fromEffect(exit.succeed(Exit.halt(c))).drain
+          }
+
       def awaitReceived = requestReceived.await
 
       def awaitExit = exit.await
     }
 
-    def make(clock: Clock.Service, console: Console.Service): zio.IO[Nothing, TestServiceImpl] = for {
-      p1 <- Promise.make[Nothing, Unit]
-      p2 <- Promise.make[Nothing, Exit[Status, Response]]
-    } yield Has(new Service(p1, p2)(clock, console))
+    def make(
+        clock: Clock.Service,
+        console: Console.Service
+    ): zio.IO[Nothing, TestServiceImpl] =
+      for {
+        p1 <- Promise.make[Nothing, Unit]
+        p2 <- Promise.make[Nothing, Exit[Status, Response]]
+      } yield Has(new Service(p1, p2)(clock, console))
 
     val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-     ZLayer.fromServicesM[Clock.Service, Console.Service, Any, Nothing, TestServiceImpl](make(_, _))
+      ZLayer.fromServicesM[
+        Clock.Service,
+        Console.Service,
+        Any,
+        Nothing,
+        TestServiceImpl
+      ](make(_, _))
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
   }
