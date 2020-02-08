@@ -17,37 +17,33 @@ trait CommonListener[R, Req, InputType] extends Listener[Req] {
   )(
       impl: InputType => ZIO[R, Status, Res],
       metadata: Metadata
-  ) = {
-    serveInner(impl(_) >>= call.sendMessage, metadata)
-  }
+  ) = serveInner(impl(_) >>= call.sendMessage, metadata)
 
   def serveStreaming[Res](call: ZServerCall[Res])(
       impl: InputType => ZStream[R, Status, Res],
       metadata: Metadata
-  ) = {
-    serveInner(impl(_).foreach(call.sendMessage(_)), metadata)
-  }
+  ) = serveInner(impl(_).foreach(call.sendMessage), metadata)
 }
 
 object CommonListener {
-  def exitHandler(call: ZServerCall[_]) =
-    (_: Unit, ex: Exit[Status, Unit]) =>
-      (ex.untraced match {
-        case Exit.Success(_) =>
-          call.close(Status.OK, new Metadata)
-        case Exit.Failure(c) if c.interrupted =>
-          call.close(
-            Status.CANCELLED,
-            new Metadata
-          )
-        case Exit.Failure(Cause.Fail(e)) =>
-          call.close(
-            e,
-            new Metadata
-          )
-        case Exit.Failure(c) =>
-          call.close(Status.INTERNAL, new Metadata)
-      }).ignore
+  def exitHandler(call: ZServerCall[_]) = (ex: Exit[Status, Unit]) => {
+    (ex.untraced match {
+      case Exit.Success(_) =>
+        call.close(Status.OK, new Metadata)
+      case Exit.Failure(c) if c.interrupted =>
+        call.close(
+          Status.CANCELLED,
+          new Metadata
+        )
+      case Exit.Failure(Cause.Fail(e)) =>
+        call.close(
+          e,
+          new Metadata
+        )
+      case Exit.Failure(c) =>
+        call.close(Status.INTERNAL, new Metadata)
+    }).ignore
+  }
 }
 
 class UnaryCallListener[R, Req](
@@ -82,25 +78,15 @@ class UnaryCallListener[R, Req](
   override def serveInner(
       sendResponse: Req => ZIO[R, Status, Unit],
       metadata: Metadata
-  ) = {
-    val responseAction: ZIO[R, Status, Unit] = for {
-      _ <- call.request(2)
-      _ <- completed.await
-      req <- request.await
-      _ <- call.sendHeaders(new Metadata)
-      _ <- sendResponse(req)
-    } yield ()
-
-    ZIO.unit
-      .bracketExit(
-        release = CommonListener.exitHandler(call),
-        use = { _ =>
-          responseAction
-        }
-      )
+  ) =
+    (
+      call.request(2) *>
+        completed.await *>
+        call.sendHeaders(new Metadata) *>
+        request.await >>= sendResponse
+    ).onExit(CommonListener.exitHandler(call))
       .ignore
       .race(cancelled.await)
-  }
 }
 
 object UnaryCallListener {
@@ -140,6 +126,7 @@ class StreamingCallListener[R, Req](
       call.request(1) *> queue.offer(Right(message)).unit
     )
   }
+
   override def serveInner(
       sendResponse: Stream[Status, Req] => ZIO[R, Status, Unit],
       metadata: Metadata
@@ -156,20 +143,10 @@ class StreamingCallListener[R, Req](
         case Right(v) => v
       }
 
-    val responseAction: ZIO[R, Status, Unit] =
-      for {
-        _ <- call.request(1)
-        _ <- call.sendHeaders(new Metadata)
-        _ <- sendResponse(requestStream)
-      } yield ()
-
-    ZIO.unit
-      .bracketExit(
-        release = CommonListener.exitHandler(call),
-        use = { _ =>
-          responseAction
-        }
-      )
+    (call.request(1) *>
+      call.sendHeaders(new Metadata) *>
+      sendResponse(requestStream))
+      .onExit(CommonListener.exitHandler(call))
       .ignore
       .race(cancelled.await)
   }

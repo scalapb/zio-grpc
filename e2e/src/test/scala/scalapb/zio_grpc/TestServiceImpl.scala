@@ -99,9 +99,7 @@ package object server {
                 Stream.fail(Status.INTERNAL.withDescription("InternalError"))
               case _ => Stream.fail(Status.UNKNOWN)
             }
-          } ++ Stream(Response("DONE"))).catchAllCause { c =>
-            Stream.fromEffect(exit.succeed(Exit.halt(c))).drain
-          }
+          } ++ Stream(Response("DONE")))
 
       def awaitReceived = requestReceived.await
 

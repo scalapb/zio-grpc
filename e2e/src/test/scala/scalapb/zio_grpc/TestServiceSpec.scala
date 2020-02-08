@@ -2,7 +2,9 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio.test.Assertion._
+import zio.Fiber
 import zio.ZIO
+import zio.Queue
 import io.grpc.ServerBuilder
 import io.grpc.ManagedChannelBuilder
 import zio.ZManaged
@@ -230,25 +232,43 @@ object TestServiceSpec extends DefaultRunnableSpec {
       }
     )
 
+  case class BidiFixture[Req, Res](
+      in: Queue[Res],
+      out: Queue[Req],
+      fiber: Fiber[Status, Unit]
+  ) {
+    def send(r: Req) = out.offer(r)
+
+    def receive(n: Int) = ZIO.collectAll(ZIO.replicate(n)(in.take))
+
+    def halfClose = out.shutdown
+  }
+
+  object BidiFixture {
+    def apply[R, Req, Res](
+        call: Stream[Status, Req] => ZStream[R, Status, Res]
+    ): zio.URIO[R, BidiFixture[Req, Res]] =
+      for {
+        in <- ZQueue.unbounded[Res]
+        out <- ZQueue.unbounded[Req]
+        fiber <- call(Stream.fromQueue(out)).foreach(in.offer).fork
+      } yield BidiFixture(in, out, fiber)
+  }
+
   def bidiStreamingSuite =
     suite("bidi streaming request")(
       testM("returns successful response") {
-        assertM((for {
-          q <- ZQueue.unbounded[Request].toManaged_
-          str = TestService.bidiStreaming(
-            Stream(Request(Scenario.OK, in = 1)) ++ Stream.fromQueue(q)
-          )
-          p1 <- str.peel(ZSink.collectAllN[Response](1))
-          (r1, rest1) = p1
-          _ <- q.offer(Request(Scenario.OK, in = 3)).toManaged_
-          p2 <- rest1.peel(ZSink.collectAllN[Response](3))
-          (r2, rest2) = p2
-          _ <- q.offer(Request(Scenario.OK, in = 5)).toManaged_
-          p3 <- rest2.peel(ZSink.collectAllN[Response](5))
-          (r3, rest3) = p3
-          _ <- q.shutdown.toManaged_
-          r4 <- rest3.runCollect.toManaged_
-        } yield (r1, r2, r3, r4)).use(ZIO.succeed(_)))(
+        assertM(for {
+          bf <- BidiFixture(TestService.bidiStreaming)
+          _ <- bf.send(Request(Scenario.OK, in = 1))
+          f1 <- bf.receive(1)
+          _ <- bf.send(Request(Scenario.OK, in = 3))
+          f3 <- bf.receive(3)
+          _ <- bf.send(Request(Scenario.OK, in = 5))
+          f5 <- bf.receive(5)
+          _ <- bf.halfClose
+          done <- bf.receive(1)
+        } yield (f1, f3, f5, done))(
           equalTo(
             (
               List(Response("1")),
@@ -259,7 +279,38 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )
       },
-      testM("returns successful response") {}
+      testM("returns correct error response") {
+        assertM(for {
+          bf <- BidiFixture(TestService.bidiStreaming)
+          _ <- bf.send(Request(Scenario.OK, in = 1))
+          f1 <- bf.receive(1)
+          _ <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
+          _ <- bf.halfClose
+          j <- bf.fiber.join.run
+        } yield (f1, j))(
+          tuple(
+            equalTo(List(Response("1"))),
+            fails(statusCode(equalTo((Status.INTERNAL.getCode))))
+          )
+        )
+      },
+      testM("catches client interrupts") {
+        ???
+      } @@ ignore,
+      testM("returns response on failures") {
+        assertM(
+          TestService
+            .bidiStreaming(
+              Stream(
+                Request(Scenario.OK, in = 17),
+                Request(Scenario.OK, in = 12),
+                Request(Scenario.DIE, in = 33)
+              )
+            )
+            .runCollect
+            .run
+        )(fails(statusCode(equalTo((Status.INTERNAL.getCode)))))
+      }
     )
 
   val f = TestServiceImpl.live >>> (TestServiceImpl.any ++ serverLayer) >>> (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
