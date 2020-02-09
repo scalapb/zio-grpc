@@ -2,7 +2,6 @@ package scalapb.zio_grpc.client
 
 import scalapb.zio_grpc.GIO
 import scalapb.zio_grpc.GStream
-import scalapb.zio_grpc.GRStream
 import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO
@@ -18,10 +17,11 @@ object ClientCalls {
   def anyExitHandler[Req, Res](
       call: ZClientCall[Req, Res]
   ) =
-    (_: Any, ex: Exit[Any, Any]) =>
-      ZIO.when(ex.interrupted) {
+    (_: Any, ex: Exit[Any, Any]) => {
+      ZIO.when(!ex.succeeded) {
         call.cancel("Interrupted").ignore
       }
+    }
 
   def unaryCall[Req, Res](
       call: ZClientCall[Req, Res],

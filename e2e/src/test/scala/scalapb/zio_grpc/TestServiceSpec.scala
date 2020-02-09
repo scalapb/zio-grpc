@@ -15,9 +15,8 @@ import scalapb.zio_grpc.testservice.testService.TestService
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
 import zio.Has
-import zio.stream.{ZStream, ZSink, Stream}
+import zio.stream.{ZStream, Stream}
 import zio.URIO
-import zio.test.TestAspect._
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.ZQueue
 
@@ -68,9 +67,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
           fiber <- TestService
             .unary(Request(Request.Scenario.DELAY, in = 12))
             .fork
-          _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
+          _ <- TestServiceImpl.awaitReceived
           _ <- fiber.interrupt
-          exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
+          exit <- TestServiceImpl.awaitExit
         } yield assert(exit.interrupted)(isTrue)
       },
       testM("returns response on failures") {
@@ -138,23 +137,18 @@ object TestServiceSpec extends DefaultRunnableSpec {
         )
       },
       testM("catches client cancellations") {
-        assertM(
-          TestService
+        assertM(for {
+          fb <- TestService
             .serverStreaming(
               Request(Request.Scenario.DELAY, in = 12)
             )
-            .peel(ZSink.collectAllN[Response](2))
-            .use {
-              case (b, rem) =>
-                for {
-                  _ <- ZIO.effect(println("FOO"))
-                  reminderFiber <- rem.runCollect.fork
-                  _ <- reminderFiber.interrupt
-                  exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
-                } yield exit.interrupted
-            }
-        )(isTrue)
-      } @@ ignore,
+            .runCollect
+            .fork
+          _ <- TestServiceImpl.awaitReceived
+          _ <- fb.interrupt
+          exit <- TestServiceImpl.awaitExit
+        } yield exit)(fails(statusCode(equalTo(Status.CANCELLED.getCode()))))
+      },
       testM("returns failure when failure") {
         assertM(
           collectWithError(
@@ -212,9 +206,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
               )
             )
             .fork
-          _ <- ZIO.accessM[TestServiceImpl](_.get.awaitReceived)
+          _ <- TestServiceImpl.awaitReceived
           _ <- fiber.interrupt
-          exit <- ZIO.accessM[TestServiceImpl](_.get.awaitExit)
+          exit <- TestServiceImpl.awaitExit
         } yield exit.interrupted)(isTrue)
       },
       testM("returns response on failures") {
@@ -295,8 +289,24 @@ object TestServiceSpec extends DefaultRunnableSpec {
         )
       },
       testM("catches client interrupts") {
-        ???
-      } @@ ignore,
+        assertM(
+          for {
+            testServiceImpl <- ZIO.environment[TestServiceImpl]
+            collectFiber <- collectWithError(
+              TestService.bidiStreaming(
+                Stream(
+                  Request(Scenario.OK, in = 17)
+                ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain
+                  ++ Stream.fail(Status.CANCELLED)
+              )
+            ).fork
+            _ <- testServiceImpl.get.awaitExit
+            result <- collectFiber.join
+          } yield result
+        )(
+          tuple(anything, isSome(statusCode(equalTo(Status.CANCELLED.getCode))))
+        )
+      },
       testM("returns response on failures") {
         assertM(
           TestService

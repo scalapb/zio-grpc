@@ -44,25 +44,33 @@ package object server {
           request: Request
       ): ZStream[Any, Status, Response] = {
         ZStream
-          .fromEffect(requestReceived.succeed(()))
-          .drain ++ (request.scenario match {
-          case Scenario.OK =>
-            ZStream(Response(out = "X1"), Response(out = "X2"))
-          case Scenario.ERROR_NOW =>
-            ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
-          case Scenario.ERROR_AFTER =>
-            ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream.fail(
-              Status.INTERNAL.withDescription("FOO!")
+          .bracketExit(requestReceived.succeed(()))((_, ex) => {
+            ex.foldM(
+              { failed =>
+                if (failed.interrupted)
+                  exit.succeed(Exit.fail(Status.CANCELLED))
+                else exit.succeed(Exit.fail(Status.UNKNOWN))
+              },
+              _ => exit.succeed(Exit.succeed(Response()))
             )
-          case Scenario.DELAY =>
-            ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream.never
-          case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
-          case _            => ZStream.fail(Status.UNKNOWN)
-        }).catchAllCause { c =>
-          ZStream.fromEffect(exit.succeed(Exit.halt(c))).drain ++ ZStream.halt(
-            c
-          )
-        }
+          })
+          .flatMap { _ =>
+            request.scenario match {
+              case Scenario.OK =>
+                ZStream(Response(out = "X1"), Response(out = "X2"))
+              case Scenario.ERROR_NOW =>
+                ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
+              case Scenario.ERROR_AFTER =>
+                ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
+                  .fail(
+                    Status.INTERNAL.withDescription("FOO!")
+                  )
+              case Scenario.DELAY =>
+                ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream.never
+              case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
+              case _            => ZStream.fail(Status.UNKNOWN)
+            }
+          }
       }
 
       def clientStreaming(
@@ -87,7 +95,7 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        ZStream.fromEffect(requestReceived.succeed(())).drain ++
+        (ZStream.fromEffect(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case OK =>
@@ -99,7 +107,8 @@ package object server {
                 Stream.fail(Status.INTERNAL.withDescription("InternalError"))
               case _ => Stream.fail(Status.UNKNOWN)
             }
-          } ++ Stream(Response("DONE")))
+          } ++ Stream(Response("DONE"))))
+          .ensuring(exit.succeed(Exit.succeed(Response())))
 
       def awaitReceived = requestReceived.await
 
@@ -125,5 +134,11 @@ package object server {
       ](make(_, _))
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
+
+    def awaitReceived: ZIO[TestServiceImpl, Nothing, Unit] =
+      ZIO.accessM(_.get.awaitReceived)
+
+    def awaitExit: ZIO[TestServiceImpl, Nothing, Exit[Status, Response]] =
+      ZIO.accessM(_.get.awaitExit)
   }
 }
