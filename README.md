@@ -1,4 +1,4 @@
-![Sonatype Nexus (Snapshots)](https://img.shields.io/nexus/s/com.thesamet.scalapb.zio-grpc/zio-grpc-core_2.13?server=https%3A%2F%2Foss.sonatype.org)
+[![Snapshot Artifacts][Badge-SonatypeSnapshots]][Link-SonatypeSnapshots]
 
 # zio-grpc
 
@@ -93,3 +93,6 @@ object MyService {
 ```
 
 See a full example at the [examples directory](https://github.com/scalapb/zio-grpc/tree/master/examples).
+
+[Link-SonatypeSnapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/thesamet/scalapb/zio-grpc/zio-grpc-core_2.13/ "Sonatype Snapshots"
+[Badge-SonatypeSnapshots]: https://img.shields.io/nexus/s/https/oss.sonatype.org/com.thesamet.scalapb.zio-grpc/zio-grpc-core_2.13.svg "Sonatype Snapshots"
