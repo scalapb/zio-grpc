@@ -1,9 +1,12 @@
-package example
+package examples
 
+import examples.greeter.myService.MyService
 import examples.greeter._
+import zio.clock
 import zio.clock.Clock
+import zio.console.Console
 import zio.{App, Schedule, ZIO}
-import zio.console._
+import zio.console
 import zio.duration._
 import zio.stream.{Stream, ZStream}
 import io.grpc.ServerBuilder
@@ -12,26 +15,14 @@ import zio.console._
 import io.grpc.Status
 import zio.Managed
 import zio.stream.ZSink
-
-class Server(private val underlying: io.grpc.Server) {
-  def serve() = effectBlocking {
-    underlying.start()
-    underlying.awaitTermination()
-  }
-}
-
-object Server {
-  def make(builder: ServerBuilder[_]): Managed[Throwable, io.grpc.Server] = {
-    Managed.make(ZIO.effect(builder.build.start))(
-      s => ZIO.effect(s.shutdown).ignore
-    )
-  }
-}
+import scalapb.zio_grpc.Server
+import zio.ZLayer
+import zio.Has
 
 object GreetService {
-  trait Live extends MyService.Service[Clock] {
+  object Live extends MyService.Service[Clock] {
     def greet(req: Request): ZIO[Clock, Status, Response] =
-      zio.clock.sleep(300.millis) *> zio.IO.succeed(
+      clock.sleep(300.millis) *> zio.IO.succeed(
         Response(resp = "hello " + req.name)
       )
 
@@ -44,27 +35,23 @@ object GreetService {
         .take(5) ++
         Stream.fail(
           Status.INTERNAL
-            .withDescription("Gazoomba")
+            .withDescription("There was an error!")
             .withCause(new RuntimeException)
         ))
 
     def bidi(
-        request: ZStream[Clock, Status, Point]
+        request: ZStream[Any, Status, Point]
     ): ZStream[Clock, Status, Response] = {
-      val zm = ZSink.collectAllN[Point](3)
-      request.aggregate(zm.map(r => Response(r.toString())))
+      val sink = ZSink.collectAllN[Point](3)
+      request.aggregate(sink.map(r => Response(r.toString())))
     }
   }
-
-  object Live extends Live
 }
 
 object ExampleServer extends App {
-
   def serverWait =
     for {
-      _ <- Console.Live.console
-        .putStrLn("Server is running. Press Ctrl-C to stop.")
+      _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
@@ -76,7 +63,7 @@ object ExampleServer extends App {
       builder = ServerBuilder
         .forPort(port)
         .addService(MyService.bindService(rts, GreetService.Live))
-      server = Server.make(builder).useForever
+      server = Server.managed(builder).useForever
       _ <- server raceAttempt serverWait
     } yield ()
   }
