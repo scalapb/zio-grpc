@@ -29,6 +29,8 @@ Add the following to your `project/plugins.sbt`:
 Add the following to your `build.sbt`:
 
     val grpcVersion = "1.26.0"
+    
+    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
     PB.targets in Compile := Seq(
         scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
