@@ -10,13 +10,13 @@ before_install:
 
 stages:
 - name: test
-  script:
-  - sbt ++$TRAVIS_SCALA_VERSION test
-  - sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
-  - cd examples && sbt compile
-
 - name: release
   if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
+
+script:
+- sbt ++$TRAVIS_SCALA_VERSION test
+- sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
+- cd examples && sbt compile
 
 jobs:
   include:
