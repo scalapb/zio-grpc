@@ -94,5 +94,5 @@ lazy val e2e = project
       ) -> (Compile / sourceManaged).value
     ),
     Compile / PB.recompile := true, // always regenerate protos, not cache
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
