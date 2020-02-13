@@ -2,7 +2,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 scalaVersion := "2.13.1"
 
-val grpcVersion = "1.27.0"
+val grpcVersion = "1.27.1"
 
 PB.targets in Compile := Seq(
   scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
