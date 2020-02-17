@@ -29,7 +29,7 @@ package object server {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK =>
-            console.putStrLn("bar") *> ZIO.succeed(
+            ZIO.succeed(
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>

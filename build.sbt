@@ -28,7 +28,7 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.0-RC17+339-ed8b49eb-SNAPSHOT"
+val zioVersion = "1.0.0-RC17+414-ea2f83a8-SNAPSHOT"
 
 lazy val core = project
   .in(file("core"))
@@ -53,7 +53,7 @@ lazy val codeGen = project
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin" % scalapb.compiler.Version.scalapbVersion
+      "com.thesamet.scalapb" %% "compilerplugin" % "0.10.0-SNAPSHOT" //  scalapb.compiler.Version.scalapbVersion
     )
   )
 

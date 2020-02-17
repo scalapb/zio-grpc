@@ -14,7 +14,6 @@ import io.grpc.Status.Code
 import scalapb.zio_grpc.testservice.testService.TestService
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
-import zio.Has
 import zio.stream.{ZStream, Stream}
 import zio.URIO
 import scalapb.zio_grpc.testservice.Request.Scenario
@@ -25,16 +24,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     hasField[Status, Code]("code", _.getCode, equalTo(c.getCode))
 
   val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
-    ZLayer.fromServiceManaged { service: TestServiceImpl.Service =>
-      (for {
-        rts <- ZManaged.fromEffect(ZIO.runtime[Any])
-        mgd <- Server.managed(
-          ServerBuilder
-            .forPort(0)
-            .addService(TestService.bindService(rts, service))
-        )
-      } yield Has(mgd)).orDie
-    }
+    Server.live[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
   val clientLayer: ZLayer[Server, Nothing, TestService] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
@@ -325,7 +315,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   val layers = TestServiceImpl.live >>>
     (TestServiceImpl.any ++ serverLayer) >>>
-    (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
+    (clientLayer ++ TestServiceImpl.any ++ Annotations.live)
 
   def spec =
     suite("AllSpecs")(

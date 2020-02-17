@@ -57,7 +57,7 @@ object ExampleServer extends App {
 
   def runServer(
       port: Int
-  ): ZIO[Clock with Blocking with Console, Throwable, Unit] = {
+  ): ZIO[Clock with Console, Throwable, Unit] = {
     for {
       rts <- ZIO.runtime[Clock with Console]
       builder = ServerBuilder

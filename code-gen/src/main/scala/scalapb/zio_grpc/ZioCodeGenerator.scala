@@ -123,7 +123,9 @@ class ZioServicePrinter(
       .indent
       .add(s"type $ModuleName = zio.Has[$ModuleName.Service[Any]]")
       .add("")
-      .add(s"object $ModuleName {")
+      .add(
+        s"object $ModuleName extends _root_.scalapb.zio_grpc.ServiceModule {"
+      )
       .indent
       .add(s"trait Service[R] { self =>")
       .indent
@@ -141,7 +143,31 @@ class ZioServicePrinter(
       .add(s"}")
       .add("")
       .add(
-        s"def client(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName}.Service[Any] = new ${ModuleName}.Service[Any] {"
+        "implicit def bindableService[R]: _root_.scalapb.zio_grpc.ZBindableService[R, Service[R]] = new _root_.scalapb.zio_grpc.ZBindableService[R, Service[R]] {"
+      )
+      .indent
+      .add(
+        s"""def bindService(serviceImpl: ${ModuleName}.Service[R]): zio.URIO[R, $serverServiceDef] ="""
+      )
+      .indent
+      .add("zio.ZIO.runtime[R].map {")
+      .indent
+      .add("runtime: zio.Runtime[R] =>")
+      .indent
+      .add(
+        s"""$serverServiceDef.builder(${service.grpcDescriptor.fullName})"""
+      )
+      .print(service.getMethods().asScala.toVector)(printBindService)
+      .add(".build()")
+      .outdent
+      .outdent
+      .add("}")
+      .outdent
+      .outdent
+      .add("}")
+      .add("")
+      .add(
+        s"final class Client(channel: $Channel, options: $CallOptions, headers: => $Metadata) extends ${ModuleName}.Service[Any] {"
       )
       .indent
       .print(service.getMethods().asScala.toVector)(
@@ -149,6 +175,10 @@ class ZioServicePrinter(
       )
       .outdent
       .add("}")
+      .add("")
+      .add(
+        s"def client(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName}.Service[Any] = new Client(channel, options, headers)"
+      )
       .add("")
       .add(
         s"def clientService(channel: $Channel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): ${ModuleName} = _root_.zio.Has("
@@ -161,17 +191,6 @@ class ZioServicePrinter(
       .add(s")")
       .add("")
       .print(service.getMethods().asScala.toVector)(printAccessor)
-      .add("")
-      .add(
-        s"""def bindService[R](runtime: zio.Runtime[R], serviceImpl: ${ModuleName}.Service[R]): $serverServiceDef ="""
-      )
-      .indent
-      .add(
-        s"""$serverServiceDef.builder(${servicePackageName}.${service.objectName}.${service.descriptorName})"""
-      )
-      .print(service.getMethods().asScala.toVector)(printBindService)
-      .add(".build()")
-      .outdent
       .outdent
       .add(s"}")
       .outdent
@@ -221,7 +240,7 @@ class ZioServicePrinter(
     fp.add(methodSignature(method, envType) + s" = $clientCall(")
       .indent
       .add(
-        s"$ZClientCall(channel.newCall(${servicePackageName}.${service.objectName}.${method.descriptorName}, options)),"
+        s"$ZClientCall(channel.newCall(${method.grpcDescriptor.fullName}, options)),"
       )
       .add(s"headers,")
       .add(s"request")
@@ -245,7 +264,7 @@ class ZioServicePrinter(
     fp.add(".addMethod(")
       .indent
       .add(
-        s"${servicePackageName}.${service.objectName}.${method.descriptorName},"
+        s"${method.grpcDescriptor.fullName},"
       )
       .add(s"$CH.$serverCall(runtime, serviceImpl.${method.name})")
       .outdent
