@@ -88,9 +88,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     Assertion.assertionDirect("tuple")(
       Assertion.Render.param(assertionA),
       Assertion.Render.param(assertionB)
-    ) { run =>
-      assertionA.run(run._1) && assertionB.run(run._2)
-    }
+    ) { run => assertionA.run(run._1) && assertionB.run(run._2) }
 
   def serverStreamingSuite =
     suite("server streaming request")(

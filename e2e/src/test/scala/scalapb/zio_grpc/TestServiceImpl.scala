@@ -76,16 +76,15 @@ package object server {
           request: Stream[Status, Request]
       ): ZIO[Any, Status, Response] = {
         requestReceived.succeed(()) *> request
-          .foldM(0)(
-            (state, req) =>
-              req.scenario match {
-                case Scenario.OK    => ZIO.succeed(state + req.in)
-                case Scenario.DELAY => ZIO.never
-                case Scenario.DIE   => ZIO.die(new RuntimeException("foo"))
-                case Scenario.ERROR_NOW =>
-                  ZIO.fail((Status.INTERNAL.withDescription("InternalError")))
-                case _: Scenario => ZIO.fail(Status.UNKNOWN)
-              }
+          .foldM(0)((state, req) =>
+            req.scenario match {
+              case Scenario.OK    => ZIO.succeed(state + req.in)
+              case Scenario.DELAY => ZIO.never
+              case Scenario.DIE   => ZIO.die(new RuntimeException("foo"))
+              case Scenario.ERROR_NOW =>
+                ZIO.fail((Status.INTERNAL.withDescription("InternalError")))
+              case _: Scenario => ZIO.fail(Status.UNKNOWN)
+            }
           )
           .map(r => Response(r.toString))
           .onExit(exit.succeed(_))

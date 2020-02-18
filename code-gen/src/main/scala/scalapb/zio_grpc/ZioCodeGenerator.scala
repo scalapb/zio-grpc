@@ -69,8 +69,8 @@ object ZioCodeGenerator extends ProtocCodeGenerator {
             new DescriptorImplicits(params, filesByName.values.toVector)
           request.getFileToGenerateList.asScala
             .map(filesByName)
-            .foreach(
-              file => b.addAllFile(generateServices(file, implicits).asJava)
+            .foreach(file =>
+              b.addAllFile(generateServices(file, implicits).asJava)
             )
         } catch {
           case e: GeneratorException =>

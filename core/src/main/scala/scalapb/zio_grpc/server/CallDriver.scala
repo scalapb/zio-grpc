@@ -61,8 +61,8 @@ object CallDriver {
         completed.await *>
         call.sendHeaders(new Metadata) *>
         request.await >>= writeResponse
-    ).onExit(
-        ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
+    ).onExit(ex =>
+        call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
       )
       .ignore
       .race(cancelled.await)
@@ -134,8 +134,8 @@ object CallDriver {
       (call.request(1) *>
         call.sendHeaders(new Metadata) *>
         writeResponse(requestStream))
-        .onExit(
-          ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
+        .onExit(ex =>
+          call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
         )
         .ignore
         .race(cancelled.await)
