@@ -53,7 +53,7 @@ lazy val codeGen = project
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin" % "0.10.0-SNAPSHOT" //  scalapb.compiler.Version.scalapbVersion
+      "com.thesamet.scalapb" %% "compilerplugin" % scalapb.compiler.Version.scalapbVersion
     )
   )
 
