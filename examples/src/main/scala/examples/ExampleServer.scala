@@ -18,6 +18,7 @@ import zio.stream.ZSink
 import scalapb.zio_grpc.Server
 import zio.ZLayer
 import zio.Has
+import zio.ZManaged
 
 object GreetService {
   object Live extends MyService.Service[Clock] {
@@ -55,18 +56,11 @@ object ExampleServer extends App {
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def runServer(
-      port: Int
-  ): ZIO[Clock with Console, Throwable, Unit] = {
-    for {
-      rts <- ZIO.runtime[Clock with Console]
-      builder = ServerBuilder
-        .forPort(port)
-        .addService(MyService.bindService(rts, GreetService.Live))
-      server = Server.managed(builder).useForever
-      _ <- server raceAttempt serverWait
-    } yield ()
-  }
+  def serverManaged(port: Int): ZManaged[Clock, Throwable, Server.Service] =
+    Server.managed(ServerBuilder.forPort(port), GreetService.Live)
+
+  def runServer(port: Int): ZIO[Console with Clock, Throwable, Unit] =
+    serverManaged(port).useForever raceAttempt serverWait
 
   def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
 
