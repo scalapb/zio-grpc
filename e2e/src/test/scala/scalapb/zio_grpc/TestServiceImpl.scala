@@ -116,11 +116,11 @@ package object server {
     def make(
         clock: Clock.Service,
         console: Console.Service
-    ): zio.IO[Nothing, TestServiceImpl] =
+    ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
         p2 <- Promise.make[Nothing, Exit[Status, Response]]
-      } yield Has(new Service(p1, p2)(clock, console))
+      } yield new Service(p1, p2)(clock, console)
 
     val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
       ZLayer.fromServicesM[
@@ -128,8 +128,10 @@ package object server {
         Console.Service,
         Any,
         Nothing,
-        TestServiceImpl
-      ](make(_, _))
+        TestServiceImpl.Service
+      ] { (clock: Clock.Service, console: Console.Service) =>
+        make(clock, console)
+      }
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
 

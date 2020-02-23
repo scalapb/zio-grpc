@@ -56,9 +56,7 @@ package object zio_grpc {
     )(
         implicit b0: ZBindableService[Any, S0]
     ): ZLayer[Has[S0], Nothing, Server] =
-      ZLayer.fromServiceManaged { s0: S0 =>
-        Server.managed(builder, s0).orDie.map(Has(_))
-      }
+      ZLayer.fromServiceManaged { s0: S0 => Server.managed(builder, s0).orDie }
 
     def fromManaged(zm: Managed[Throwable, io.grpc.Server]) =
       ZLayer.fromManaged(zm.map(s => Has(new ServiceImpl(s))))

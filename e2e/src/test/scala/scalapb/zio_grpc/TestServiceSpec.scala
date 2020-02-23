@@ -33,7 +33,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           .make(
             ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
           )
-          .map(TestService.clientService(_))
+          .map(TestService.client(_))
           .orDie
       }
     }
@@ -313,7 +313,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   val layers = TestServiceImpl.live >>>
     (TestServiceImpl.any ++ serverLayer) >>>
-    (clientLayer ++ TestServiceImpl.any ++ Annotations.live)
+    (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
 
   def spec =
     suite("AllSpecs")(
