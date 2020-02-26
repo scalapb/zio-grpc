@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val grpcVersion = "1.27.1"
+val grpcVersion = "1.27.2"
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
