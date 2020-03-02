@@ -1,6 +1,6 @@
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.27")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.28")
 
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.0-M6"
 
