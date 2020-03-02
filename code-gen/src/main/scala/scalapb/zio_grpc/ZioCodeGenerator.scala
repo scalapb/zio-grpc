@@ -1,10 +1,7 @@
 package scalapb.zio_grpc
 
-import protocbridge.ProtocCodeGenerator
-import com.google.protobuf.CodedInputStream
 import com.google.protobuf.ExtensionRegistry
 import scalapb.options.compiler.Scalapb
-import com.google.protobuf.compiler.PluginProtos.CodeGeneratorRequest
 import scalapb.compiler.ProtobufGenerator
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
 import protocbridge.Artifact
@@ -14,32 +11,14 @@ import scalapb.compiler.DescriptorImplicits
 import com.google.protobuf.Descriptors.ServiceDescriptor
 import com.google.protobuf.Descriptors.MethodDescriptor
 import scalapb.compiler.StreamType
-import scalapb.compiler.GeneratorException
 import scalapb.compiler.FunctionalPrinter
+import protocbridge.codegen.CodeGenApp
+import protocbridge.codegen.CodeGenResponse
+import protocbridge.codegen.CodeGenRequest
 
-object ZioCodeGenerator extends ProtocCodeGenerator {
-  def main(args: Array[String]): Unit = {
-    System.out.write(run(CodedInputStream.newInstance(System.in)))
-  }
-
-  override def run(req: Array[Byte]): Array[Byte] =
-    run(CodedInputStream.newInstance(req))
-
-  def run(input: CodedInputStream): Array[Byte] = {
-    val registry = ExtensionRegistry.newInstance()
+object ZioCodeGenerator extends CodeGenApp {
+  override def registerExtensions(registry: ExtensionRegistry): Unit =
     Scalapb.registerAllExtensions(registry)
-    try {
-      val request = CodeGeneratorRequest.parseFrom(input, registry)
-      process(request).toByteArray
-    } catch {
-      case t: Throwable =>
-        CodeGeneratorResponse
-          .newBuilder()
-          .setError(t.toString)
-          .build()
-          .toByteArray
-    }
-  }
 
   override def suggestedDependencies: Seq[Artifact] = Seq(
     Artifact(
@@ -50,36 +29,18 @@ object ZioCodeGenerator extends ProtocCodeGenerator {
     )
   )
 
-  def process(request: CodeGeneratorRequest): CodeGeneratorResponse = {
-    val b = CodeGeneratorResponse.newBuilder
-    ProtobufGenerator.parseParameters(request.getParameter) match {
+  def process(request: CodeGenRequest): CodeGenResponse = {
+    ProtobufGenerator.parseParameters(request.parameter) match {
       case Right(params) =>
-        try {
-          val filesByName: Map[String, FileDescriptor] =
-            request.getProtoFileList.asScala
-              .foldLeft[Map[String, FileDescriptor]](Map.empty) {
-                case (acc, fp) =>
-                  val deps = fp.getDependencyList.asScala.map(acc)
-                  acc + (fp.getName -> FileDescriptor.buildFrom(
-                    fp,
-                    deps.toArray
-                  ))
-              }
-          val implicits =
-            new DescriptorImplicits(params, filesByName.values.toVector)
-          request.getFileToGenerateList.asScala
-            .map(filesByName)
-            .foreach(file =>
-              b.addAllFile(generateServices(file, implicits).asJava)
-            )
-        } catch {
-          case e: GeneratorException =>
-            b.setError(e.message)
-        }
+        val implicits =
+          new DescriptorImplicits(params, request.allProtos)
+        CodeGenResponse.succeed(
+          request.filesToGenerate
+            .flatMap(file => generateServices(file, implicits))
+        )
       case Left(error) =>
-        b.setError(error)
+        CodeGenResponse.fail(error)
     }
-    b.build
   }
 
   def generateServices(
