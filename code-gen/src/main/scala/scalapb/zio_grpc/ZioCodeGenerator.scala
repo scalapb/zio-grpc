@@ -15,6 +15,7 @@ import scalapb.compiler.FunctionalPrinter
 import protocbridge.codegen.CodeGenApp
 import protocbridge.codegen.CodeGenResponse
 import protocbridge.codegen.CodeGenRequest
+import scalapb.compiler.NameUtils
 
 object ZioCodeGenerator extends CodeGenApp {
   override def registerExtensions(registry: ExtensionRegistry): Unit =
@@ -61,7 +62,8 @@ class ZioFilePrinter(
   val ZManagedChannel = "scalapb.zio_grpc.ZManagedChannel"
   val ZBindableService = "scalapb.zio_grpc.ZBindableService"
   val serverServiceDef = "_root_.io.grpc.ServerServiceDefinition"
-  private val OuterObject = file.scalaPackage / s"Zio${file.javaOuterClassName}"
+  private val OuterObject =
+    file.scalaPackage / s"Zio${NameUtils.snakeCaseToCamelCase(baseName(file.getName), true)}"
 
   def scalaFileName =
     OuterObject.fullName.replace('.', '/') + ".scala"
