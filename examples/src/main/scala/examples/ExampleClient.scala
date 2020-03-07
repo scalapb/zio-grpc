@@ -1,7 +1,7 @@
 package examples
 
 import io.grpc.ManagedChannelBuilder
-import examples.greeter.myService.MyService
+import examples.greeter.ZioGreeter.GreeterClient
 import examples.greeter._
 import zio.console._
 import scalapb.zio_grpc.ZManagedChannel
@@ -11,18 +11,24 @@ import zio.ZLayer
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =
-    myAppLogic.fold({_ => 1 }, _ => 0)
+    myAppLogic.fold({ _ =>
+      1
+    }, _ => 0)
 
-  def env = ZLayer.fromManaged {
-    val builder = ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
-    ZManagedChannel.make(builder).map(MyService.clientService(_))
-  }
+  def clientLayer: ZLayer.NoDeps[Throwable, GreeterClient] = GreeterClient.live(
+    ZManagedChannel(
+      ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
+    )
+  )
 
-  def myAppLogic = (
-    for {
-      r <- MyService.greet(Request("Hello"))
+  def myAppLogic =
+    (for {
+      r <- GreeterClient.greet(Request("Hello"))
       _ <- putStrLn(r.resp)
-      f <- MyService.greet(Request("Bye"))
+      f <- GreeterClient.greet(Request("Bye"))
       _ <- putStrLn(f.resp)
-    } yield ()).provideLayer(env ++ Console.live)
+    } yield ()).onError {
+      c => putStrLn(c.prettyPrint)
+    }
+    .provideLayer(Console.live ++ clientLayer)
 }

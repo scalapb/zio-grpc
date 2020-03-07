@@ -1,14 +1,14 @@
 package examples
 
-import examples.greeter.myService.MyService
+import examples.greeter.ZioGreeter.Greeter
 import examples.greeter._
 import zio.clock
 import zio.clock.Clock
 import zio.console.Console
-import zio.{App, Schedule, ZIO}
+import zio.{App, Schedule, IO, ZIO}
 import zio.console
 import zio.duration._
-import zio.stream.{Stream, ZStream}
+import zio.stream.Stream
 import io.grpc.ServerBuilder
 import zio.blocking._
 import zio.console._
@@ -21,48 +21,49 @@ import zio.Has
 import zio.ZManaged
 
 object GreetService {
-  object Live extends MyService.Service[Clock] {
-    def greet(req: Request): ZIO[Clock, Status, Response] =
-      clock.sleep(300.millis) *> zio.IO.succeed(
-        Response(resp = "hello " + req.name)
-      )
+  type GreeterService = Has[ZioGreeter.Greeter]
 
-    def points(
-        request: Request
-    ): ZStream[Clock, Status, Point] =
-      (Stream(Point(3, 4))
-        .scheduleElements(Schedule.spaced(1000.millis))
-        .forever
-        .take(5) ++
-        Stream.fail(
-          Status.INTERNAL
-            .withDescription("There was an error!")
-            .withCause(new RuntimeException)
-        ))
+  def live: ZLayer[Clock, Nothing, GreeterService] = ZLayer.fromService {
+    clock: Clock.Service => new Greeter {
+      def greet(req: Request): IO[Status, Response] =
+        clock.sleep(300.millis) *> zio.IO.succeed(
+          Response(resp = "hello " + req.name)
+        )
 
-    def bidi(
-        request: ZStream[Any, Status, Point]
-    ): ZStream[Clock, Status, Response] = {
-      val sink = ZSink.collectAllN[Point](3)
-      request.aggregate(sink.map(r => Response(r.toString())))
+      def points(
+          request: Request
+      ): Stream[Status, Point] =
+        (Stream(Point(3, 4))
+          .scheduleElements(Schedule.spaced(1000.millis))
+          .forever
+          .take(5) ++
+          Stream.fail(
+            Status.INTERNAL
+              .withDescription("There was an error!")
+              .withCause(new RuntimeException)
+          )).provide(Has(clock))
+
+      def bidi(
+          request: Stream[Status, Point]
+      ): Stream[Status, Response] = {
+        val sink = ZSink.collectAllN[Point](3)
+        request.aggregate(sink.map(r => Response(r.toString())))
+      }
     }
   }
 }
 
 object ExampleServer extends App {
-  def serverWait =
+  def serverWait: ZIO[Console with Clock, Throwable, Unit] =
     for {
       _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverManaged(port: Int): ZManaged[Clock, Throwable, Server.Service] =
-    Server.managed(ServerBuilder.forPort(port), GreetService.Live)
-
-  def runServer(port: Int): ZIO[Console with Clock, Throwable, Unit] =
-    serverManaged(port).useForever raceAttempt serverWait
+  def serverLive(port: Int): ZLayer.NoDeps[Nothing, Server] =
+    Clock.live >>> GreetService.live >>> Server.live[Greeter](ServerBuilder.forPort(port))
 
   def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
 
-  val myAppLogic = runServer(8080)
+  val myAppLogic = serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)
 }

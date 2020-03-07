@@ -5,3 +5,4 @@ target
 .metals
 .bloop
 metals.sbt
+examples/project/metals.sbt

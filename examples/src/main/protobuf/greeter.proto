@@ -15,7 +15,7 @@ message Point {
     int32 y = 2;
 }
 
-service MyService {
+service Greeter {
   rpc Greet(Request) returns (Response);
 
   rpc Points(Request) returns (stream Point);
