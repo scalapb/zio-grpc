@@ -25,7 +25,7 @@ package object server {
         requestReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
     )(clock: Clock.Service, console: Console.Service)
-        extends testservice.testService.TestService.Service[Any] {
+        extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK =>

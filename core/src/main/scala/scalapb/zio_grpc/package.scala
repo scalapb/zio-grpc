@@ -7,12 +7,14 @@ import zio.ZLayer
 import zio.Managed
 import zio.Has
 import zio.Tagged
+import zio.ZManaged
 
 import io.grpc.ServerBuilder
+import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
 
 package object zio_grpc {
 
-  import zio.ZManaged
   type GIO[A] = IO[Status, A]
 
   type GStream[A] = Stream[Status, A]
@@ -41,9 +43,9 @@ package object zio_grpc {
       def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
     }
 
-    def managed[R, S0](builder: => ServerBuilder[_], service0: S0)(
-        implicit b0: ZBindableService[R, S0]
-    ): ZManaged[R, Throwable, Service] =
+    def managed[S0](builder: => ServerBuilder[_], service0: S0)(
+        implicit b0: ZBindableService[S0]
+    ): Managed[Throwable, Service] =
       (for {
         ssd0 <- b0.bindService(service0)
         ourBuilder = builder.addService(ssd0)
@@ -54,11 +56,17 @@ package object zio_grpc {
     def live[S0: Tagged](
         builder: => ServerBuilder[_]
     )(
-        implicit b0: ZBindableService[Any, S0]
+        implicit b0: ZBindableService[S0]
     ): ZLayer[Has[S0], Nothing, Server] =
       ZLayer.fromServiceManaged { s0: S0 => Server.managed(builder, s0).orDie }
 
     def fromManaged(zm: Managed[Throwable, io.grpc.Server]) =
       ZLayer.fromManaged(zm.map(s => Has(new ServiceImpl(s))))
+  }
+
+  type ZManagedChannel = Managed[Throwable, ManagedChannel]
+  object ZManagedChannel {
+    def apply(builder: ManagedChannelBuilder[_]): ZManagedChannel =
+      ZManaged.makeEffect(builder.build())(_.shutdown())
   }
 }
