@@ -14,6 +14,8 @@ ThisBuild / crossScalaVersions := Seq(Scala212, Scala213)
 
 skip in publish := true
 
+sonatypeProfileName := "com.thesamet"
+
 inThisBuild(
   List(
     organization := "com.thesamet.scalapb.zio-grpc",
