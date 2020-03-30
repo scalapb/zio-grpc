@@ -7,15 +7,14 @@ import zio.console._
 import scalapb.zio_grpc.ZManagedChannel
 import zio.Has
 import io.grpc.Channel
+import zio.Layer
 import zio.ZLayer
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =
-    myAppLogic.fold({ _ =>
-      1
-    }, _ => 0)
+    myAppLogic.fold({ _ => 1 }, _ => 0)
 
-  def clientLayer: ZLayer.NoDeps[Throwable, GreeterClient] = GreeterClient.live(
+  def clientLayer: Layer[Throwable, GreeterClient] = GreeterClient.live(
     ZManagedChannel(
       ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
     )
@@ -27,8 +26,7 @@ object ExampleClient extends zio.App {
       _ <- putStrLn(r.resp)
       f <- GreeterClient.greet(Request("Bye"))
       _ <- putStrLn(f.resp)
-    } yield ()).onError {
-      c => putStrLn(c.prettyPrint)
-    }
-    .provideLayer(Console.live ++ clientLayer)
+    } yield ())
+      .onError { c => putStrLn(c.prettyPrint) }
+      .provideLayer(Console.live ++ clientLayer)
 }

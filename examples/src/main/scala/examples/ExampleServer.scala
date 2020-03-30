@@ -16,41 +16,43 @@ import io.grpc.Status
 import zio.Managed
 import zio.stream.ZSink
 import scalapb.zio_grpc.Server
+import zio.Layer
 import zio.ZLayer
 import zio.Has
 import zio.ZManaged
 
-object GreetService {
-  type GreeterService = Has[ZioGreeter.Greeter]
+object GreeterService {
+  type GreeterService = Has[Greeter]
 
-  def live: ZLayer[Clock, Nothing, GreeterService] = ZLayer.fromService {
-    clock: Clock.Service => new Greeter {
-      def greet(req: Request): IO[Status, Response] =
-        clock.sleep(300.millis) *> zio.IO.succeed(
-          Response(resp = "hello " + req.name)
-        )
+  class LiveService(clock: Clock.Service) extends Greeter {
+    def greet(req: Request): IO[Status, Response] =
+      clock.sleep(300.millis) *> zio.IO.succeed(
+        Response(resp = "hello " + req.name)
+      )
 
-      def points(
-          request: Request
-      ): Stream[Status, Point] =
-        (Stream(Point(3, 4))
-          .scheduleElements(Schedule.spaced(1000.millis))
-          .forever
-          .take(5) ++
-          Stream.fail(
-            Status.INTERNAL
-              .withDescription("There was an error!")
-              .withCause(new RuntimeException)
-          )).provide(Has(clock))
+    def points(
+        request: Request
+    ): Stream[Status, Point] =
+      (Stream(Point(3, 4))
+        .scheduleElements(Schedule.spaced(1000.millis))
+        .forever
+        .take(5) ++
+        Stream.fail(
+          Status.INTERNAL
+            .withDescription("There was an error!")
+            .withCause(new RuntimeException)
+        )).provide(Has(clock))
 
-      def bidi(
-          request: Stream[Status, Point]
-      ): Stream[Status, Response] = {
-        val sink = ZSink.collectAllN[Point](3)
-        request.aggregate(sink.map(r => Response(r.toString())))
-      }
+    def bidi(
+        request: Stream[Status, Point]
+    ): Stream[Status, Response] = {
+      val sink = ZSink.collectAllN[Point](3)
+      request.aggregate(sink.map(r => Response(r.toString())))
     }
   }
+
+  val live: ZLayer[Clock, Nothing, GreeterService] =
+    ZLayer.fromService(new LiveService(_))
 }
 
 object ExampleServer extends App {
@@ -60,10 +62,13 @@ object ExampleServer extends App {
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverLive(port: Int): ZLayer.NoDeps[Nothing, Server] =
-    Clock.live >>> GreetService.live >>> Server.live[Greeter](ServerBuilder.forPort(port))
+  def serverLive(port: Int): Layer[Nothing, Server] =
+    Clock.live >>> GreeterService.live >>> Server.live[Greeter](
+      ServerBuilder.forPort(port)
+    )
 
   def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
 
-  val myAppLogic = serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)
+  val myAppLogic =
+    serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)
 }
