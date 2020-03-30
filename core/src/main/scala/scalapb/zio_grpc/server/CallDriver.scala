@@ -33,8 +33,7 @@ object CallDriver {
       cancelled: Promise[Nothing, Unit],
       completed: Promise[Status, Unit],
       request: Promise[Nothing, Req],
-      writeResponse: Req => ZIO[R, Status, Unit],
-      metadata: Metadata
+      writeResponse: Req => ZIO[R, Status, Unit]
   ): CallDriver[R, Req] = CallDriver(
     listener = new Listener[Req] {
       override def onCancel(): Unit =
@@ -75,7 +74,7 @@ object CallDriver {
     * the response and writes it through the given ZServerCall.
     */
   def makeUnaryInputCallDriver[R, Req, Res](
-      writeResponse: (Req, ZServerCall[Res]) => ZIO[R, Status, Unit]
+      writeResponse: (Req, Metadata, ZServerCall[Res]) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
       metadata: Metadata
@@ -91,8 +90,7 @@ object CallDriver {
       cancelled,
       completed,
       request,
-      writeResponse(_, zioCall),
-      metadata
+      writeResponse(_, metadata, zioCall)
     )
   }
 
@@ -101,8 +99,7 @@ object CallDriver {
       call: ZServerCall[Res],
       cancelled: Promise[Nothing, Unit],
       queue: Queue[Either[Option[Status], Req]],
-      writeResponse: Stream[Status, Req] => ZIO[R, Status, Unit],
-      metadata: Metadata
+      writeResponse: Stream[Status, Req] => ZIO[R, Status, Unit]
   ): CallDriver[R, Req] = CallDriver(
     listener = new Listener[Req] {
       override def onCancel(): Unit =
@@ -151,6 +148,7 @@ object CallDriver {
   def makeStreamingInputCallDriver[R, Req, Res](
       writeResponse: (
           Stream[Status, Req],
+          Metadata,
           ZServerCall[Res]
       ) => ZIO[R, Status, Unit]
   )(
@@ -166,8 +164,7 @@ object CallDriver {
       zioCall,
       cancelled,
       queue,
-      writeResponse(_, zioCall),
-      metadata
+      writeResponse(_, metadata, zioCall)
     )
   }
 }

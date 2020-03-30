@@ -92,46 +92,128 @@ class ZioFilePrinter(
   class ServicePrinter(service: ServiceDescriptor) {
 
     private val traitName = OuterObject / service.name
+    private val withContext = OuterObject / service.name / "WithContext"
+    private val withMetadata = OuterObject / service.name / "WithMetadata"
+
     private val clientServiceName = OuterObject / (service.name + "Client")
 
-    def methodSignature(method: MethodDescriptor, envType: String): String = {
+    def methodSignature(
+        method: MethodDescriptor,
+        envType: String,
+        contextType: Option[String]
+    ): String = {
       val scalaInType = method.inputType.scalaType
       val scalaOutType = method.outputType.scalaType
+      val maybeContext = contextType.fold("")(ct => s", context: ${ct}")
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary =>
-          s"(request: $scalaInType): ${io(scalaOutType, envType)}"
+          s"(request: $scalaInType$maybeContext): ${io(scalaOutType, envType)}"
         case StreamType.ClientStreaming =>
-          s"(request: ${stream(scalaInType, "Any")}): ${io(scalaOutType, envType)}"
+          s"(request: ${stream(scalaInType, "Any")}$maybeContext): ${io(scalaOutType, envType)}"
         case StreamType.ServerStreaming =>
-          s"(request: $scalaInType): ${stream(scalaOutType, envType)}"
+          s"(request: $scalaInType$maybeContext): ${stream(scalaOutType, envType)}"
         case StreamType.Bidirectional =>
-          s"(request: ${stream(scalaInType, "Any")}): ${stream(scalaOutType, envType)}"
+          s"(request: ${stream(scalaInType, "Any")}$maybeContext): ${stream(scalaOutType, envType)}"
       })
     }
 
-    def printMethodSignature(
+    def printMethodSignature(contextType: Option[String])(
         fp: FunctionalPrinter,
         method: MethodDescriptor
     ): FunctionalPrinter = {
-      fp.add(methodSignature(method, envType = "Any"))
+      fp.add(
+        methodSignature(method, envType = "Any", contextType = contextType)
+      )
     }
 
-    def print(fp: FunctionalPrinter): FunctionalPrinter =
+    def printWithAnyContext(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      fp.add(
+        methodSignature(method, envType = "Any", contextType = Some("Any")) + s" = serviceImpl.${method.name}(request)"
+      )
+    }
+
+    def printTransformContext(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      // val impl = s"serviceImpl.${method.name}(request, context)"
+      val delegate = s"serviceImpl.${method.name}"
+      val newImpl = method.streamType match {
+        case StreamType.Unary | StreamType.ClientStreaming =>
+          s"f(context).flatMap($delegate(request, _))"
+        case StreamType.ServerStreaming | StreamType.Bidirectional =>
+          s"_root_.zio.stream.ZStream.fromEffect(f(context)).flatMap($delegate(request, _))"
+      }
+      fp.add(
+        methodSignature(
+          method,
+          envType = "Any",
+          contextType = Some("NewContext")
+        ) + " = " + newImpl
+      )
+    }
+
+    def print(fp: FunctionalPrinter): FunctionalPrinter = {
       fp.add(s"trait ${traitName.name} {")
         .indent
         .print(service.getMethods().asScala.toVector)(
-          printMethodSignature
+          printMethodSignature(contextType = None)
         )
         .outdent
+        .add("}")
+        .add("")
+        .add(s"object ${traitName.name} {")
+        .indented(
+          _.add(s"trait ${withContext.name}[-Context] {")
+            .indented(
+              _.print(service.getMethods().asScala.toVector)(
+                printMethodSignature(contextType = Some("Context"))
+              )
+            )
+            .add("}")
+            .add(
+              s"type ${withMetadata.name} = ${withContext.name}[${Metadata}]"
+            )
+            .add("")
+            .add(
+              s"def withAnyContext(serviceImpl: ${traitName.name}): ${withContext.name}[Any] = new ${withContext.name}[Any] {"
+            )
+            .indented(
+              _.print(service.getMethods().asScala.toVector)(
+                printWithAnyContext
+              )
+            )
+            .add("}")
+            .add("")
+            .add(
+              s"def transformContext[Context, NewContext](serviceImpl: ${withContext.name}[Context], f: NewContext => ${io("Context", "Any")}): ${withContext.name}[NewContext] = new ${withContext.name}[NewContext] {"
+            )
+            .indented(
+              _.print(service.getMethods().asScala.toVector)(
+                printTransformContext
+              )
+            )
+            .add("}")
+            .add("")
+            .add(
+              s"def transformContext[NewContext](serviceImpl: ${traitName.name}, f: NewContext => ${io("Unit", "Any")}): ${withContext.name}[NewContext] = transformContext(withAnyContext(serviceImpl), f)"
+            )
+        )
         .add("}")
         .add("")
         .add(
           s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
         )
+        .add("")
         .add(s"object ${clientServiceName.name} {")
         .indent
-        .add(s"trait Service extends ${traitName.fullName}")
+        .add(
+          s"trait Service extends ${traitName.fullName}"
+        )
         .add("")
         .add("// accessor methods")
         .print(service.getMethods().asScala.toVector)(printAccessor)
@@ -149,19 +231,28 @@ class ZioFilePrinter(
         .add("}")
         .outdent
         .add("}")
+        .add("")
         .add(
           s"def live(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.Layer[Throwable, ${clientServiceName.name}] = zio.ZLayer.fromManaged(managed(managedChannel, options, headers))"
         )
         .outdent
         .add("}")
         .add("")
-        .add("")
         .add(
           s"implicit def bindableService: $ZBindableService[${traitName.name}] = new $ZBindableService[${traitName.name}] {"
         )
         .indent
         .add(
-          s"""def bindService(serviceImpl: ${traitName.name}): zio.UIO[$serverServiceDef] ="""
+          s"""def bindService(serviceImpl: ${traitName.name}): zio.UIO[$serverServiceDef] = bindableServiceWithContext.bindService(${traitName.name}.withAnyContext(serviceImpl))"""
+        )
+        .outdent
+        .add("}")
+        .add(
+          s"implicit def bindableServiceWithContext: $ZBindableService[${withMetadata.fullName}] = new $ZBindableService[${withMetadata.fullName}] {"
+        )
+        .indent
+        .add(
+          s"""def bindService(serviceImpl: ${withMetadata.fullName}): zio.UIO[$serverServiceDef] ="""
         )
         .indent
         .add("zio.ZIO.runtime[Any].map {")
@@ -179,13 +270,18 @@ class ZioFilePrinter(
         .outdent
         .outdent
         .add("}")
+    }
 
     def printAccessor(
         fp: FunctionalPrinter,
         method: MethodDescriptor
     ): FunctionalPrinter = {
-      val sig =
-        methodSignature(method, envType = clientServiceName.name) + " = "
+      val sigWithoutContext =
+        methodSignature(
+          method,
+          envType = clientServiceName.name,
+          contextType = None
+        ) + " = "
       val innerCall = s"_.get.${method.name}(request)"
       val clientCall = method.streamType match {
         case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
@@ -195,7 +291,7 @@ class ZioFilePrinter(
         case StreamType.Bidirectional =>
           s"_root_.zio.stream.ZStream.accessStream($innerCall)"
       }
-      fp.add(sig + clientCall)
+      fp.add(sigWithoutContext + clientCall)
     }
 
     def printClientImpl(
@@ -207,7 +303,13 @@ class ZioFilePrinter(
         case StreamType.ServerStreaming => s"$ClientCalls.serverStreamingCall"
         case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
       }
-      fp.add(methodSignature(method, envType) + s" = $clientCall(")
+      fp.add(
+          methodSignature(
+            method,
+            envType = envType,
+            contextType = None
+          ) + s" = $clientCall("
+        )
         .indent
         .add(
           s"$ZClientCall(channel.newCall(${method.grpcDescriptor.fullName}, options)),"

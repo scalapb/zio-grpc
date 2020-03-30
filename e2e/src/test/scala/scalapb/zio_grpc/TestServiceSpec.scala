@@ -10,7 +10,6 @@ import io.grpc.ManagedChannelBuilder
 import zio.ZManaged
 import scalapb.zio_grpc.testservice._
 import io.grpc.Status
-import io.grpc.Status.Code
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
 import zio.stream.{ZStream, Stream}
@@ -18,11 +17,9 @@ import zio.URIO
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.ZQueue
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
+import TestUtils._
 
 object TestServiceSpec extends DefaultRunnableSpec {
-  def hasStatusCode(c: Status) =
-    hasField[Status, Code]("code", _.getCode, equalTo(c.getCode))
-
   val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
     Server.live[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
@@ -318,7 +315,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
 
   def spec =
-    suite("AllSpecs")(
+    suite("TestServiceSpec")(
       unarySuite,
       serverStreamingSuite,
       clientStreamingSuite,

@@ -35,14 +35,18 @@ class ZServerCallHandler[R, Req, Res](
 object ZServerCallHandler {
   def unaryInput[R, Req, Res](
       runtime: Runtime[R],
-      impl: (Req, ZServerCall[Res]) => ZIO[R, Status, Unit]
-  ) =
+      impl: (Req, Metadata, ZServerCall[Res]) => ZIO[R, Status, Unit]
+  ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(runtime, CallDriver.makeUnaryInputCallDriver(impl))
 
   def streamingInput[R, Req, Res](
       runtime: Runtime[R],
-      impl: (Stream[Status, Req], ZServerCall[Res]) => ZIO[R, Status, Unit]
-  ) =
+      impl: (
+          Stream[Status, Req],
+          Metadata,
+          ZServerCall[Res]
+      ) => ZIO[R, Status, Unit]
+  ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
       runtime,
       CallDriver.makeStreamingInputCallDriver(impl)
@@ -50,37 +54,38 @@ object ZServerCallHandler {
 
   def unaryCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: Req => ZIO[R, Status, Res]
+      impl: (Req, Metadata) => ZIO[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    ZServerCallHandler.unaryInput(
+    unaryInput(
       runtime,
-      (req, call) => impl(req) >>= call.sendMessage
+      (req, metadata, call) => impl(req, metadata) >>= call.sendMessage
     )
 
   def serverStreamingCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: Req => ZStream[R, Status, Res]
+      impl: (Req, Metadata) => ZStream[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    ZServerCallHandler.unaryInput(
+    unaryInput(
       runtime,
-      (req, call) => impl(req).foreach(call.sendMessage)
+      (req: Req, metadata: Metadata, call: ZServerCall[Res]) =>
+        impl(req, metadata).foreach(call.sendMessage)
     )
 
   def clientStreamingCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: Stream[Status, Req] => ZIO[R, Status, Res]
+      impl: (Stream[Status, Req], Metadata) => ZIO[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    ZServerCallHandler.streamingInput(
+    streamingInput(
       runtime,
-      (req, call) => impl(req) >>= call.sendMessage
+      (req, metadata, call) => impl(req, metadata) >>= call.sendMessage
     )
 
   def bidiCallHandler[R, Req, Res](
       runtime: Runtime[R],
-      impl: Stream[Status, Req] => ZStream[R, Status, Res]
+      impl: (Stream[Status, Req], Metadata) => ZStream[R, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    ZServerCallHandler.streamingInput(
+    streamingInput(
       runtime,
-      (req, call) => impl(req).foreach(call.sendMessage)
+      (req, metadata, call) => impl(req, metadata).foreach(call.sendMessage)
     )
 }
