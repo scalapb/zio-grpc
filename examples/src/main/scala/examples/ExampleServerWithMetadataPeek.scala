@@ -34,6 +34,9 @@ object GreeterServiceWithMetadataPeek {
       case _                => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
+  // We start from GreeterService.LiveService defined in the other example.
+  // verifyMetadata is going to be ran before each call. Its return value is ignored, but if it
+  // fails the handler effect will not be ran (the user will get an error response)
   val live: ZLayer[Clock, Nothing, GreeterServiceWithMetadataPeek] =
     ZLayer.fromService((c: Clock.Service) =>
       Greeter.transformContext(

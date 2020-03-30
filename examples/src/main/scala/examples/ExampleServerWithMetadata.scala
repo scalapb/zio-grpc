@@ -27,6 +27,7 @@ object GreeterServiceWithMetadata {
 
   case class User(name: String)
 
+  // Each request gets a User as a context parameter.
   class LiveService(clock: Clock.Service) extends Greeter.WithContext[User] {
     def greet(req: Request, user: User): IO[Status, Response] =
       IO.succeed(Response(s"Hello ${user.name}, req: ${req}"))
@@ -42,6 +43,7 @@ object GreeterServiceWithMetadata {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
+  // Imagine this resolves an authenticated User instance from the Metadata.
   def findUser(metadata: Metadata): IO[Status, User] =
     Option(metadata.get(UserKey)) match {
       case Some(name) => IO.succeed(User(name))
