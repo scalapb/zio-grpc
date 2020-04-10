@@ -6,7 +6,7 @@ libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.2"
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.10")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.2")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.4")
 
 addSbtPlugin("com.geirsson" % "sbt-ci-release" % "1.5.2")
 
