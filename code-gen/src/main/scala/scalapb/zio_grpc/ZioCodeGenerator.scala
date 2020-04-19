@@ -159,6 +159,20 @@ class ZioFilePrinter(
       )
     }
 
+    def printWithAnyContext(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      fp.add(
+        methodSignature(
+          method,
+          inEnvType = "Any",
+          outEnvType = "Any",
+          contextType = Some("Any")
+        ) + s" = serviceImpl.${method.name}(request)"
+      )
+    }
+
     def printTransformContext(
         fp: FunctionalPrinter,
         method: MethodDescriptor
@@ -202,7 +216,7 @@ class ZioFilePrinter(
     }
 
     def print(fp: FunctionalPrinter): FunctionalPrinter = {
-      fp.add(s"trait ${ztraitName.name}[R, -Context] {")
+      fp.add(s"trait ${ztraitName.name}[-R, -Context] {")
         .indent
         .print(service.getMethods().asScala.toVector)(
           printMethodSignature(
@@ -277,6 +291,18 @@ class ZioFilePrinter(
               )
             )
             .add("}")
+            .add(
+              s"def withAnyContext(serviceImpl: ${traitName.name}): ${withContext.name}[Any] = new ${withContext.name}[Any] {"
+            )
+            .indented(
+              _.print(service.getMethods().asScala.toVector)(
+                printWithAnyContext
+              )
+            )
+            .add("}")
+            .add(
+              s"def transformContext[NewContext](serviceImpl: ${traitName.name}, f: NewContext => ${io("Unit", "Any")}): ${withContext.name}[NewContext] = transformContext(withAnyContext(serviceImpl), f)"
+            )
         )
         .add("}")
         .add("")
