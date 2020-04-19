@@ -137,10 +137,12 @@ object ContextSpec extends DefaultRunnableSpec {
 
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 
+  val specs = Seq(
+    permissionDeniedSuite,
+    unauthenticatedSuite,
+    authenticatedSuite
+  )
+
   def spec =
-    suite("ContextSpec")(
-      permissionDeniedSuite,
-      unauthenticatedSuite,
-      authenticatedSuite
-    ).provideLayer(layers)
+    suite("ContextSpec")(specs: _*).provideLayer(layers)
 }

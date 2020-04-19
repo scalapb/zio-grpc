@@ -61,6 +61,16 @@ object ZServerCallHandler {
       (req, metadata, call) => impl(req, metadata) >>= call.sendMessage
     )
 
+  def unaryCallHandlerR[R, Req, Res](
+      runtime: Runtime[R],
+      impl: Req => ZIO[Has[Metadata], Status, Res]
+  ): ServerCallHandler[Req, Res] =
+    unaryInput(
+      runtime,
+      (req, metadata, call) =>
+        impl(req).provide(Has(metadata)) >>= call.sendMessage
+    )
+
   def serverStreamingCallHandler[R, Req, Res](
       runtime: Runtime[R],
       impl: (Req, Metadata) => ZStream[R, Status, Res]
@@ -69,6 +79,16 @@ object ZServerCallHandler {
       runtime,
       (req: Req, metadata: Metadata, call: ZServerCall[Res]) =>
         impl(req, metadata).foreach(call.sendMessage)
+    )
+
+  def serverStreamingCallHandlerR[Req, Res](
+      runtime: Runtime[Any],
+      impl: Req => ZStream[Has[Metadata], Status, Res]
+  ): ServerCallHandler[Req, Res] =
+    unaryInput(
+      runtime,
+      (req: Req, metadata: Metadata, call: ZServerCall[Res]) =>
+        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
     )
 
   def clientStreamingCallHandler[R, Req, Res](
@@ -80,6 +100,16 @@ object ZServerCallHandler {
       (req, metadata, call) => impl(req, metadata) >>= call.sendMessage
     )
 
+  def clientStreamingCallHandlerR[Req, Res](
+      runtime: Runtime[Any],
+      impl: Stream[Status, Req] => ZIO[Has[Metadata], Status, Res]
+  ): ServerCallHandler[Req, Res] =
+    streamingInput(
+      runtime,
+      (req, metadata, call) =>
+        impl(req).provide(Has(metadata)) >>= call.sendMessage
+    )
+
   def bidiCallHandler[R, Req, Res](
       runtime: Runtime[R],
       impl: (Stream[Status, Req], Metadata) => ZStream[R, Status, Res]
@@ -87,5 +117,15 @@ object ZServerCallHandler {
     streamingInput(
       runtime,
       (req, metadata, call) => impl(req, metadata).foreach(call.sendMessage)
+    )
+
+  def bidiCallHandlerR[Req, Res](
+      runtime: Runtime[Any],
+      impl: Stream[Status, Req] => ZStream[Has[Metadata], Status, Res]
+  ): ServerCallHandler[Req, Res] =
+    streamingInput(
+      runtime,
+      (req, metadata, call) =>
+        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
     )
 }
