@@ -52,13 +52,13 @@ object EnvSpec extends DefaultRunnableSpec {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  def parseUser(m: Has[Metadata]): IO[Status, Has[User]] =
-    Option(m.get.get(UserKey)) match {
+  def parseUser(m: Metadata): IO[Status, User] =
+    Option(m.get(UserKey)) match {
       case Some("alice") =>
         IO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
         )
-      case Some(name) => IO.succeed(Has(User(name)))
+      case Some(name) => IO.succeed(User(name))
       case None       => IO.fail(Status.UNAUTHENTICATED)
     }
 
