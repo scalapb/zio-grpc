@@ -340,9 +340,10 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"implicit def bindableServiceWithMetadata: $ZBindableService[${withMetadata.fullName}] = new $ZBindableService[${withMetadata.fullName}] {"
+          s"implicit def bindableServiceWithMetadata: $ZBindableService.Aux[${withMetadata.fullName}, Any] = new $ZBindableService[${withMetadata.fullName}] {"
         )
         .indent
+        .add("type R = Any")
         .add(
           s"""def bindService(serviceImpl: ${withMetadata.fullName}): zio.UIO[$serverServiceDef] ="""
         )
@@ -352,16 +353,17 @@ class ZioFilePrinter(
         .outdent
         .add("}")
         .add(
-          s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$Metadata]]] = new $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$Metadata]]] {"
+          s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$Metadata]], Any] = new $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$Metadata]]] {"
         )
         .indent
+        .add("type R = Any")
         .add(
-          s"""def bindService(serviceImpl: ${ztraitName.fullName}[Any, zio.Has[$Metadata]]): zio.UIO[$serverServiceDef] ="""
+          s"""def bindService(serviceImpl: ${ztraitName.fullName}[Any, zio.Has[$Metadata]]): zio.URIO[Any, $serverServiceDef] ="""
         )
         .indent
         .add("zio.ZIO.runtime[Any].map {")
         .indent
-        .add("runtime: zio.Runtime[Any] =>")
+        .add("runtime =>")
         .indent
         .add(
           s"""$serverServiceDef.builder(${service.grpcDescriptor.fullName})"""
@@ -374,6 +376,20 @@ class ZioFilePrinter(
         .outdent
         .add("}")
         .outdent
+        .outdent
+        .add("}")
+        .add(
+          s"implicit def bindableServiceWithMetadataAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$Metadata]], R0] = new $ZBindableService[${ztraitName.fullName}[R0, zio.Has[$Metadata]]] {"
+        )
+        .indent
+        .add("type R = R0")
+        .add(
+          s"""def bindService(serviceImpl0: ${ztraitName.fullName}[R, zio.Has[$Metadata]]): zio.URIO[R, $serverServiceDef] ="""
+        )
+        .indent
+        .add(
+          s"zio.ZIO.environment[R0].flatMap((env: R0) => bindableServiceWithMetadataAsEnv.bindService(${ztraitName.fullName}.provide(serviceImpl0, env)))"
+        )
         .outdent
         .add("}")
     }

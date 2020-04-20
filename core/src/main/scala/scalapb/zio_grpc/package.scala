@@ -1,9 +1,8 @@
 package scalapb
 
 import io.grpc.Status
-import zio.{IO, ZIO, Task}
+import zio.{IO, ZIO, URIO, Task}
 import zio.stream.Stream
-import zio.Layer
 import zio.ZLayer
 import zio.Managed
 import zio.Has
@@ -48,13 +47,13 @@ package object zio_grpc {
       def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
     }
 
-    def managed(builder: => ServerBuilder[_]): Managed[Throwable, Service] =
-      managed(builder, UIO.succeed(Nil))
+    def zmanaged(builder: => ServerBuilder[_]): Managed[Throwable, Service] =
+      zmanaged(builder, UIO.succeed(Nil))
 
-    def managed(
+    def zmanaged[R](
         builder: => ServerBuilder[_],
-        services: UIO[List[ServerServiceDefinition]]
-    ): Managed[Throwable, Service] = {
+        services: URIO[R, List[ServerServiceDefinition]]
+    ): ZManaged[R, Throwable, Service] = {
       (for {
         services0 <- services
         server = new ServiceImpl(
@@ -68,74 +67,116 @@ package object zio_grpc {
       } yield server).toManaged(_.shutdown.ignore)
     }
 
-    def managed[S0: ZBindableService](
+    def zmanaged[S0, R0](
         builder: => ServerBuilder[_],
         s0: S0
-    ): Managed[Throwable, Service] =
-      managed(
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0]
+    ): ZManaged[R0, Throwable, Service] =
+      zmanaged(
         builder,
-        UIO.collectAll(ZBindableService.serviceDefinition(s0) :: Nil)
+        URIO.collectAll(ZBindableService.serviceDefinition(s0) :: Nil)
       )
 
-    def managed[
-        S0: ZBindableService,
-        S1: ZBindableService
+    def zmanaged[
+        S0,
+        S1,
+        R0,
+        R1
     ](
         builder: => ServerBuilder[_],
         s0: S0,
         s1: S1
-    ): Managed[Throwable, Service] =
-      managed(
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0],
+        b1: ZBindableService.Aux[S1, R1]
+    ): ZManaged[R0 with R1, Throwable, Service] =
+      zmanaged(
         builder,
-        UIO.collectAll(
+        URIO.collectAll(
           ZBindableService.serviceDefinition(s0) ::
             ZBindableService.serviceDefinition(s1) :: Nil
         )
       )
 
-    def managed[
-        S0: ZBindableService,
-        S1: ZBindableService,
-        S2: ZBindableService
+    def zmanaged[
+        R0,
+        S0,
+        R1,
+        S1,
+        R2,
+        S2
     ](
         builder: => ServerBuilder[_],
         s0: S0,
         s1: S1,
         s2: S2
-    ): Managed[Throwable, Service] =
-      managed(
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0],
+        b1: ZBindableService.Aux[S1, R1],
+        b2: ZBindableService.Aux[S2, R2]
+    ): ZManaged[R0 with R1 with R2, Throwable, Service] =
+      zmanaged(
         builder,
-        UIO.collectAll(
+        URIO.collectAll(
           ZBindableService.serviceDefinition(s0) ::
             ZBindableService.serviceDefinition(s1) ::
             ZBindableService.serviceDefinition(s2) :: Nil
         )
       )
 
-    def live[S0: Tagged: ZBindableService](
+    def zlive[S0: Tagged, R0](
         builder: => ServerBuilder[_]
-    ): ZLayer[Has[S0], Nothing, Server] =
-      ZLayer.fromServiceManaged { s0: S0 => Server.managed(builder, s0).orDie }
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0]
+    ): ZLayer[R0 with Has[S0], Nothing, Server] =
+      ZLayer.fromServiceManaged { s0: S0 => Server.zmanaged(builder, s0).orDie }
 
-    def live[
-        S0: Tagged: ZBindableService,
-        S1: Tagged: ZBindableService
+    def live[S0: Tagged](
+        builder: => ServerBuilder[_]
+    )(
+        implicit b0: ZBindableService.Aux[S0, Any]
+    ): ZLayer[Has[S0], Nothing, Server] =
+      zlive[S0, Any](builder)
+
+    def zlive[
+        R0,
+        S0: Tagged,
+        R1,
+        S1: Tagged
     ](
         builder: => ServerBuilder[_]
-    ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
-      ZLayer.fromServicesManaged[S0, S1, Any, Nothing, Server.Service] {
-        (s0: S0, s1: S1) => Server.managed(builder, s0, s1).orDie
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0],
+        b1: ZBindableService.Aux[S1, R1]
+    ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Nothing, Server] =
+      ZLayer.fromServicesManaged[S0, S1, R0 with R1, Nothing, Server.Service] {
+        (s0: S0, s1: S1) => Server.zmanaged(builder, s0, s1).orDie
       }
 
-    def live[
-        S0: Tagged: ZBindableService,
-        S1: Tagged: ZBindableService,
-        S2: Tagged: ZBindableService
+    def zlive[
+        R0,
+        S0: Tagged,
+        R1,
+        S1: Tagged,
+        R2,
+        S2: Tagged
     ](
         builder: => ServerBuilder[_]
-    ): ZLayer[Has[S0] with Has[S1] with Has[S2], Nothing, Server] =
-      ZLayer.fromServicesManaged[S0, S1, S2, Any, Nothing, Server.Service] {
-        (s0: S0, s1: S1, s2: S2) => Server.managed(builder, s0, s1, s2).orDie
+    )(
+        implicit b0: ZBindableService.Aux[S0, R0],
+        b1: ZBindableService.Aux[S1, R1],
+        b2: ZBindableService.Aux[S2, R2]
+    ): ZLayer[R0 with R1 with R2 with Has[S0] with Has[S1] with Has[S2], Nothing, Server] =
+      ZLayer.fromServicesManaged[
+        S0,
+        S1,
+        S2,
+        R0 with R1 with R2,
+        Nothing,
+        Server.Service
+      ] { (s0: S0, s1: S1, s2: S2) =>
+        Server.zmanaged(builder, s0, s1, s2).orDie
       }
 
     def fromManaged(zm: Managed[Throwable, Service]) =
