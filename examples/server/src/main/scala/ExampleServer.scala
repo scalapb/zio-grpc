@@ -46,8 +46,7 @@ object GreeterService {
     def bidi(
         request: Stream[Status, Point]
     ): Stream[Status, Response] = {
-      val sink = ZSink.collectAllN[Point](3)
-      request.aggregate(sink.map(r => Response(r.toString())))
+      request.grouped(3).map(r => Response(r.toString()))
     }
   }
 
@@ -70,5 +69,5 @@ object ExampleServer extends App {
   def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
 
   val myAppLogic =
-    serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)
+    serverWait.provideLayer(serverLive(9090) ++ Console.live ++ Clock.live)
 }

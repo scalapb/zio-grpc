@@ -366,7 +366,7 @@ class ZioFilePrinter(
           s"""$serverServiceDef.builder(${service.grpcDescriptor.fullName})"""
         )
         .print(service.getMethods().asScala.toVector)(
-          printBindService(_, _, suffix = "R")
+          printBindService(_, _)
         )
         .add(".build()")
         .outdent
@@ -433,7 +433,7 @@ class ZioFilePrinter(
         )
         .indent
         .add(
-          s"$ZClientCall(channel.newCall(${method.grpcDescriptor.fullName}, options)),"
+          s"channel, ${method.grpcDescriptor.fullName}, options,"
         )
         .add(s"headers,")
         .add(s"request")
@@ -442,8 +442,7 @@ class ZioFilePrinter(
     }
     def printBindService(
         fp: FunctionalPrinter,
-        method: MethodDescriptor,
-        suffix: String = ""
+        method: MethodDescriptor
     ): FunctionalPrinter = {
       val CH = "_root_.scalapb.zio_grpc.server.ZServerCallHandler"
 
@@ -452,7 +451,7 @@ class ZioFilePrinter(
         case StreamType.ClientStreaming => "clientStreamingCallHandler"
         case StreamType.ServerStreaming => "serverStreamingCallHandler"
         case StreamType.Bidirectional   => "bidiCallHandler"
-      }) + suffix
+      })
 
       fp.add(".addMethod(")
         .indent

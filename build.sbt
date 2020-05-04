@@ -36,18 +36,32 @@ inThisBuild(
 
 val zioVersion = "1.0.0-RC18-2+223-ae857d4f-SNAPSHOT"
 
-lazy val core = project
+lazy val core = crossProject(JSPlatform, JVMPlatform)
   .in(file("core"))
   .settings(stdSettings)
   .settings(
     name := "zio-grpc-core",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "io.grpc" % "grpc-services" % grpcVersion,
-      "dev.zio" %% "zio-test" % zioVersion % "test",
-      "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
+      "dev.zio" %%% "zio" % zioVersion,
+      "dev.zio" %%% "zio-streams" % zioVersion,
+      "dev.zio" %%% "zio-test" % zioVersion % "test",
+      "dev.zio" %%% "zio-test-sbt" % zioVersion % "test"
     )
+  )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      "io.grpc" % "grpc-services" % grpcVersion
+    )
+  )
+  .jsConfigure(
+    _.enablePlugins(ScalaJSBundlerPlugin)
+  )
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.3.0",
+      "io.github.cquiroz" %%% "scala-java-time" % "2.0.0" % "test"
+    ),
+    npmDependencies in Compile += "grpc-web" -> "1.0.7"
   )
 
 lazy val codeGen = project
@@ -104,7 +118,7 @@ lazy val protocGenZio = project
 
 lazy val e2e = project
   .in(file("e2e"))
-  .dependsOn(core)
+  .dependsOn(core.jvm)
   .settings(stdSettings)
   .settings(
     skip in publish := true,

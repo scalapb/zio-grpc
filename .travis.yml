@@ -16,7 +16,7 @@ stages:
 script:
 - sbt ++$TRAVIS_SCALA_VERSION test
 - sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
-- cd examples && sbt compile
+# - cd examples && sbt compile
 
 jobs:
   include:

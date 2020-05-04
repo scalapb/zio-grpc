@@ -2,11 +2,14 @@ package scalapb.zio_grpc.client
 
 import scalapb.zio_grpc.GIO
 import scalapb.zio_grpc.GStream
+import io.grpc.CallOptions
+import io.grpc.Channel
 import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO
 import io.grpc.Status
 import zio.stream.Stream
+import io.grpc.MethodDescriptor
 
 object ClientCalls {
   def exitHandler[Req, Res](
@@ -24,6 +27,15 @@ object ClientCalls {
     }
 
   def unaryCall[Req, Res](
+      channel: Channel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
+      headers: Metadata,
+      req: Req
+  ): GIO[Res] =
+    unaryCall(ZClientCall(channel.newCall(method, options)), headers, req)
+
+  private def unaryCall[Req, Res](
       call: ZClientCall[Req, Res],
       headers: Metadata,
       req: Req
@@ -38,6 +50,19 @@ object ClientCalls {
     }
 
   def serverStreamingCall[Req, Res](
+      channel: Channel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
+      headers: Metadata,
+      req: Req
+  ): GStream[Res] =
+    serverStreamingCall(
+      ZClientCall(channel.newCall(method, options)),
+      headers,
+      req
+    )
+
+  private def serverStreamingCall[Req, Res](
       call: ZClientCall[Req, Res],
       headers: Metadata,
       req: Req
@@ -58,6 +83,19 @@ object ClientCalls {
       }
 
   def clientStreamingCall[Req, Res](
+      channel: Channel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
+      headers: Metadata,
+      req: GStream[Req]
+  ): GIO[Res] =
+    clientStreamingCall(
+      ZClientCall(channel.newCall(method, options)),
+      headers,
+      req
+    )
+
+  private def clientStreamingCall[Req, Res](
       call: ZClientCall[Req, Res],
       headers: Metadata,
       req: GStream[Req]
@@ -72,6 +110,15 @@ object ClientCalls {
     }
 
   def bidiCall[Req, Res](
+      channel: Channel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
+      headers: Metadata,
+      req: GStream[Req]
+  ): GStream[Res] =
+    bidiCall(ZClientCall(channel.newCall(method, options)), headers, req)
+
+  private def bidiCall[Req, Res](
       call: ZClientCall[Req, Res],
       headers: Metadata,
       req: GStream[Req]
