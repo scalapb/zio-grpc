@@ -1,8 +1,8 @@
 import Settings.stdSettings
 
-val grpcVersion = "1.28.1"
+val grpcVersion = "1.29.0"
 
-val Scala213 = "2.13.1"
+val Scala213 = "2.13.2"
 
 val Scala212 = "2.12.10"
 
@@ -34,7 +34,7 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.0-RC18-2"
+val zioVersion = "1.0.0-RC18-2+252-a711808a-SNAPSHOT"
 
 lazy val core = project
   .in(file("core"))

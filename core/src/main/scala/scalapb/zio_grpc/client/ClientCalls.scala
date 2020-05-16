@@ -44,7 +44,7 @@ object ClientCalls {
       req: Req
   ): GStream[Res] =
     Stream
-      .bracketExit[Status, StreamingClientCallListener[Res]](
+      .bracketExit(
         StreamingClientCallListener.make[Res](call)
       )(anyExitHandler(call))
       .flatMap { listener: StreamingClientCallListener[Res] =>
@@ -78,7 +78,7 @@ object ClientCalls {
       req: GStream[Req]
   ): GStream[Res] =
     Stream
-      .bracketExit[Status, StreamingClientCallListener[Res]](
+      .bracketExit(
         StreamingClientCallListener.make[Res](call)
       )(anyExitHandler(call))
       .flatMap { listener: StreamingClientCallListener[Res] =>
