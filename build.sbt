@@ -34,7 +34,7 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.0-RC18-2+252-a711808a-SNAPSHOT"
+val zioVersion = "1.0.0-RC19"
 
 lazy val core = project
   .in(file("core"))
