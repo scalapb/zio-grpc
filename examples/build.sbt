@@ -25,12 +25,8 @@ lazy val protos = crossProject(JSPlatform, JVMPlatform)
     )
   )
   .jsSettings(
-    libraryDependencies --= Seq(
-      // "com.thesamet.scalapb.zio-grpc" %%% "zio-grpc-core" % "0.2.1-SNAPSHOT"
-    ),
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.2.0+20-3b251475+20200503-2052-SNAPSHOT",
-      // "com.thesamet.scalapb.zio-grpc" %%% "zio-grpc-core-js" % "0.2.1-SNAPSHOT"
     )
   )
 
