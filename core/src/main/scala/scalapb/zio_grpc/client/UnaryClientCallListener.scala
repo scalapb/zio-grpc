@@ -57,16 +57,19 @@ class UnaryClientCallListener[Res](
     runtime.unsafeRun {
       for {
         s <- state.get
-        _ <- if (!status.isOk) promise.fail(status)
-        else
-          s match {
-            case ResponseReceived(headers, message) =>
-              promise.succeed((headers, message))
-            case Failure(errorMessage) =>
-              promise.fail(Status.INTERNAL.withDescription(errorMessage))
-            case _ =>
-              promise.fail(Status.INTERNAL.withDescription("No data received"))
-          }
+        _ <-
+          if (!status.isOk) promise.fail(status)
+          else
+            s match {
+              case ResponseReceived(headers, message) =>
+                promise.succeed((headers, message))
+              case Failure(errorMessage) =>
+                promise.fail(Status.INTERNAL.withDescription(errorMessage))
+              case _ =>
+                promise.fail(
+                  Status.INTERNAL.withDescription("No data received")
+                )
+            }
       } yield ()
     }
 

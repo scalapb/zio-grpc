@@ -37,16 +37,16 @@ object EnvSpec extends DefaultRunnableSpec {
 
     def clientStreaming(
         request: zio.stream.Stream[Status, Request]
-    ): ZIO[Has[User], Status, Response] = getUser.map { n => Response(n.name) }
+    ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))
 
     def bidiStreaming(
         request: zio.stream.Stream[Status, Request]
-    ): ZStream[Has[User], Status, Response] = ZStream.accessStream {
-      u: Has[User] =>
+    ): ZStream[Has[User], Status, Response] =
+      ZStream.accessStream { u: Has[User] =>
         ZStream(
           Response(u.get.name)
         )
-    }
+      }
   }
 
   val UserKey =
@@ -79,11 +79,14 @@ object EnvSpec extends DefaultRunnableSpec {
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         )
         TestServiceClient
-          .managed(ch, headers = {
-            val md = new Metadata()
-            userName.foreach(md.put(UserKey, _))
-            md
-          })
+          .managed(
+            ch,
+            headers = {
+              val md = new Metadata()
+              userName.foreach(md.put(UserKey, _))
+              md
+            }
+          )
           .orDie
       }
     }

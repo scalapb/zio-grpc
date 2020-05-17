@@ -1,6 +1,6 @@
 package scalapb.zio_grpc.server
 
-import io.grpc.{ServerCall, Metadata, Status}
+import io.grpc.{Metadata, ServerCall, Status}
 import zio.ZIO
 import scalapb.zio_grpc.GIO
 

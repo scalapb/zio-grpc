@@ -41,18 +41,17 @@ package object server {
 
       def serverStreaming(
           request: Request
-      ): ZStream[Any, Status, Response] = {
+      ): ZStream[Any, Status, Response] =
         ZStream
-          .bracketExit(requestReceived.succeed(()))((_, ex) => {
+          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
             ex.foldM(
-              { failed =>
+              failed =>
                 if (failed.interrupted)
                   exit.succeed(Exit.fail(Status.CANCELLED))
-                else exit.succeed(Exit.fail(Status.UNKNOWN))
-              },
+                else exit.succeed(Exit.fail(Status.UNKNOWN)),
               _ => exit.succeed(Exit.succeed(Response()))
             )
-          })
+          }
           .flatMap { _ =>
             request.scenario match {
               case Scenario.OK =>
@@ -65,16 +64,18 @@ package object server {
                     Status.INTERNAL.withDescription("FOO!")
                   )
               case Scenario.DELAY =>
-                ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream.never
+                ZStream(
+                  Response(out = "X1"),
+                  Response(out = "X2")
+                ) ++ ZStream.never
               case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
               case _            => ZStream.fail(Status.UNKNOWN)
             }
           }
-      }
 
       def clientStreaming(
           request: Stream[Status, Request]
-      ): ZIO[Any, Status, Response] = {
+      ): ZIO[Any, Status, Response] =
         requestReceived.succeed(()) *> request
           .foldM(0)((state, req) =>
             req.scenario match {
@@ -88,7 +89,6 @@ package object server {
           )
           .map(r => Response(r.toString))
           .onExit(exit.succeed(_))
-      }
 
       def bidiStreaming(
           request: Stream[Status, Request]
