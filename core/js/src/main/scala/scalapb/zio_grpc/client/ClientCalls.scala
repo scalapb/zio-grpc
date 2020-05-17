@@ -22,7 +22,7 @@ object ClientCalls {
       channel.client.rpcCall[Req, Res](
         channel.baseUrl + "/" + method.fullName,
         req,
-        scalajs.js.Dictionary(),
+        scalajs.js.Dictionary[String](),
         method.methodInfo,
         (errorInfo: ErrorInfo, resp: Res) =>
           if (errorInfo != null)
