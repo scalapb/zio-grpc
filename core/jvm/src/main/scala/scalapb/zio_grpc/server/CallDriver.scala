@@ -4,6 +4,7 @@ import io.grpc.ServerCall.Listener
 import io.grpc.Status
 import zio._
 import zio.stream.Stream
+import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 
 /** Represents a running request to be served by [[ZServerCallHandler]]
@@ -77,10 +78,14 @@ object CallDriver {
     * the response and writes it through the given ZServerCall.
     */
   def makeUnaryInputCallDriver[R, Req, Res](
-      writeResponse: (Req, Metadata, ZServerCall[Res]) => ZIO[R, Status, Unit]
+      writeResponse: (
+          Req,
+          RequestContext,
+          ZServerCall[Res]
+      ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
-      metadata: Metadata
+      requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
       runtime <- ZIO.runtime[R]
@@ -93,7 +98,7 @@ object CallDriver {
       cancelled,
       completed,
       request,
-      writeResponse(_, metadata, zioCall)
+      writeResponse(_, requestContext, zioCall)
     )
 
   def streamingInputCallDriver[R, Req, Res](
@@ -149,12 +154,12 @@ object CallDriver {
   def makeStreamingInputCallDriver[R, Req, Res](
       writeResponse: (
           Stream[Status, Req],
-          Metadata,
+          RequestContext,
           ZServerCall[Res]
       ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
-      metadata: Metadata
+      requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
       runtime <- ZIO.runtime[R]
@@ -165,6 +170,6 @@ object CallDriver {
       zioCall,
       cancelled,
       queue,
-      writeResponse(_, metadata, zioCall)
+      writeResponse(_, requestContext, zioCall)
     )
 }

@@ -52,8 +52,8 @@ object EnvSpec extends DefaultRunnableSpec {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  def parseUser(m: Metadata): IO[Status, User] =
-    Option(m.get(UserKey)) match {
+  def parseUser(rc: RequestContext): IO[Status, User] =
+    Option(rc.metadata.get(UserKey)) match {
       case Some("alice") =>
         IO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
@@ -67,8 +67,9 @@ object EnvSpec extends DefaultRunnableSpec {
   )
 
   val serverLayer
-      : ZLayer[Has[ZTestService[Any, Has[Metadata]]], Nothing, Server] =
-    Server.live[ZTestService[Any, Has[Metadata]]](ServerBuilder.forPort(0))
+      : ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Nothing, Server] =
+    Server
+      .live[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
 
   def clientLayer(
       userName: Option[String]

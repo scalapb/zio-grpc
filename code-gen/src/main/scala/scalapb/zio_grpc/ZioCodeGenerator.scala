@@ -57,6 +57,7 @@ class ZioFilePrinter(
   val CallOptions = "io.grpc.CallOptions"
   val ClientCalls = "scalapb.zio_grpc.client.ClientCalls"
   val Metadata = "io.grpc.Metadata"
+  val RequestContext = "scalapb.zio_grpc.RequestContext"
   val ZClientCall = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel = "scalapb.zio_grpc.ZManagedChannel"
   val ZBindableService = "scalapb.zio_grpc.ZBindableService"
@@ -213,7 +214,7 @@ class ZioFilePrinter(
     }
 
     def print(fp: FunctionalPrinter): FunctionalPrinter = {
-      fp.add(s"trait ${ztraitName.name}[-R, -Context] {")
+      fp.add(s"trait ${ztraitName.name}[-R, Context] {")
         .indent
         .print(service.getMethods().asScala.toVector)(
           printMethodSignature(
@@ -350,12 +351,20 @@ class ZioFilePrinter(
         .outdent
         .add("}")
         .add(
-          s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$Metadata]], Any] = new $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$Metadata]]] {"
+          s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$Metadata]], Any] =",
+          s"  bindableServiceWithRequestContext.transform((s: ${ztraitName.fullName}[Any, zio.Has[$Metadata]]) => ${ztraitName.fullName}.transform(s, scalapb.zio_grpc.ZTransform.provideSome[zio.Has[$Metadata], io.grpc.Status, zio.Has[$RequestContext]]((p: zio.Has[$RequestContext]) => zio.Has(p.get.metadata))))"
+        )
+        .add(
+          s"implicit def bindableServiceWithAny: $ZBindableService.Aux[${ztraitName.fullName}[Any, Any], Any] =",
+          s"  bindableServiceWithRequestContext.transform((s: ${ztraitName.fullName}[Any, Any]) => ${ztraitName.fullName}.transform(s, scalapb.zio_grpc.ZTransform.provideSome[Any, io.grpc.Status, zio.Has[$RequestContext]](identity)))"
+        )
+        .add(
+          s"implicit def bindableServiceWithRequestContext: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$RequestContext]], Any] = new $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$RequestContext]]] {"
         )
         .indent
         .add("type R = Any")
         .add(
-          s"""def bindService(serviceImpl: ${ztraitName.fullName}[Any, zio.Has[$Metadata]]): zio.URIO[Any, $serverServiceDef] ="""
+          s"""def bindService(serviceImpl: ${ztraitName.fullName}[Any, zio.Has[$RequestContext]]): zio.URIO[Any, $serverServiceDef] ="""
         )
         .indent
         .add("zio.ZIO.runtime[Any].map {")
@@ -376,19 +385,13 @@ class ZioFilePrinter(
         .outdent
         .add("}")
         .add(
-          s"implicit def bindableServiceWithMetadataAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$Metadata]], R0] = new $ZBindableService[${ztraitName.fullName}[R0, zio.Has[$Metadata]]] {"
+          s"implicit def bindableServiceWithRequestContextAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$RequestContext]], R0] =",
+          s"  bindableServiceWithRequestContext.transformM((s0: ${ztraitName.fullName}[R0, zio.Has[$RequestContext]]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))"
         )
-        .indent
-        .add("type R = R0")
         .add(
-          s"""def bindService(serviceImpl0: ${ztraitName.fullName}[R, zio.Has[$Metadata]]): zio.URIO[R, $serverServiceDef] ="""
+          s"implicit def bindableServiceWithMetadataAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$Metadata]], R0] =",
+          s"  bindableServiceWithMetadataAsEnv.transformM((s0: ${ztraitName.fullName}[R0, zio.Has[$Metadata]]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))"
         )
-        .indent
-        .add(
-          s"zio.ZIO.environment[R0].flatMap((env: R0) => bindableServiceWithMetadataAsEnv.bindService(${ztraitName.fullName}.provide(serviceImpl0, env)))"
-        )
-        .outdent
-        .add("}")
     }
 
     def printAccessor(
