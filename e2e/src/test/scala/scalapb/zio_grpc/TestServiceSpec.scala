@@ -12,7 +12,7 @@ import scalapb.zio_grpc.testservice._
 import io.grpc.Status
 import scalapb.zio_grpc.server.TestServiceImpl
 import zio.ZLayer
-import zio.stream.{ZStream, Stream}
+import zio.stream.{Stream, ZStream}
 import zio.URIO
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.ZQueue
@@ -51,9 +51,10 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client interrupts") {
         for {
-          fiber <- TestServiceClient
-            .unary(Request(Request.Scenario.DELAY, in = 12))
-            .fork
+          fiber <-
+            TestServiceClient
+              .unary(Request(Request.Scenario.DELAY, in = 12))
+              .fork
           _ <- TestServiceImpl.awaitReceived
           _ <- fiber.interrupt
           exit <- TestServiceImpl.awaitExit
@@ -85,7 +86,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     Assertion.assertionDirect("tuple")(
       Assertion.Render.param(assertionA),
       Assertion.Render.param(assertionB)
-    ) { run => assertionA.run(run._1) && assertionB.run(run._2) }
+    )(run => assertionA.run(run._1) && assertionB.run(run._2))
 
   def serverStreamingSuite =
     suite("server streaming request")(
@@ -125,12 +126,13 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellations") {
         assertM(for {
-          fb <- TestServiceClient
-            .serverStreaming(
-              Request(Request.Scenario.DELAY, in = 12)
-            )
-            .runCollect
-            .fork
+          fb <-
+            TestServiceClient
+              .serverStreaming(
+                Request(Request.Scenario.DELAY, in = 12)
+              )
+              .runCollect
+              .fork
           _ <- TestServiceImpl.awaitReceived
           _ <- fb.interrupt
           exit <- TestServiceImpl.awaitExit
@@ -184,15 +186,16 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellation") {
         assertM(for {
-          fiber <- TestServiceClient
-            .clientStreaming(
-              Stream(
-                Request(Scenario.OK, in = 17),
-                Request(Scenario.OK, in = 12),
-                Request(Scenario.DELAY, in = 33)
+          fiber <-
+            TestServiceClient
+              .clientStreaming(
+                Stream(
+                  Request(Scenario.OK, in = 17),
+                  Request(Scenario.OK, in = 12),
+                  Request(Scenario.DELAY, in = 33)
+                )
               )
-            )
-            .fork
+              .fork
           _ <- TestServiceImpl.awaitReceived
           _ <- fiber.interrupt
           exit <- TestServiceImpl.awaitExit

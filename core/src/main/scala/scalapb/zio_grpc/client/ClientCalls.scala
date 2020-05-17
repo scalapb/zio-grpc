@@ -27,7 +27,7 @@ object ClientCalls {
       call: ZClientCall[Req, Res],
       headers: Metadata,
       req: Req
-  ): GIO[Res] = {
+  ): GIO[Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
       listener =>
         call.start(listener, headers) *>
@@ -36,7 +36,6 @@ object ClientCalls {
           call.halfClose() *>
           listener.getValue.map(_._2)
     }
-  }
 
   def serverStreamingCall[Req, Res](
       call: ZClientCall[Req, Res],

@@ -32,7 +32,9 @@ object ZTransform {
 
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment */
-  def transformContext[R <: Has[_], E, Context1 <: Has[_]: Tagged, Context2 <: Has[
+  def transformContext[R <: Has[_], E, Context1 <: Has[
+    _
+  ]: Tagged, Context2 <: Has[
     _
   ]: Tagged](
       f: Context2 => ZIO[R, E, Context1]

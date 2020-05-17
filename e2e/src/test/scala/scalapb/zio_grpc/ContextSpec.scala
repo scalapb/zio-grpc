@@ -63,11 +63,14 @@ object ContextSpec extends DefaultRunnableSpec {
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         )
         TestServiceClient
-          .managed(ch, headers = {
-            val md = new Metadata()
-            userName.foreach(md.put(UserKey, _))
-            md
-          })
+          .managed(
+            ch,
+            headers = {
+              val md = new Metadata()
+              userName.foreach(md.put(UserKey, _))
+              md
+            }
+          )
           .orDie
       }
     }

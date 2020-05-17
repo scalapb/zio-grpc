@@ -21,31 +21,30 @@ object ZioCodeGenerator extends CodeGenApp {
   override def registerExtensions(registry: ExtensionRegistry): Unit =
     Scalapb.registerAllExtensions(registry)
 
-  override def suggestedDependencies: Seq[Artifact] = Seq(
-    Artifact(
-      "com.thesamet.scalapb.zio-grpc",
-      "zio-grpc-core",
-      BuildInfo.version,
-      crossVersion = true
+  override def suggestedDependencies: Seq[Artifact] =
+    Seq(
+      Artifact(
+        "com.thesamet.scalapb.zio-grpc",
+        "zio-grpc-core",
+        BuildInfo.version,
+        crossVersion = true
+      )
     )
-  )
 
-  def process(request: CodeGenRequest): CodeGenResponse = {
+  def process(request: CodeGenRequest): CodeGenResponse =
     ProtobufGenerator.parseParameters(request.parameter) match {
       case Right(params) =>
         val implicits =
           new DescriptorImplicits(params, request.allProtos)
         CodeGenResponse.succeed(
-          request.filesToGenerate
-            .collect {
-              case file if !file.getServices().isEmpty() =>
-                new ZioFilePrinter(implicits, file).result()
-            }
+          request.filesToGenerate.collect {
+            case file if !file.getServices().isEmpty() =>
+              new ZioFilePrinter(implicits, file).result()
+          }
         )
       case Left(error) =>
         CodeGenResponse.fail(error)
     }
-  }
 }
 
 class ZioFilePrinter(
@@ -127,7 +126,7 @@ class ZioFilePrinter(
     )(
         fp: FunctionalPrinter,
         method: MethodDescriptor
-    ): FunctionalPrinter = {
+    ): FunctionalPrinter =
       fp.add(
         methodSignature(
           method,
@@ -136,7 +135,6 @@ class ZioFilePrinter(
           contextType = contextType
         )
       )
-    }
 
     def printAsEnv(
         fp: FunctionalPrinter,
@@ -162,7 +160,7 @@ class ZioFilePrinter(
     def printWithAnyContext(
         fp: FunctionalPrinter,
         method: MethodDescriptor
-    ): FunctionalPrinter = {
+    ): FunctionalPrinter =
       fp.add(
         methodSignature(
           method,
@@ -171,7 +169,6 @@ class ZioFilePrinter(
           contextType = Some("Any")
         ) + s" = serviceImpl.${method.name}(request)"
       )
-    }
 
     def printTransformContext(
         fp: FunctionalPrinter,
@@ -468,13 +465,15 @@ class ZioFilePrinter(
     }
   }
 
-  def stream(res: String, envType: String) = envType match {
-    case "Any" => s"_root_.zio.stream.Stream[io.grpc.Status, $res]"
-    case r     => s"_root_.zio.stream.ZStream[$r, io.grpc.Status, $res]"
-  }
+  def stream(res: String, envType: String) =
+    envType match {
+      case "Any" => s"_root_.zio.stream.Stream[io.grpc.Status, $res]"
+      case r     => s"_root_.zio.stream.ZStream[$r, io.grpc.Status, $res]"
+    }
 
-  def io(res: String, envType: String) = envType match {
-    case "Any" => s"_root_.zio.IO[io.grpc.Status, $res]"
-    case r     => s"_root_.zio.ZIO[$r, io.grpc.Status, $res]"
-  }
+  def io(res: String, envType: String) =
+    envType match {
+      case "Any" => s"_root_.zio.IO[io.grpc.Status, $res]"
+      case r     => s"_root_.zio.ZIO[$r, io.grpc.Status, $res]"
+    }
 }
