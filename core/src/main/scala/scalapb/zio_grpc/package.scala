@@ -6,7 +6,7 @@ import zio.stream.Stream
 import zio.ZLayer
 import zio.Managed
 import zio.Has
-import zio.Tag
+import zio.Tagged
 import zio.ZManaged
 
 import io.grpc.ServerBuilder
@@ -125,7 +125,7 @@ package object zio_grpc {
         )
       )
 
-    def zlive[R0, S0: Tag](
+    def zlive[R0, S0: Tagged](
         builder: => ServerBuilder[_]
     )(
         implicit b0: ZBindableService.Aux[S0, R0]
@@ -134,9 +134,9 @@ package object zio_grpc {
 
     def zlive[
         R0,
-        S0: Tag,
+        S0: Tagged,
         R1,
-        S1: Tag
+        S1: Tagged
     ](
         builder: => ServerBuilder[_]
     )(
@@ -149,11 +149,11 @@ package object zio_grpc {
 
     def zlive[
         R0,
-        S0: Tag,
+        S0: Tagged,
         R1,
-        S1: Tag,
+        S1: Tagged,
         R2,
-        S2: Tag
+        S2: Tagged
     ](
         builder: => ServerBuilder[_]
     )(
@@ -172,14 +172,14 @@ package object zio_grpc {
         Server.zmanaged(builder, s0, s1, s2).orDie
       }
 
-    def live[S0: Tag](
+    def live[S0: Tagged](
         builder: => ServerBuilder[_]
     )(
         implicit b0: ZBindableService.Aux[S0, Any]
     ): ZLayer[Has[S0], Nothing, Server] =
       zlive[Any, S0](builder)
 
-    def live[S0: Tag, S1: Tag](
+    def live[S0: Tagged, S1: Tagged](
         builder: => ServerBuilder[_]
     )(
         implicit b0: ZBindableService.Aux[S0, Any],
@@ -187,7 +187,7 @@ package object zio_grpc {
     ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
       zlive[Any, S0, Any, S1](builder)
 
-    def live[S0: Tag, S1: Tag, S2: Tag](
+    def live[S0: Tagged, S1: Tagged, S2: Tagged](
         builder: => ServerBuilder[_]
     )(
         implicit b0: ZBindableService.Aux[S0, Any],
