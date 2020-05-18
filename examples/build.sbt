@@ -24,11 +24,6 @@ lazy val protos = crossProject(JSPlatform, JVMPlatform)
       "com.thesamet.scalapb" %%% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
     )
   )
-  .jsSettings(
-    libraryDependencies ++= Seq(
-      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.2.0+20-3b251475+20200503-2052-SNAPSHOT",
-    )
-  )
 
 lazy val server = project
   .dependsOn(protos.jvm)
