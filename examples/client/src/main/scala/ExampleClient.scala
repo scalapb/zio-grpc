@@ -14,11 +14,12 @@ object ExampleClient extends zio.App {
   final def run(args: List[String]) =
     myAppLogic.fold({ _ => 1 }, _ => 0)
 
-  def clientLayer: Layer[Throwable, GreeterClient] = GreeterClient.live(
-    ZManagedChannel(
-      ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
+  def clientLayer: Layer[Throwable, GreeterClient] =
+    GreeterClient.live(
+      ZManagedChannel(
+        ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
+      )
     )
-  )
 
   def myAppLogic =
     (for {

@@ -13,15 +13,15 @@ lazy val protos = crossProject(JSPlatform, JVMPlatform)
   .settings(
     PB.targets in Compile := Seq(
       scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
-      scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value,
+      scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value
     ),
     PB.protoSources in Compile := Seq(
-        (baseDirectory in ThisBuild).value / "protos" / "src" / "main" / "protobuf"
-    ),
+      (baseDirectory in ThisBuild).value / "protos" / "src" / "main" / "protobuf"
+    )
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %%% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
+      "com.thesamet.scalapb" %%% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     )
   )
 
@@ -54,4 +54,3 @@ lazy val webapp = project
     ),
     scalaJSUseMainModuleInitializer := true
   )
-

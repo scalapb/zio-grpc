@@ -16,8 +16,9 @@ object WebappMain extends App {
 
   val appLogic =
     putStrLn("Hello!") *>
-      GreeterClient.greet(Request("Foo!"))
-      .foldM(s => putStrLn(s"error: $s"), s => putStrLn(s"success: $s"))
+      GreeterClient
+        .greet(Request("Foo!"))
+        .foldM(s => putStrLn(s"error: $s"), s => putStrLn(s"success: $s"))
 
   def run(args: List[String]) =
     (appLogic.provideLayer(Console.live ++ clientLayer).ignore *> putStrLn(
