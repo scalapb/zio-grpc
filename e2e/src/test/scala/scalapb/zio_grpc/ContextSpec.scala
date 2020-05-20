@@ -8,9 +8,9 @@ import testservice.ZioTestservice.TestServiceClient
 import testservice.ZioTestservice.TestService
 import testservice._
 import io.grpc.ServerBuilder
-import io.grpc.Metadata
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Status
+import io.grpc.Metadata
 import TestUtils._
 
 object ContextSpec extends DefaultRunnableSpec {
@@ -34,6 +34,8 @@ object ContextSpec extends DefaultRunnableSpec {
 
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
+  val RandomKey =
+    Metadata.Key.of("random-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
   val serviceLayer = ZLayer.succeed(
     TestService.transformContext(
@@ -82,7 +84,16 @@ object ContextSpec extends DefaultRunnableSpec {
   val permissionDenied = fails(hasStatusCode(Status.PERMISSION_DENIED))
   val unauthenticated = fails(hasStatusCode(Status.UNAUTHENTICATED))
 
-  val unaryEffect = TestServiceClient.unary(Request())
+  val unaryEffect = TestServiceClient.unary(
+    Request(),
+    headers =>
+      for {
+        random <- ZIO.access[zio.random.Random](_.get)
+        rand <- random.nextInt
+        _ <- UIO(headers.put(RandomKey, s"$rand"))
+      } yield headers
+  )
+
   val serverStreamingEffect =
     TestServiceClient.serverStreaming(Request()).runCollect
   val clientStreamingEffect = TestServiceClient.clientStreaming(Stream.empty)
@@ -102,7 +113,7 @@ object ContextSpec extends DefaultRunnableSpec {
       testM("bidi streaming") {
         assertM(bidiEffect.run)(permissionDenied)
       }
-    ).provideLayer(unauthClient)
+    ).provideLayer(unauthClient ++ zio.random.Random.live)
 
   def unauthenticatedSuite =
     suite("authorized request fail for")(
@@ -118,7 +129,7 @@ object ContextSpec extends DefaultRunnableSpec {
       testM("bidi streaming") {
         assertM(bidiEffect.run)(unauthenticated)
       }
-    ).provideLayer(unsetClient)
+    ).provideLayer(unsetClient ++ zio.random.Random.live)
 
   def authenticatedSuite =
     suite("authorized request fail for")(
@@ -136,7 +147,7 @@ object ContextSpec extends DefaultRunnableSpec {
       testM("bidi streaming") {
         assertM(bidiEffect)(equalTo(Seq(Response("bob"))))
       }
-    ).provideLayer(authClient)
+    ).provideLayer(authClient ++ zio.random.Random.live)
 
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 

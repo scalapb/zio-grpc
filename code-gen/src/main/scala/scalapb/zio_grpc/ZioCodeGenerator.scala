@@ -98,6 +98,28 @@ class ZioFilePrinter(
 
     private val clientServiceName = OuterObject / (service.name + "Client")
 
+    def clientSignature(
+        method: MethodDescriptor,
+        inEnvType: String,
+        outEnvType: String
+    ): String = {
+      val scalaInType = method.inputType.scalaType
+      val scalaOutType = method.outputType.scalaType
+      val maybeContext =
+        ", metadata: Function1[io.grpc.Metadata, zio.ZIO[R, io.grpc.Status, io.grpc.Metadata]] = (meta: io.grpc.Metadata) => zio.ZIO.succeed(meta)"
+
+      s"def ${method.name}" + (method.streamType match {
+        case StreamType.Unary =>
+          s"[R](request: $scalaInType$maybeContext): ${io(scalaOutType, outEnvType)}"
+        case StreamType.ClientStreaming =>
+          s"[R](request: ${stream(scalaInType, inEnvType)}$maybeContext): ${io(scalaOutType, outEnvType)}"
+        case StreamType.ServerStreaming =>
+          s"[R](request: $scalaInType$maybeContext): ${stream(scalaOutType, outEnvType)}"
+        case StreamType.Bidirectional =>
+          s"[R](request: ${stream(scalaInType, inEnvType)}$maybeContext): ${stream(scalaOutType, outEnvType)}"
+      })
+    }
+
     def methodSignature(
         method: MethodDescriptor,
         inEnvType: String,
@@ -134,6 +156,21 @@ class ZioFilePrinter(
           inEnvType,
           outEnvType,
           contextType = contextType
+        )
+      )
+
+    def printClientSignature(
+        inEnvType: String = "Any",
+        outEnvType: String = "Any"
+    )(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter =
+      fp.add(
+        clientSignature(
+          method,
+          inEnvType,
+          outEnvType
         )
       )
 
@@ -310,9 +347,19 @@ class ZioFilePrinter(
         .add("")
         .add(s"object ${clientServiceName.name} {")
         .indent
-        .add(
-          s"trait Service extends ${traitName.fullName}"
+        // .add(
+        //   s"trait Service extends ${traitName.fullName}"
+        // )
+        .add(s"trait Service {")
+        .indent
+        .print(service.getMethods().asScala.toVector)(
+          printClientSignature(
+            inEnvType = "Any",
+            outEnvType = "R"
+          )
         )
+        .outdent
+        .add("}")
         .add("")
         .add("// accessor methods")
         .print(service.getMethods().asScala.toVector)(printAccessor)
@@ -382,13 +429,12 @@ class ZioFilePrinter(
         method: MethodDescriptor
     ): FunctionalPrinter = {
       val sigWithoutContext =
-        methodSignature(
+        clientSignature(
           method,
           inEnvType = "Any",
-          outEnvType = clientServiceName.name,
-          contextType = None
+          outEnvType = s"R with ${clientServiceName.name}"
         ) + " = "
-      val innerCall = s"_.get.${method.name}(request)"
+      val innerCall = s"_.get.${method.name}(request, metadata)"
       val clientCall = method.streamType match {
         case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
         case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
@@ -404,17 +450,20 @@ class ZioFilePrinter(
         envType: String
     )(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
       val clientCall = method.streamType match {
-        case StreamType.Unary           => s"$ClientCalls.unaryCall"
-        case StreamType.ClientStreaming => s"$ClientCalls.clientStreamingCall"
-        case StreamType.ServerStreaming => s"$ClientCalls.serverStreamingCall"
-        case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
+        case StreamType.Unary =>
+          s"metadata(headers).flatMap(headers => $ClientCalls.unaryCall"
+        case StreamType.ClientStreaming =>
+          s"metadata(headers).flatMap(headers => $ClientCalls.clientStreamingCall"
+        case StreamType.ServerStreaming =>
+          s"zio.stream.ZStream.fromEffect(metadata(headers)).flatMap(headers => $ClientCalls.serverStreamingCall"
+        case StreamType.Bidirectional =>
+          s"zio.stream.ZStream.fromEffect(metadata(headers)).flatMap(headers => $ClientCalls.bidiCall"
       }
       fp.add(
-          methodSignature(
+          clientSignature(
             method,
             inEnvType = "Any",
-            outEnvType = envType,
-            contextType = None
+            outEnvType = "R"
           ) + s" = $clientCall("
         )
         .indent
@@ -424,7 +473,7 @@ class ZioFilePrinter(
         .add(s"headers,")
         .add(s"request")
         .outdent
-        .add(s")")
+        .add(s"))")
     }
     def printBindService(
         fp: FunctionalPrinter,

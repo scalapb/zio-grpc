@@ -18,6 +18,7 @@ import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.ZQueue
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import TestUtils._
+import scalapb.zio_grpc.testservice.TestServiceGrpc.TestService
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
@@ -231,7 +232,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
   object BidiFixture {
     def apply[R, Req, Res](
         call: Stream[Status, Req] => ZStream[R, Status, Res]
-    ): zio.URIO[R, BidiFixture[Req, Res]] =
+    ): zio.URIO[R with TestServiceClient, BidiFixture[Req, Res]] =
       for {
         in <- ZQueue.unbounded[Res]
         out <- ZQueue.unbounded[Req]
@@ -243,7 +244,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("bidi streaming request")(
       testM("returns successful response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf <- BidiFixture((r: Stream[Status, Request]) =>
+            TestServiceClient.bidiStreaming(r)
+          )
           _ <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _ <- bf.send(Request(Scenario.OK, in = 3))
@@ -265,7 +268,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns correct error response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf <- BidiFixture((r: Stream[Status, Request]) =>
+            TestServiceClient.bidiStreaming(r)
+          )
           _ <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _ <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
