@@ -23,7 +23,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
     Server.live[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
-  val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
+  val clientLayer: ZLayer[Server, Nothing, TestServiceClient[Any]] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
       ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
         val ch = ZManagedChannel(
@@ -36,14 +36,16 @@ object TestServiceSpec extends DefaultRunnableSpec {
   def unarySuite =
     suite("unary request")(
       testM("returns successful response") {
-        assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)))(
+        assertM(
+          TestServiceClient.unary[Any](Request(Request.Scenario.OK, in = 12))
+        )(
           equalTo(Response("Res12"))
         )
       },
       testM("returns correct error response") {
         assertM(
           TestServiceClient
-            .unary(Request(Request.Scenario.ERROR_NOW, in = 12))
+            .unary[Any](Request(Request.Scenario.ERROR_NOW, in = 12))
             .run
         )(
           fails(hasStatusCode(Status.INTERNAL))
@@ -53,7 +55,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
         for {
           fiber <-
             TestServiceClient
-              .unary(Request(Request.Scenario.DELAY, in = 12))
+              .unary[Any](Request(Request.Scenario.DELAY, in = 12))
               .fork
           _ <- TestServiceImpl.awaitReceived
           _ <- fiber.interrupt
@@ -62,7 +64,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns response on failures") {
         assertM(
-          TestServiceClient.unary(Request(Request.Scenario.DIE, in = 12)).run
+          TestServiceClient
+            .unary[Any](Request(Request.Scenario.DIE, in = 12))
+            .run
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
@@ -93,7 +97,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns successful response") {
         assertM(
           collectWithError(
-            TestServiceClient.serverStreaming(
+            TestServiceClient.serverStreaming[Any](
               Request(Request.Scenario.OK, in = 12)
             )
           )
@@ -102,7 +106,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns correct error response") {
         assertM(
           collectWithError(
-            TestServiceClient.serverStreaming(
+            TestServiceClient.serverStreaming[Any](
               Request(Request.Scenario.ERROR_NOW, in = 12)
             )
           )
@@ -113,7 +117,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns correct error after two response") {
         assertM(
           collectWithError(
-            TestServiceClient.serverStreaming(
+            TestServiceClient.serverStreaming[Any](
               Request(Request.Scenario.ERROR_AFTER, in = 12)
             )
           )
@@ -128,7 +132,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
         assertM(for {
           fb <-
             TestServiceClient
-              .serverStreaming(
+              .serverStreaming[Any](
                 Request(Request.Scenario.DELAY, in = 12)
               )
               .runCollect
@@ -141,7 +145,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns failure when failure") {
         assertM(
           collectWithError(
-            TestServiceClient.serverStreaming(
+            TestServiceClient.serverStreaming[Any](
               Request(Request.Scenario.DIE, in = 12)
             )
           )
@@ -155,7 +159,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("client streaming request")(
       testM("returns successful response") {
         assertM(
-          TestServiceClient.clientStreaming(
+          TestServiceClient.clientStreaming[Any](
             Stream(
               Request(Scenario.OK, in = 17),
               Request(Scenario.OK, in = 12),
@@ -166,7 +170,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns successful response on empty stream") {
         assertM(
-          TestServiceClient.clientStreaming(
+          TestServiceClient.clientStreaming[Any](
             Stream.empty
           )
         )(equalTo(Response("0")))
@@ -174,7 +178,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns correct error response") {
         assertM(
           TestServiceClient
-            .clientStreaming(
+            .clientStreaming[Any](
               Stream(
                 Request(Scenario.OK, in = 17),
                 Request(Scenario.OK, in = 12),
@@ -188,7 +192,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
         assertM(for {
           fiber <-
             TestServiceClient
-              .clientStreaming(
+              .clientStreaming[Any](
                 Stream(
                   Request(Scenario.OK, in = 17),
                   Request(Scenario.OK, in = 12),
@@ -204,7 +208,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns response on failures") {
         assertM(
           TestServiceClient
-            .clientStreaming(
+            .clientStreaming[Any](
               Stream(
                 Request(Scenario.OK, in = 17),
                 Request(Scenario.OK, in = 12),
@@ -243,7 +247,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("bidi streaming request")(
       testM("returns successful response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _ <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _ <- bf.send(Request(Scenario.OK, in = 3))
@@ -265,7 +269,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns correct error response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _ <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _ <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
@@ -283,7 +287,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           for {
             testServiceImpl <- ZIO.environment[TestServiceImpl]
             collectFiber <- collectWithError(
-              TestServiceClient.bidiStreaming(
+              TestServiceClient.bidiStreaming[Any](
                 Stream(
                   Request(Scenario.OK, in = 17)
                 ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain
@@ -300,7 +304,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns response on failures") {
         assertM(
           TestServiceClient
-            .bidiStreaming(
+            .bidiStreaming[Any](
               Stream(
                 Request(Scenario.OK, in = 17),
                 Request(Scenario.OK, in = 12),

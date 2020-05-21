@@ -52,6 +52,9 @@ object EnvSpec extends DefaultRunnableSpec {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
+  val RandomKey =
+    Metadata.Key.of("random", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
+
   def parseUser(rc: RequestContext): IO[Status, User] =
     Option(rc.metadata.get(UserKey)) match {
       case Some("alice") =>
@@ -73,7 +76,7 @@ object EnvSpec extends DefaultRunnableSpec {
 
   def clientLayer(
       userName: Option[String]
-  ): ZLayer[Server, Nothing, TestServiceClient] =
+  ): ZLayer[Server, Nothing, TestServiceClient[zio.random.Random]] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
       ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
         val ch = ZManagedChannel(
@@ -82,11 +85,16 @@ object EnvSpec extends DefaultRunnableSpec {
         TestServiceClient
           .managed(
             ch,
-            headers = {
-              val md = new Metadata()
-              userName.foreach(md.put(UserKey, _))
-              md
-            }
+            headers = for {
+              random <- zio.ZIO.access[zio.random.Random](_.get)
+              rand <- random.nextInt
+              md <- UIO.succeed({
+                val md = new Metadata()
+                userName.foreach(md.put(UserKey, _))
+                md
+              })
+              _ <- UIO.succeed(md.put(RandomKey, s"$rand"))
+            } yield md
           )
           .orDie
       }

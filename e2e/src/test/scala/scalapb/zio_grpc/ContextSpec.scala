@@ -56,7 +56,7 @@ object ContextSpec extends DefaultRunnableSpec {
 
   def clientLayer(
       userName: Option[String]
-  ): ZLayer[Server, Nothing, TestServiceClient] =
+  ): ZLayer[Server, Nothing, TestServiceClient[Any]] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
       ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
         val ch = ZManagedChannel(
@@ -65,11 +65,11 @@ object ContextSpec extends DefaultRunnableSpec {
         TestServiceClient
           .managed(
             ch,
-            headers = {
+            headers = UIO.succeed({
               val md = new Metadata()
               userName.foreach(md.put(UserKey, _))
               md
-            }
+            })
           )
           .orDie
       }
@@ -82,11 +82,12 @@ object ContextSpec extends DefaultRunnableSpec {
   val permissionDenied = fails(hasStatusCode(Status.PERMISSION_DENIED))
   val unauthenticated = fails(hasStatusCode(Status.UNAUTHENTICATED))
 
-  val unaryEffect = TestServiceClient.unary(Request())
+  val unaryEffect = TestServiceClient.unary[Any](Request())
   val serverStreamingEffect =
-    TestServiceClient.serverStreaming(Request()).runCollect
-  val clientStreamingEffect = TestServiceClient.clientStreaming(Stream.empty)
-  val bidiEffect = TestServiceClient.bidiStreaming(Stream.empty).runCollect
+    TestServiceClient.serverStreaming[Any](Request()).runCollect
+  val clientStreamingEffect =
+    TestServiceClient.clientStreaming[Any](Stream.empty)
+  val bidiEffect = TestServiceClient.bidiStreaming[Any](Stream.empty).runCollect
 
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(

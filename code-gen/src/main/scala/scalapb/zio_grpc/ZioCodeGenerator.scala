@@ -102,21 +102,23 @@ class ZioFilePrinter(
         method: MethodDescriptor,
         inEnvType: String,
         outEnvType: String,
-        contextType: Option[String]
+        contextType: Option[String],
+        typeParameters: Option[String] = None
     ): String = {
       val scalaInType = method.inputType.scalaType
       val scalaOutType = method.outputType.scalaType
       val maybeContext = contextType.fold("")(ct => s", context: ${ct}")
+      val maybeTypeParameters = typeParameters.fold("")(t => s"[$t]")
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary =>
-          s"(request: $scalaInType$maybeContext): ${io(scalaOutType, outEnvType)}"
+          s"$maybeTypeParameters(request: $scalaInType$maybeContext): ${io(scalaOutType, outEnvType)}"
         case StreamType.ClientStreaming =>
-          s"(request: ${stream(scalaInType, inEnvType)}$maybeContext): ${io(scalaOutType, outEnvType)}"
+          s"$maybeTypeParameters(request: ${stream(scalaInType, inEnvType)}$maybeContext): ${io(scalaOutType, outEnvType)}"
         case StreamType.ServerStreaming =>
-          s"(request: $scalaInType$maybeContext): ${stream(scalaOutType, outEnvType)}"
+          s"$maybeTypeParameters(request: $scalaInType$maybeContext): ${stream(scalaOutType, outEnvType)}"
         case StreamType.Bidirectional =>
-          s"(request: ${stream(scalaInType, inEnvType)}$maybeContext): ${stream(scalaOutType, outEnvType)}"
+          s"$maybeTypeParameters(request: ${stream(scalaInType, inEnvType)}$maybeContext): ${stream(scalaOutType, outEnvType)}"
       })
     }
 
@@ -305,26 +307,32 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
+          s"type ${clientServiceName.name}[R] = _root_.zio.Has[${clientServiceName.name}.ZService[R]]"
+        )
+        .add(
+          s"type Z${clientServiceName.name}[R] = _root_.zio.Has[${clientServiceName.name}.ZService[R]]"
         )
         .add("")
         .add(s"object ${clientServiceName.name} {")
         .indent
         .add(
-          s"trait Service extends ${traitName.fullName}"
+          s"trait ZService[-R] extends ${ztraitName.fullName}[R, Any]"
+        )
+        .add(
+          s"trait Service extends ZService[Any]"
         )
         .add("")
         .add("// accessor methods")
         .print(service.getMethods().asScala.toVector)(printAccessor)
         .add("")
         .add(
-          s"def managed(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.Managed[Throwable, ${clientServiceName.name}.Service] = managedChannel.map {"
+          s"def managed[R : zio.Tagged](managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[R, io.grpc.Status, $Metadata] = zio.ZIO.succeed(new $Metadata())): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R]] = managedChannel.map {"
         )
         .indent
-        .add("channel => new Service {")
+        .add("channel => new ZService[R] {")
         .indent
         .print(service.getMethods().asScala.toVector)(
-          printClientImpl(envType = "Any")
+          printClientImpl(envType = "R")
         )
         .outdent
         .add("}")
@@ -332,7 +340,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def live(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.Layer[Throwable, ${clientServiceName.name}] = zio.ZLayer.fromManaged(managed(managedChannel, options, headers))"
+          s"def live[R <: zio.Has[_] : zio.Tagged](managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[R, io.grpc.Status, $Metadata] = zio.ZIO.succeed(new $Metadata())): zio.Layer[Throwable, Z${clientServiceName.name}[R]] = zio.ZLayer.fromManaged(managed(managedChannel, options, headers))"
         )
         .outdent
         .add("}")
@@ -385,13 +393,16 @@ class ZioFilePrinter(
         methodSignature(
           method,
           inEnvType = "Any",
-          outEnvType = clientServiceName.name,
-          contextType = None
+          outEnvType = s"Z${clientServiceName.name}[R] with R",
+          contextType = None,
+          typeParameters = Some("R : zio.Tagged")
         ) + " = "
       val innerCall = s"_.get.${method.name}(request)"
       val clientCall = method.streamType match {
-        case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
-        case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
+        case StreamType.Unary =>
+          s"_root_.zio.ZIO.accessM[Z${clientServiceName.name}[R] with R]($innerCall)"
+        case StreamType.ClientStreaming =>
+          s"_root_.zio.ZIO.accessM[Z${clientServiceName.name}[R] with R]($innerCall)"
         case StreamType.ServerStreaming =>
           s"_root_.zio.stream.ZStream.accessStream($innerCall)"
         case StreamType.Bidirectional =>
@@ -404,17 +415,22 @@ class ZioFilePrinter(
         envType: String
     )(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
       val clientCall = method.streamType match {
-        case StreamType.Unary           => s"$ClientCalls.unaryCall"
-        case StreamType.ClientStreaming => s"$ClientCalls.clientStreamingCall"
-        case StreamType.ServerStreaming => s"$ClientCalls.serverStreamingCall"
-        case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
+        case StreamType.Unary =>
+          s"headers.flatMap(headers => $ClientCalls.unaryCall"
+        case StreamType.ClientStreaming =>
+          s"headers.flatMap(headers => $ClientCalls.clientStreamingCall"
+        case StreamType.ServerStreaming =>
+          s"zio.stream.ZStream.fromEffect(headers).flatMap(headers => $ClientCalls.serverStreamingCall"
+        case StreamType.Bidirectional =>
+          s"zio.stream.ZStream.fromEffect(headers).flatMap(headers => $ClientCalls.bidiCall"
       }
       fp.add(
           methodSignature(
             method,
             inEnvType = "Any",
             outEnvType = envType,
-            contextType = None
+            contextType = None,
+            typeParameters = None
           ) + s" = $clientCall("
         )
         .indent
@@ -424,7 +440,7 @@ class ZioFilePrinter(
         .add(s"headers,")
         .add(s"request")
         .outdent
-        .add(s")")
+        .add(s"))")
     }
     def printBindService(
         fp: FunctionalPrinter,
