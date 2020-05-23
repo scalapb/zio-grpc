@@ -5,7 +5,7 @@ import zio.Has
 import zio.Managed
 import zio.ZLayer
 import zio.ZManaged
-import zio.Tagged
+import zio.Tag
 
 import io.grpc.ServerBuilder
 import io.grpc.ServerServiceDefinition
@@ -109,7 +109,7 @@ object Server {
       )
     )
 
-  def zlive[R0, S0: Tagged](
+  def zlive[R0, S0: Tag](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, R0]
@@ -118,9 +118,9 @@ object Server {
 
   def zlive[
       R0,
-      S0: Tagged,
+      S0: Tag,
       R1,
-      S1: Tagged
+      S1: Tag
   ](
       builder: => ServerBuilder[_]
   )(implicit
@@ -133,11 +133,11 @@ object Server {
 
   def zlive[
       R0,
-      S0: Tagged,
+      S0: Tag,
       R1,
-      S1: Tagged,
+      S1: Tag,
       R2,
-      S2: Tagged
+      S2: Tag
   ](
       builder: => ServerBuilder[_]
   )(implicit
@@ -156,14 +156,14 @@ object Server {
       Server.Service
     ]((s0: S0, s1: S1, s2: S2) => Server.zmanaged(builder, s0, s1, s2).orDie)
 
-  def live[S0: Tagged](
+  def live[S0: Tag](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, Any]
   ): ZLayer[Has[S0], Nothing, Server] =
     zlive[Any, S0](builder)
 
-  def live[S0: Tagged, S1: Tagged](
+  def live[S0: Tag, S1: Tagged](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, Any],
@@ -171,7 +171,7 @@ object Server {
   ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
     zlive[Any, S0, Any, S1](builder)
 
-  def live[S0: Tagged, S1: Tagged, S2: Tagged](
+  def live[S0: Tag, S1: Tagged, S2: Tagged](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, Any],

@@ -3,7 +3,7 @@ package scalapb.zio_grpc
 import zio.ZIO
 import zio.stream.ZStream
 import zio.Has
-import zio.Tagged
+import zio.Tag
 
 /** Describes a transformation of an a effect or a stream.
   *
@@ -25,7 +25,7 @@ object ZTransform {
     }
 
   /** Provides the entire environment of a service (leaving only the context) */
-  def provideEnv[R <: Has[_], E, Context <: Has[_]: Tagged](
+  def provideEnv[R <: Has[_], E, Context <: Has[_]: Tag](
       env: R
   ): ZTransform[R with Context, E, Context] =
     provideSome(ctx => env.union(ctx).asInstanceOf[R with Context])
@@ -34,9 +34,9 @@ object ZTransform {
     * applying an effectful function on the environment */
   def transformContext[R <: Has[_], E, Context1 <: Has[
     _
-  ]: Tagged, Context2 <: Has[
+  ]: Tag, Context2 <: Has[
     _
-  ]: Tagged](
+  ]: Tag](
       f: Context2 => ZIO[R, E, Context1]
   ): ZTransform[R with Context1, E, R with Context2] =
     new ZTransform[R with Context1, E, R with Context2] {

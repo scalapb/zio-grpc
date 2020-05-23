@@ -239,19 +239,19 @@ class ZioFilePrinter(
             .add("}")
             .add("")
             .add(
-              s"def provide[R <: zio.Has[_], Context <: zio.Has[_] : zio.Tagged](serviceImpl: ${ztraitName.name}[R, Context], env: R): ${ztraitName.fullName}[Any, Context] ="
+              s"def provide[R <: zio.Has[_], Context <: zio.Has[_] : zio.Tag](serviceImpl: ${ztraitName.name}[R, Context], env: R): ${ztraitName.fullName}[Any, Context] ="
             )
             .add(
               "  transform(serviceImpl, scalapb.zio_grpc.ZTransform.provideEnv[R, io.grpc.Status, Context](env))"
             )
             .add(
-              s"def transformContext[R <: zio.Has[_], C1: zio.Tagged, C2: zio.Tagged](serviceImpl: ${ztraitName.name}[R, zio.Has[C1]], f: C2 => ${io("C1", "R")}): ${ztraitName.fullName}[R, zio.Has[C2]] ="
+              s"def transformContext[R <: zio.Has[_], C1: zio.Tag, C2: zio.Tagged](serviceImpl: ${ztraitName.name}[R, zio.Has[C1]], f: C2 => ${io("C1", "R")}): ${ztraitName.fullName}[R, zio.Has[C2]] ="
             )
             .add(
               "  transform(serviceImpl, scalapb.zio_grpc.ZTransform.transformContext[R, io.grpc.Status, zio.Has[C1], zio.Has[C2]]((hc2: zio.Has[C2]) => f(hc2.get).map(zio.Has(_))))"
             )
             .add(
-              s"def toLayer[R <: zio.Has[_], Context <: zio.Has[_] : zio.Tagged](serviceImpl: ${ztraitName.name}[R, Context]): zio.ZLayer[R, Nothing, zio.Has[${ztraitName.fullName}[Any, Context]]] ="
+              s"def toLayer[R <: zio.Has[_], Context <: zio.Has[_] : zio.Tag](serviceImpl: ${ztraitName.name}[R, Context]): zio.ZLayer[R, Nothing, zio.Has[${ztraitName.fullName}[Any, Context]]] ="
             )
             .add("  zio.ZLayer.fromFunction(provide(serviceImpl, _))")
         )
@@ -271,7 +271,7 @@ class ZioFilePrinter(
             )
             .add("")
             .add(
-              s"def asEnv[Context : zio.Tagged](serviceImpl: ${withContext.name}[Context]): ${ztraitName.fullName}[Any, zio.Has[Context]] = new ${ztraitName.fullName}[Any, zio.Has[Context]] {"
+              s"def asEnv[Context : zio.Tag](serviceImpl: ${withContext.name}[Context]): ${ztraitName.fullName}[Any, zio.Has[Context]] = new ${ztraitName.fullName}[Any, zio.Has[Context]] {"
             )
             .indented(
               _.print(service.getMethods().asScala.toVector)(
