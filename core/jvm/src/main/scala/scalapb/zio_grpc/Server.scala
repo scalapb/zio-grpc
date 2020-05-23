@@ -163,7 +163,7 @@ object Server {
   ): ZLayer[Has[S0], Nothing, Server] =
     zlive[Any, S0](builder)
 
-  def live[S0: Tag, S1: Tagged](
+  def live[S0: Tag, S1: Tag](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, Any],
@@ -171,7 +171,7 @@ object Server {
   ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
     zlive[Any, S0, Any, S1](builder)
 
-  def live[S0: Tag, S1: Tagged, S2: Tagged](
+  def live[S0: Tag, S1: Tag, S2: Tag](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService.Aux[S0, Any],
