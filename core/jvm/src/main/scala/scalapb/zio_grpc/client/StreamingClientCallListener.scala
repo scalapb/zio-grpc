@@ -10,6 +10,7 @@ import zio.IO
 import StreamingCallState._
 import zio.stream.ZStream
 import zio.UIO
+import zio.URIO
 
 sealed trait StreamingCallState[+Res]
 
@@ -22,9 +23,9 @@ object StreamingCallState {
   case class Failure[Res](s: String) extends StreamingCallState[Res]
 }
 
-class StreamingClientCallListener[Res](
-    runtime: Runtime[Any],
-    call: ZClientCall[_, Res],
+class StreamingClientCallListener[R, Res](
+    runtime: Runtime[R],
+    call: ZClientCall[R, _, Res],
     state: Ref[StreamingCallState[Res]],
     queue: Queue[Either[(Status, Metadata), Res]]
 ) extends ClientCall.Listener[Res] {
@@ -60,11 +61,11 @@ class StreamingClientCallListener[Res](
 }
 
 object StreamingClientCallListener {
-  def make[Res](
-      call: ZClientCall[_, Res]
-  ): UIO[StreamingClientCallListener[Res]] =
+  def make[R, Res](
+      call: ZClientCall[R, _, Res]
+  ): URIO[R, StreamingClientCallListener[R, Res]] =
     for {
-      runtime <- zio.ZIO.runtime[Any]
+      runtime <- zio.ZIO.runtime[R]
       state <- Ref.make[StreamingCallState[Res]](Initial)
       queue <- Queue.unbounded[Either[(Status, Metadata), Res]]
     } yield new StreamingClientCallListener(runtime, call, state, queue)

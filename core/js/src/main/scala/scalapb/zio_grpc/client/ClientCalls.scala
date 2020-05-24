@@ -3,6 +3,7 @@ package scalapb.zio_grpc.client
 import zio.IO
 import zio.stream.Stream
 import scalapb.zio_grpc.{GIO, GStream}
+import scalapb.zio_grpc.ZChannel
 import io.grpc.MethodDescriptor
 import io.grpc.CallOptions
 import io.grpc.Metadata
@@ -11,8 +12,8 @@ import scalapb.grpcweb.native.ErrorInfo
 import io.grpc.Status
 
 object ClientCalls {
-  def unaryCall[Req, Res](
-      channel: Channel,
+  def unaryCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: Metadata,
@@ -20,7 +21,7 @@ object ClientCalls {
   ): GIO[Res] =
     IO.effectAsync { callback =>
       channel.client.rpcCall[Req, Res](
-        channel.baseUrl + "/" + method.fullName,
+        channel.channel.baseUrl + "/" + method.fullName,
         req,
         scalajs.js.Dictionary[String](),
         method.methodInfo,

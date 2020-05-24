@@ -1,24 +1,24 @@
 package scalapb.zio_grpc.client
 
-import scalapb.zio_grpc.GIO
 import scalapb.zio_grpc.GStream
 import io.grpc.CallOptions
-import io.grpc.Channel
 import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO
 import io.grpc.Status
 import zio.stream.Stream
 import io.grpc.MethodDescriptor
+import scalapb.zio_grpc.ZChannel
+import zio.stream.ZStream
 
 object ClientCalls {
-  def exitHandler[Req, Res](
-      call: ZClientCall[Req, Res]
+  def exitHandler[R, Req, Res](
+      call: ZClientCall[R, Req, Res]
   )(l: Any, ex: Exit[Status, Any]) = anyExitHandler(call)(l, ex)
 
   // less type safe
-  def anyExitHandler[Req, Res](
-      call: ZClientCall[Req, Res]
+  def anyExitHandler[R, Req, Res](
+      call: ZClientCall[R, Req, Res]
   ) =
     (_: Any, ex: Exit[Any, Any]) => {
       ZIO.when(!ex.succeeded) {
@@ -26,20 +26,20 @@ object ClientCalls {
       }
     }
 
-  def unaryCall[Req, Res](
-      channel: Channel,
+  def unaryCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: Metadata,
       req: Req
-  ): GIO[Res] =
-    unaryCall(ZClientCall(channel.newCall(method, options)), headers, req)
+  ): ZIO[R, Status, Res] =
+    unaryCall(channel.newCall(method, options), headers, req)
 
-  private def unaryCall[Req, Res](
-      call: ZClientCall[Req, Res],
+  private def unaryCall[R, Req, Res](
+      call: ZClientCall[R, Req, Res],
       headers: Metadata,
       req: Req
-  ): GIO[Res] =
+  ): ZIO[R, Status, Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
       listener =>
         call.start(listener, headers) *>
@@ -49,29 +49,29 @@ object ClientCalls {
           listener.getValue.map(_._2)
     }
 
-  def serverStreamingCall[Req, Res](
-      channel: Channel,
+  def serverStreamingCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: Metadata,
       req: Req
-  ): GStream[Res] =
+  ): ZStream[R, Status, Res] =
     serverStreamingCall(
-      ZClientCall(channel.newCall(method, options)),
+      channel.newCall(method, options),
       headers,
       req
     )
 
-  private def serverStreamingCall[Req, Res](
-      call: ZClientCall[Req, Res],
+  private def serverStreamingCall[R, Req, Res](
+      call: ZClientCall[R, Req, Res],
       headers: Metadata,
       req: Req
-  ): GStream[Res] =
+  ): ZStream[R, Status, Res] =
     Stream
       .bracketExit(
-        StreamingClientCallListener.make[Res](call)
-      )(anyExitHandler(call))
-      .flatMap { listener: StreamingClientCallListener[Res] =>
+        StreamingClientCallListener.make[R, Res](call)
+      )(anyExitHandler[R, Req, Res](call))
+      .flatMap { listener: StreamingClientCallListener[R, Res] =>
         Stream
           .fromEffect(
             call.start(listener, headers) *>
@@ -82,24 +82,24 @@ object ClientCalls {
           .drain ++ listener.stream
       }
 
-  def clientStreamingCall[Req, Res](
-      channel: Channel,
+  def clientStreamingCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: Metadata,
       req: GStream[Req]
-  ): GIO[Res] =
+  ): ZIO[R, Status, Res] =
     clientStreamingCall(
-      ZClientCall(channel.newCall(method, options)),
+      channel.newCall(method, options),
       headers,
       req
     )
 
-  private def clientStreamingCall[Req, Res](
-      call: ZClientCall[Req, Res],
+  private def clientStreamingCall[R, Req, Res](
+      call: ZClientCall[R, Req, Res],
       headers: Metadata,
       req: GStream[Req]
-  ): GIO[Res] =
+  ): ZIO[R, Status, Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
       listener =>
         call.start(listener, headers) *>
@@ -109,25 +109,25 @@ object ClientCalls {
           listener.getValue.map(_._2)
     }
 
-  def bidiCall[Req, Res](
-      channel: Channel,
+  def bidiCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: Metadata,
       req: GStream[Req]
-  ): GStream[Res] =
-    bidiCall(ZClientCall(channel.newCall(method, options)), headers, req)
+  ): ZStream[R, Status, Res] =
+    bidiCall(channel.newCall(method, options), headers, req)
 
-  private def bidiCall[Req, Res](
-      call: ZClientCall[Req, Res],
+  private def bidiCall[R, Req, Res](
+      call: ZClientCall[R, Req, Res],
       headers: Metadata,
       req: GStream[Req]
-  ): GStream[Res] =
+  ): ZStream[R, Status, Res] =
     Stream
       .bracketExit(
-        StreamingClientCallListener.make[Res](call)
+        StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler(call))
-      .flatMap { listener: StreamingClientCallListener[Res] =>
+      .flatMap { listener: StreamingClientCallListener[R, Res] =>
         val init = Stream
           .fromEffect(
             call.start(listener, headers) *>

@@ -13,7 +13,7 @@ import zio.console.Console
 import zio.stream.ZStream
 import zio.clock.Clock
 
-object EnvSpec extends DefaultRunnableSpec {
+object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   case class User(name: String)
 
   val getUser = ZIO.access[Has[User]](_.get)
@@ -71,22 +71,27 @@ object EnvSpec extends DefaultRunnableSpec {
     Server
       .live[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
 
-  def clientLayer(
+  override def clientLayer(
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
       ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
         val ch = ZManagedChannel(
-          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
+          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
+          Seq(
+            ZClientInterceptor.metadataReplacer((_, _) =>
+              ZIO.succeed({
+                val md = new Metadata()
+                userName.foreach(md.put(UserKey, _))
+                md
+              })
+            )
+          )
         )
         TestServiceClient
           .managed(
             ch,
-            headers = {
-              val md = new Metadata()
-              userName.foreach(md.put(UserKey, _))
-              md
-            }
+            headers = new Metadata()
           )
           .orDie
       }
@@ -96,6 +101,6 @@ object EnvSpec extends DefaultRunnableSpec {
 
   def spec =
     suite("EnvSpec")(
-      ContextSpec.specs: _*
+      specs: _*
     ).provideLayer(layers)
 }

@@ -6,8 +6,6 @@ import zio.stream.Stream
 import zio.Managed
 import zio.Has
 
-import io.grpc.ManagedChannel
-
 package object zio_grpc {
   type GIO[A] = IO[Status, A]
 
@@ -15,5 +13,5 @@ package object zio_grpc {
 
   type Server = Has[Server.Service]
 
-  type ZManagedChannel = Managed[Throwable, ManagedChannel]
+  type ZManagedChannel[R] = Managed[Throwable, ZChannel[R]]
 }
