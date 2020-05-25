@@ -79,20 +79,13 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(
-            ZClientInterceptor.metadataReplacer((_, _) =>
-              ZIO.succeed({
-                val md = new Metadata()
-                userName.foreach(md.put(UserKey, _))
-                md
-              })
+            ZClientInterceptor.headersUpdater((_, _, md) =>
+              ZIO.foreach(userName)(un => md.put(UserKey, un)).unit
             )
           )
         )
         TestServiceClient
-          .managed(
-            ch,
-            headers = new Metadata()
-          )
+          .managed(ch)
           .orDie
       }
     }

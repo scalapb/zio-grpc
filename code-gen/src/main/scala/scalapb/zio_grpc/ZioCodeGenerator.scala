@@ -57,6 +57,7 @@ class ZioFilePrinter(
   val CallOptions = "io.grpc.CallOptions"
   val ClientCalls = "scalapb.zio_grpc.client.ClientCalls"
   val Metadata = "io.grpc.Metadata"
+  val SafeMetadata = "scalapb.zio_grpc.SafeMetadata"
   val Status = "io.grpc.Status"
   val methodDescriptor = "io.grpc.MethodDescriptor"
   val RequestContext = "scalapb.zio_grpc.RequestContext"
@@ -274,7 +275,7 @@ class ZioFilePrinter(
         .print(service.getMethods().asScala.toVector)(printAccessor)
         .add("")
         .add(
-          s"def managed[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R]] = managedChannel.map {"
+          s"def managed[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R]] = managedChannel.map {"
         )
         .indent
         .add("channel => new ZService[R] {")
@@ -288,7 +289,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def live[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = zio.ZLayer.fromFunctionManaged((r: R) => managed(managedChannel.map(_.provide(r)), options, headers))"
+          s"def live[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = zio.ZLayer.fromFunctionManaged((r: R) => managed(managedChannel.map(_.provide(r)), options, headers))"
         )
         .outdent
         .add("}")
@@ -363,13 +364,21 @@ class ZioFilePrinter(
         case StreamType.ServerStreaming => s"$ClientCalls.serverStreamingCall"
         case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
       }
+      val prefix = method.streamType match {
+        case StreamType.Unary           => s"headers.flatMap"
+        case StreamType.ClientStreaming => s"headers.flatMap"
+        case StreamType.ServerStreaming =>
+          s"zio.stream.ZStream.fromEffect(headers).flatMap"
+        case StreamType.Bidirectional =>
+          s"zio.stream.ZStream.fromEffect(headers).flatMap"
+      }
       fp.add(
           methodSignature(
             method,
             inEnvType = "Any",
             outEnvType = envType,
             contextType = None
-          ) + s" = $clientCall("
+          ) + s" = $prefix { headers => $clientCall("
         )
         .indent
         .add(
@@ -378,7 +387,7 @@ class ZioFilePrinter(
         .add(s"headers,")
         .add(s"request")
         .outdent
-        .add(s")")
+        .add(s")}")
     }
     def printBindService(
         fp: FunctionalPrinter,

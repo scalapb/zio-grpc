@@ -25,7 +25,8 @@ class ZChannel[-R](
 
   def shutdown(): Task[Unit] = ZIO.effect(channel.shutdown()).unit
 
-  def provide(r: R): ZChannel[Any] = new ZChannel[Any](channel, interceptors.map(_.provide(r)))
+  def provide(r: R): ZChannel[Any] =
+    new ZChannel[Any](channel, interceptors.map(_.provide(r)))
 }
 
 object ZManagedChannel {

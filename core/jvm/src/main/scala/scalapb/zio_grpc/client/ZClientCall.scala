@@ -2,16 +2,16 @@ package scalapb.zio_grpc.client
 
 import io.grpc.ClientCall
 import io.grpc.ClientCall.Listener
-import io.grpc.Metadata
 import scalapb.zio_grpc.GIO
 import zio.ZIO
 import io.grpc.Status
+import scalapb.zio_grpc.SafeMetadata
 
 trait ZClientCall[-R, Req, Res] extends Any {
   self =>
   def start(
       responseListener: Listener[Res],
-      headers: Metadata
+      headers: SafeMetadata
   ): ZIO[R, Status, Unit]
 
   def request(numMessages: Int): ZIO[R, Status, Unit]
@@ -22,24 +22,32 @@ trait ZClientCall[-R, Req, Res] extends Any {
 
   def sendMessage(message: Req): ZIO[R, Status, Unit]
 
-  def provide(r: R): ZClientCall[Any, Req, Res] = new ZClientCall[Any, Req, Res] {
-    def start(responseListener: Listener[Res], headers: Metadata): ZIO[Any,Status,Unit] = self.start(responseListener, headers).provide(r)
+  def provide(r: R): ZClientCall[Any, Req, Res] =
+    new ZClientCall[Any, Req, Res] {
+      def start(
+          responseListener: Listener[Res],
+          headers: SafeMetadata
+      ): ZIO[Any, Status, Unit] =
+        self.start(responseListener, headers).provide(r)
 
-    def request(numMessages: Int): ZIO[Any,Status,Unit] = self.request(numMessages).provide(r)
+      def request(numMessages: Int): ZIO[Any, Status, Unit] =
+        self.request(numMessages).provide(r)
 
-    def cancel(message: String): ZIO[Any,Status,Unit] = self.cancel(message).provide(r)
+      def cancel(message: String): ZIO[Any, Status, Unit] =
+        self.cancel(message).provide(r)
 
-    def halfClose(): ZIO[Any,Status,Unit] = self.halfClose().provide(r)
+      def halfClose(): ZIO[Any, Status, Unit] = self.halfClose().provide(r)
 
-    def sendMessage(message: Req): ZIO[Any,Status,Unit] = self.sendMessage(message).provide(r)
-  }
+      def sendMessage(message: Req): ZIO[Any, Status, Unit] =
+        self.sendMessage(message).provide(r)
+    }
 }
 
 class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res])
     extends AnyVal
     with ZClientCall[Any, Req, Res] {
-  def start(responseListener: Listener[Res], headers: Metadata): GIO[Unit] =
-    GIO.effect(call.start(responseListener, headers))
+  def start(responseListener: Listener[Res], headers: SafeMetadata): GIO[Unit] =
+    GIO.effect(call.start(responseListener, headers.metadata))
 
   def request(numMessages: Int): GIO[Unit] =
     GIO.effect(call.request(numMessages))
@@ -62,7 +70,7 @@ object ZClientCall {
   ) extends ZClientCall[R, Req, Res] {
     override def start(
         responseListener: Listener[Res],
-        headers: Metadata
+        headers: SafeMetadata
     ): ZIO[R, Status, Unit] = delegate.start(responseListener, headers)
 
     override def request(numMessages: Int): ZIO[R, Status, Unit] =
@@ -79,13 +87,13 @@ object ZClientCall {
 
   def headersTransformer[R, Req, Res](
       clientCall: ZClientCall[R, Req, Res],
-      fetchHeaders: Metadata => ZIO[R, Status, Metadata]
+      updateHeaders: SafeMetadata => ZIO[R, Status, SafeMetadata]
   ) =
     new ForwardingZClientCall[R, Req, Res, R](clientCall) {
       override def start(
           responseListener: Listener[Res],
-          headers: Metadata
+          headers: SafeMetadata
       ): ZIO[R, Status, Unit] =
-        fetchHeaders(headers) >>= { h => delegate.start(responseListener, h) }
+        updateHeaders(headers) >>= { h => delegate.start(responseListener, h) }
     }
 }

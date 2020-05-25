@@ -2,7 +2,6 @@ package scalapb.zio_grpc.client
 
 import scalapb.zio_grpc.GStream
 import io.grpc.CallOptions
-import io.grpc.Metadata
 import zio.Exit
 import zio.ZIO
 import io.grpc.Status
@@ -10,6 +9,7 @@ import zio.stream.Stream
 import io.grpc.MethodDescriptor
 import scalapb.zio_grpc.ZChannel
 import zio.stream.ZStream
+import scalapb.zio_grpc.SafeMetadata
 
 object ClientCalls {
   def exitHandler[R, Req, Res](
@@ -30,14 +30,14 @@ object ClientCalls {
       channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
     unaryCall(channel.newCall(method, options), headers, req)
 
   private def unaryCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
@@ -53,7 +53,7 @@ object ClientCalls {
       channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
     serverStreamingCall(
@@ -64,7 +64,7 @@ object ClientCalls {
 
   private def serverStreamingCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
     Stream
@@ -86,7 +86,7 @@ object ClientCalls {
       channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
   ): ZIO[R, Status, Res] =
     clientStreamingCall(
@@ -97,7 +97,7 @@ object ClientCalls {
 
   private def clientStreamingCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
   ): ZIO[R, Status, Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
@@ -113,14 +113,14 @@ object ClientCalls {
       channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
   ): ZStream[R, Status, Res] =
     bidiCall(channel.newCall(method, options), headers, req)
 
   private def bidiCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
   ): ZStream[R, Status, Res] =
     Stream

@@ -45,17 +45,13 @@ object ZTransform {
       ): ZIO[R with Context2, E, A] =
         ZIO
           .accessM(f)
-          .flatMap(nc =>
-            io.provideSome(r0 => r0.union[Context1](nc))
-          )
+          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
 
       def stream[A](
           io: ZStream[R with Context1, E, A]
       ): ZStream[R with Context2, E, A] =
         ZStream
           .fromEffect(ZIO.accessM(f))
-          .flatMap(nc =>
-            io.provideSome(r0 => r0.union[Context1](nc))
-          )
+          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
     }
 }
