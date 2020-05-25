@@ -34,7 +34,7 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.0-RC19-2+25-16d11e80-SNAPSHOT"
+val zioVersion = "1.0.0-RC20"
 
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .in(file("core"))
