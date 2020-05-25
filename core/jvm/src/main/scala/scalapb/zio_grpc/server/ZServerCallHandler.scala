@@ -10,6 +10,7 @@ import scalapb.zio_grpc.server.ZServerCall
 import zio.stream.ZStream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
+import scalapb.zio_grpc.SafeMetadata
 
 class ZServerCallHandler[R, Req, Res](
     runtime: Runtime[R],
@@ -21,7 +22,9 @@ class ZServerCallHandler[R, Req, Res](
   ): Listener[Req] = {
     val zioCall = new ZServerCall(call)
     val runner = for {
-      driver <- mkDriver(zioCall, RequestContext.fromServerCall(headers, call))
+      driver <- SafeMetadata.fromMetadata(headers) >>= { md =>
+        mkDriver(zioCall, RequestContext.fromServerCall(md, call))
+      }
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's

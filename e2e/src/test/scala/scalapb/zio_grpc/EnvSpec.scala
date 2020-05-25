@@ -53,7 +53,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
   def parseUser(rc: RequestContext): IO[Status, User] =
-    Option(rc.metadata.get(UserKey)) match {
+    rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
         IO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
