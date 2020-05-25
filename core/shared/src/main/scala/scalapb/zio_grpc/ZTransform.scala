@@ -28,7 +28,7 @@ object ZTransform {
   def provideEnv[R <: Has[_], E, Context <: Has[_]: Tag](
       env: R
   ): ZTransform[R with Context, E, Context] =
-    provideSome(ctx => env.union(ctx).asInstanceOf[R with Context])
+    provideSome(ctx => env.union[Context](ctx))
 
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment */
@@ -46,7 +46,7 @@ object ZTransform {
         ZIO
           .accessM(f)
           .flatMap(nc =>
-            io.provideSome(r0 => r0.union(nc).asInstanceOf[R with Context1])
+            io.provideSome(r0 => r0.union[Context1](nc))
           )
 
       def stream[A](
@@ -55,7 +55,7 @@ object ZTransform {
         ZStream
           .fromEffect(ZIO.accessM(f))
           .flatMap(nc =>
-            io.provideSome(r0 => r0.union(nc).asInstanceOf[R with Context1])
+            io.provideSome(r0 => r0.union[Context1](nc))
           )
     }
 }
