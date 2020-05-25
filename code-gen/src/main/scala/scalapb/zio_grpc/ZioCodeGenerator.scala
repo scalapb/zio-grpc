@@ -95,8 +95,6 @@ class ZioFilePrinter(
 
     private val traitName = OuterObject / service.name
     private val ztraitName = OuterObject / ("Z" + service.name)
-    private val withContext = traitName / "WithContext"
-    private val withMetadata = traitName / "WithMetadata"
 
     private val clientServiceName = OuterObject / (service.name + "Client")
 
@@ -259,53 +257,6 @@ class ZioFilePrinter(
         )
         .add("}")
         .add("")
-        .add(s"object ${traitName.name} {")
-        .indented(
-          _.add(s"trait ${withContext.name}[-Context] {")
-            .indented(
-              _.print(service.getMethods().asScala.toVector)(
-                printMethodSignature(contextType = Some("Context"))
-              )
-            )
-            .add("}")
-            .add(
-              s"type ${withMetadata.name} = ${withContext.name}[${Metadata}]"
-            )
-            .add("")
-            .add(
-              s"def asEnv[Context : zio.Tag](serviceImpl: ${withContext.name}[Context]): ${ztraitName.fullName}[Any, zio.Has[Context]] = new ${ztraitName.fullName}[Any, zio.Has[Context]] {"
-            )
-            .indented(
-              _.print(service.getMethods().asScala.toVector)(
-                printAsEnv
-              )
-            )
-            .add("}")
-            .add("")
-            .add(
-              s"def transformContext[Context, NewContext](serviceImpl: ${withContext.name}[Context], f: NewContext => ${io("Context", "Any")}): ${withContext.name}[NewContext] = new ${withContext.name}[NewContext] {"
-            )
-            .indented(
-              _.print(service.getMethods().asScala.toVector)(
-                printTransformContext
-              )
-            )
-            .add("}")
-            .add(
-              s"def withAnyContext(serviceImpl: ${traitName.name}): ${withContext.name}[Any] = new ${withContext.name}[Any] {"
-            )
-            .indented(
-              _.print(service.getMethods().asScala.toVector)(
-                printWithAnyContext
-              )
-            )
-            .add("}")
-            .add(
-              s"def transformContext[NewContext](serviceImpl: ${traitName.name}, f: NewContext => ${io("Unit", "Any")}): ${withContext.name}[NewContext] = transformContext(withAnyContext(serviceImpl), f)"
-            )
-        )
-        .add("}")
-        .add("")
         .add(
           s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
         )
@@ -343,8 +294,6 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"implicit def bindableServiceWithMetadata: $ZBindableService.Aux[${withMetadata.fullName}, Any] =",
-          s"  bindableServiceWithMetadataAsEnv.transform((s: ${withMetadata.fullName}) => ${traitName.fullName}.asEnv(s))",
           s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$Metadata]], Any] =",
           s"  bindableServiceWithRequestContext.transform((s: ${ztraitName.fullName}[Any, zio.Has[$Metadata]]) => ${ztraitName.fullName}.transform(s, scalapb.zio_grpc.ZTransform.provideSome[zio.Has[$Metadata], $Status, zio.Has[$RequestContext]]((p: zio.Has[$RequestContext]) => zio.Has(p.get.metadata))))",
           s"implicit def bindableServiceWithAny: $ZBindableService.Aux[${ztraitName.fullName}[Any, Any], Any] =",
