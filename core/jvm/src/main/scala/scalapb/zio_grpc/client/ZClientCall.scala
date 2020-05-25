@@ -8,6 +8,7 @@ import zio.ZIO
 import io.grpc.Status
 
 trait ZClientCall[-R, Req, Res] extends Any {
+  self =>
   def start(
       responseListener: Listener[Res],
       headers: Metadata
@@ -20,6 +21,18 @@ trait ZClientCall[-R, Req, Res] extends Any {
   def halfClose(): ZIO[R, Status, Unit]
 
   def sendMessage(message: Req): ZIO[R, Status, Unit]
+
+  def provide(r: R): ZClientCall[Any, Req, Res] = new ZClientCall[Any, Req, Res] {
+    def start(responseListener: Listener[Res], headers: Metadata): ZIO[Any,Status,Unit] = self.start(responseListener, headers).provide(r)
+
+    def request(numMessages: Int): ZIO[Any,Status,Unit] = self.request(numMessages).provide(r)
+
+    def cancel(message: String): ZIO[Any,Status,Unit] = self.cancel(message).provide(r)
+
+    def halfClose(): ZIO[Any,Status,Unit] = self.halfClose().provide(r)
+
+    def sendMessage(message: Req): ZIO[Any,Status,Unit] = self.sendMessage(message).provide(r)
+  }
 }
 
 class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res])

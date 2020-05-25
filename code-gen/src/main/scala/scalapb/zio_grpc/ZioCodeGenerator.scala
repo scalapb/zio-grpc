@@ -288,7 +288,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def live(managedChannel: $ZManagedChannel[Any], options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.Layer[Throwable, ${clientServiceName.name}] = zio.ZLayer.fromManaged(managed(managedChannel, options, headers))"
+          s"def live[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: => $Metadata = new $Metadata()): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = zio.ZLayer.fromFunctionManaged((r: R) => managed(managedChannel.map(_.provide(r)), options, headers))"
         )
         .outdent
         .add("}")

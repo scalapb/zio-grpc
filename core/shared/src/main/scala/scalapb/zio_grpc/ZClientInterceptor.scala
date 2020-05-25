@@ -8,11 +8,17 @@ import io.grpc.Metadata
 import scalapb.zio_grpc.client.ZClientCall
 
 abstract class ZClientInterceptor[R] {
-  def interceptCall[Req, Res](
-      methodDescriptor: MethodDescriptor[Req, Res],
-      call: CallOptions,
-      clientCall: ZClientCall[R, Req, Res]
-  ): ZClientCall[R, Req, Res]
+  self =>
+    def interceptCall[Req, Res](
+        methodDescriptor: MethodDescriptor[Req, Res],
+        call: CallOptions,
+        clientCall: ZClientCall[R, Req, Res]
+    ): ZClientCall[R, Req, Res]
+
+  def provide(r: R): ZClientInterceptor[Any] = new ZClientInterceptor[Any] {
+    def interceptCall[Req, Res](methodDescriptor: MethodDescriptor[Req,Res], call: CallOptions, clientCall: ZClientCall[Any,Req,Res]): ZClientCall[Any,Req,Res] =
+      self.interceptCall(methodDescriptor, call, clientCall).provide(r)
+  }
 }
 
 object ZClientInterceptor {
