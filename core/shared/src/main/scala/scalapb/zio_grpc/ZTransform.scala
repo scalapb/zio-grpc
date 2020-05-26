@@ -4,6 +4,7 @@ import zio.ZIO
 import zio.stream.ZStream
 import zio.Has
 import zio.Tag
+import zio.NeedsEnv
 
 /** Describes a transformation of an a effect or a stream.
   *
@@ -38,7 +39,7 @@ object ZTransform {
     _
   ]: Tag](
       f: Context2 => ZIO[R, E, Context1]
-  ): ZTransform[R with Context1, E, R with Context2] =
+  )(implicit ev: NeedsEnv[R]): ZTransform[R with Context1, E, R with Context2] =
     new ZTransform[R with Context1, E, R with Context2] {
       def effect[A](
           io: ZIO[R with Context1, E, A]
@@ -50,6 +51,25 @@ object ZTransform {
       def stream[A](
           io: ZStream[R with Context1, E, A]
       ): ZStream[R with Context2, E, A] =
+        ZStream
+          .fromEffect(ZIO.accessM(f))
+          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
+    }
+
+  def transformContext[E, Context1 <: Has[_]: Tag, Context2 <: Has[_]: Tag](
+      f: Context2 => ZIO[Any, E, Context1]
+  ): ZTransform[Context1, E, Context2] =
+    new ZTransform[Context1, E, Context2] {
+      def effect[A](
+          io: ZIO[Context1, E, A]
+      ): ZIO[Context2, E, A] =
+        ZIO
+          .accessM(f)
+          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
+
+      def stream[A](
+          io: ZStream[Context1, E, A]
+      ): ZStream[Context2, E, A] =
         ZStream
           .fromEffect(ZIO.accessM(f))
           .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))

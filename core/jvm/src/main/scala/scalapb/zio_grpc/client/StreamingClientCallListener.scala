@@ -9,7 +9,6 @@ import zio.Queue
 import zio.IO
 import StreamingCallState._
 import zio.stream.ZStream
-import zio.UIO
 import zio.URIO
 
 sealed trait StreamingCallState[+Res]

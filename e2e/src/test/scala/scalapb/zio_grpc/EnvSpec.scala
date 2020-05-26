@@ -63,7 +63,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
     }
 
   val serviceLayer = ZTestService.toLayer(
-    ZTestService.transformContext(ServiceWithConsole, parseUser)
+    ZTestService.transformContext(ServiceWithConsole, parseUser(_))
   )
 
   val serverLayer

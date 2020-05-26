@@ -9,6 +9,9 @@ trait ZClientCall[-R, Req, Res] extends Any {
 }
 
 object ZClientCall {
+  // def apply[R, Req, Res](s: io.grpc.ClientCall[Req, Res]): ZClientCall[R, Req, Res] = ???
+  def apply[R, Req, Res](s: String): ZClientCall[R, Req, Res] = ???
+
   def headersTransformer[R, Req, Res](
       clientCall: ZClientCall[R, Req, Res],
       fetchHeaders: SafeMetadata => ZIO[R, Status, SafeMetadata]

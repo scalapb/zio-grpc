@@ -225,7 +225,7 @@ class ZioFilePrinter(
         )
         .outdent
         .add("}")
-        .add(s"type ${traitName.name} = ${ztraitName.name}[Any, Any]")
+        .add(s"type ${traitName.name} = ${ztraitName.name}[Any, zio.Has[scalapb.zio_grpc.RequestContext]]")
         .add("")
         .add(s"object ${ztraitName.name} {")
         .indented(
@@ -245,10 +245,16 @@ class ZioFilePrinter(
               s"  transform(serviceImpl, scalapb.zio_grpc.ZTransform.provideEnv[R, $Status, Context](env))"
             )
             .add(
-              s"def transformContext[R <: zio.Has[_], C1: zio.Tag, C2: zio.Tag](serviceImpl: ${ztraitName.name}[R, zio.Has[C1]], f: C2 => ${io("C1", "R")}): ${ztraitName.fullName}[R, zio.Has[C2]] ="
+              s"def transformContext[R <: zio.Has[_] : zio.NeedsEnv, C1: zio.Tag, C2: zio.Tag](serviceImpl: ${ztraitName.name}[R, zio.Has[C1]], f: C2 => ${io("C1", "R")}): ${ztraitName.fullName}[R, zio.Has[C2]] ="
             )
             .add(
               s"  transform(serviceImpl, scalapb.zio_grpc.ZTransform.transformContext[R, $Status, zio.Has[C1], zio.Has[C2]]((hc2: zio.Has[C2]) => f(hc2.get).map(zio.Has(_))))"
+            )
+            .add(
+              s"def transformContext[C1: zio.Tag, C2: zio.Tag](serviceImpl: ${ztraitName.name}[Any, zio.Has[C1]], f: C2 => ${io("C1", "Any")}): ${ztraitName.fullName}[Any, zio.Has[C2]] ="
+            )
+            .add(
+              s"  transform(serviceImpl, scalapb.zio_grpc.ZTransform.transformContext[$Status, zio.Has[C1], zio.Has[C2]]((hc2: zio.Has[C2]) => f(hc2.get).map(zio.Has(_))))"
             )
             .add(
               s"def toLayer[R <: zio.Has[_], Context <: zio.Has[_] : zio.Tag](serviceImpl: ${ztraitName.name}[R, Context]): zio.ZLayer[R, Nothing, zio.Has[${ztraitName.fullName}[Any, Context]]] ="

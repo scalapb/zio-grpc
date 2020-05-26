@@ -6,9 +6,9 @@ import zio.Runtime
 import zio.ZIO
 import zio.stream.{Stream, ZStream}
 
-trait ServerCallHandler[Req, Res]
+import scalapb.zio_grpc.RequestContext
 
-trait RequestContext
+trait ServerCallHandler[Req, Res]
 
 object ZServerCallHandler {
   def unaryCallHandler[Req, Res](

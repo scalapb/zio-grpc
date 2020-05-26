@@ -2,25 +2,26 @@ package scalapb.zio_grpc.client
 
 import zio.IO
 import zio.stream.Stream
-import scalapb.zio_grpc.{GIO, GStream}
+import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.ZChannel
+import scalapb.zio_grpc.GStream
 import io.grpc.MethodDescriptor
 import io.grpc.CallOptions
-import io.grpc.Metadata
-import io.grpc.Channel
 import scalapb.grpcweb.native.ErrorInfo
 import io.grpc.Status
+import zio.stream.ZStream
+import zio.ZIO
 
 object ClientCalls {
   def unaryCall[R, Req, Res](
       channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
-  ): GIO[Res] =
+  ): ZIO[R, Status, Res] =
     IO.effectAsync { callback =>
-      channel.client.rpcCall[Req, Res](
+      channel.channel.client.rpcCall[Req, Res](
         channel.channel.baseUrl + "/" + method.fullName,
         req,
         scalajs.js.Dictionary[String](),
@@ -32,30 +33,30 @@ object ClientCalls {
       )
     }
 
-  def serverStreamingCall[Req, Res](
-      channel: Channel,
+  def serverStreamingCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: Req
-  ): GStream[Res] =
+  ): ZStream[R, Status, Res] =
     Stream.fail(Status.INTERNAL.withDescription("Unimplemented"))
 
-  def clientStreamingCall[Req, Res](
-      channel: Channel,
+  def clientStreamingCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
-  ): GStream[Res] =
-    Stream.fail(Status.INTERNAL.withDescription("Not supported"))
+  ): ZIO[R, Status, Res] =
+    IO.fail(Status.INTERNAL.withDescription("Not supported"))
 
-  def bidiCall[Req, Res](
-      channel: Channel,
+  def bidiCall[R, Req, Res](
+      channel: ZChannel[R],
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
-      headers: Metadata,
+      headers: SafeMetadata,
       req: GStream[Req]
-  ): GStream[Res] =
+  ): ZStream[R, Status, Res] =
     Stream.fail(Status.INTERNAL.withDescription("Not supported"))
 }
