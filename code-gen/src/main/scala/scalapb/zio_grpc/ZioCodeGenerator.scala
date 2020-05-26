@@ -225,7 +225,9 @@ class ZioFilePrinter(
         )
         .outdent
         .add("}")
-        .add(s"type ${traitName.name} = ${ztraitName.name}[Any, zio.Has[scalapb.zio_grpc.RequestContext]]")
+        .add(
+          s"type ${traitName.name} = ${ztraitName.name}[Any, zio.Has[scalapb.zio_grpc.RequestContext]]"
+        )
         .add("")
         .add(s"object ${ztraitName.name} {")
         .indented(
