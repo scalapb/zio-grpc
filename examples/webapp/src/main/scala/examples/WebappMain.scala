@@ -7,11 +7,11 @@ import zio.Managed
 import zio.ZIO
 import zio.console._
 import examples.greeter.Request
+import scalapb.zio_grpc.ZManagedChannel
 
 object WebappMain extends App {
   val clientLayer = GreeterClient.live(
-    Managed
-      .fromEffect(ZIO.effect(Channels.grpcwebChannel("http://localhost:8080")))
+    ZManagedChannel(Channels.grpcwebChannel("http://localhost:8080"))
   )
 
   val appLogic =
@@ -23,5 +23,5 @@ object WebappMain extends App {
   def run(args: List[String]) =
     (appLogic.provideLayer(Console.live ++ clientLayer).ignore *> putStrLn(
       "Done"
-    )).as(0)
+    )).exitCode
 }

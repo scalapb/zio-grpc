@@ -66,7 +66,7 @@ object ExampleServer extends App {
       ServerBuilder.forPort(port)
     )
 
-  def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
+  def run(args: List[String]) = myAppLogic.exitCode
 
   val myAppLogic =
     serverWait.provideLayer(serverLive(9090) ++ Console.live ++ Clock.live)

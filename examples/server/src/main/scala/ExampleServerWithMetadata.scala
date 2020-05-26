@@ -1,6 +1,6 @@
 package examples
 
-import examples.greeter.ZioGreeter.Greeter
+import examples.greeter.ZioGreeter.{Greeter, ZGreeter}
 import examples.greeter._
 import zio.clock
 import zio.clock.Clock
@@ -21,22 +21,24 @@ import zio.Layer
 import zio.ZLayer
 import zio.Has
 import zio.ZManaged
+import scalapb.zio_grpc.SafeMetadata
+import scalapb.zio_grpc.RequestContext
+import zio.URIO
 
 object GreeterServiceWithMetadata {
-  type GreeterServiceWithMetadata = Has[Greeter.WithMetadata]
-
   case class User(name: String)
 
   // Each request gets a User as a context parameter.
-  class LiveService(clock: Clock.Service) extends Greeter.WithContext[User] {
-    def greet(req: Request, user: User): IO[Status, Response] =
-      IO.succeed(Response(s"Hello ${user.name}, req: ${req}"))
+  class LiveService(clock: Clock.Service) extends ZGreeter[Any, Has[User]] {
+    def greet(req: Request): ZIO[Has[User], Status, Response] =
+      for {
+        name <- ZIO.service[User].map(_.name)
+      } yield Response(s"Hello ${name}, req: ${req}")
 
-    def points(request: Request, user: User): Stream[Status, Point] = ???
+    def points(request: Request): Stream[Status, Point] = ???
 
     def bidi(
-        request: Stream[Status, Point],
-        user: User
+        request: Stream[Status, Point]
     ): Stream[Status, Response] = ???
   }
 
@@ -44,15 +46,15 @@ object GreeterServiceWithMetadata {
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
   // Imagine this resolves an authenticated User instance from the Metadata.
-  def findUser(metadata: Metadata): IO[Status, User] =
-    Option(metadata.get(UserKey)) match {
+  def findUser(rc: RequestContext): IO[Status, User] =
+    rc.metadata.get(UserKey).flatMap {
       case Some(name) => IO.succeed(User(name))
       case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
-  val live: ZLayer[Clock, Nothing, GreeterServiceWithMetadata] =
+  val live: ZLayer[Clock, Nothing, Has[Greeter]] =
     ZLayer.fromService { c: Clock.Service =>
-      Greeter.transformContext(new LiveService(c), findUser(_))
+      ZGreeter.transformContext(new LiveService(c), findUser(_))
     }
 }
 
@@ -65,11 +67,11 @@ object ExampleServerWithMetadata extends App {
 
   def serverLive(port: Int): Layer[Nothing, Server] =
     Clock.live >>> GreeterServiceWithMetadata.live >>> Server
-      .live[Greeter.WithContext[Metadata]](
+      .live[Greeter](
         ServerBuilder.forPort(port)
       )
 
-  def run(args: List[String]) = myAppLogic.fold(_ => 1, _ => 0)
+  def run(args: List[String]) = myAppLogic.exitCode
 
   val myAppLogic =
     serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)

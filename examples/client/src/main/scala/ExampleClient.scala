@@ -12,7 +12,7 @@ import zio.ZLayer
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =
-    myAppLogic.fold({ _ => 1 }, _ => 0)
+    myAppLogic.exitCode
 
   def clientLayer: Layer[Throwable, GreeterClient] =
     GreeterClient.live(
