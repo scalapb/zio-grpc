@@ -2,7 +2,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.0")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.31")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.32")
 
 val zioGrpcVersion = "0.3.0"
 
