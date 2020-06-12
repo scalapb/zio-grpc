@@ -19,7 +19,7 @@ sonatypeProfileName := "com.thesamet"
 inThisBuild(
   List(
     organization := "com.thesamet.scalapb.zio-grpc",
-    homepage := Some(url("https://github.com/scalameta/sbt-scalafmt")),
+    homepage := Some(url("https://github.com/scalapb/zio-grpc")),
     licenses := List(
       "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
     ),
@@ -77,43 +77,10 @@ lazy val codeGen = project
     )
   )
 
-def projDef(name: String, shebang: Boolean) =
-  sbt
-    .Project(name, new File(name))
-    .enablePlugins(AssemblyPlugin)
-    .dependsOn(codeGen)
-    .settings(stdSettings)
-    .settings(
-      assemblyOption in assembly := (assemblyOption in assembly).value.copy(
-        prependShellScript = Some(
-          sbtassembly.AssemblyPlugin.defaultUniversalScript(shebang = shebang)
-        )
-      ),
-      skip in publish := true,
-      Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
-    )
-
-lazy val protocGenZioUnix = projDef("protoc-gen-zio-unix", shebang = true)
-
-lazy val protocGenZioWindows =
-  projDef("protoc-gen-zio-windows", shebang = false)
-
-lazy val protocGenZio = project
+lazy val protocGenZio = protocGenProject(
+  "protoc-gen-zio", codeGen)
   .settings(
-    crossScalaVersions := List(Scala213),
-    name := "protoc-gen-zio",
-    publishArtifact in (Compile, packageDoc) := false,
-    publishArtifact in (Compile, packageSrc) := false,
-    crossPaths := false,
-    addArtifact(
-      Artifact("protoc-gen-zio", "jar", "sh", "unix"),
-      assembly in (protocGenZioUnix, Compile)
-    ),
-    addArtifact(
-      Artifact("protoc-gen-zio", "jar", "bat", "windows"),
-      assembly in (protocGenZioWindows, Compile)
-    ),
-    autoScalaLibrary := false
+    Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
   )
 
 lazy val e2e = project
@@ -128,14 +95,11 @@ lazy val e2e = project
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
       "io.grpc" % "grpc-netty" % grpcVersion
     ),
-    Compile / PB.generate := ((Compile / PB.generate) dependsOn (protocGenZioUnix / Compile / assembly)).value,
+    protocGenZio.addDependency,
     PB.targets in Compile := Seq(
       scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
       (
-        PB.gens.plugin(
-          "zio",
-          (protocGenZioUnix / assembly / target).value / "protoc-gen-zio-unix-assembly-" + version.value + ".jar"
-        ),
+        protocGenZio.plugin.value,
         Seq()
       ) -> (Compile / sourceManaged).value
     ),
