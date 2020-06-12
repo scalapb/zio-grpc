@@ -77,8 +77,7 @@ lazy val codeGen = project
     )
   )
 
-lazy val protocGenZio = protocGenProject(
-  "protoc-gen-zio", codeGen)
+lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGen)
   .settings(
     Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
   )
