@@ -12,9 +12,9 @@ import com.google.protobuf.Descriptors.ServiceDescriptor
 import com.google.protobuf.Descriptors.MethodDescriptor
 import scalapb.compiler.StreamType
 import scalapb.compiler.FunctionalPrinter
-import protocbridge.codegen.CodeGenApp
-import protocbridge.codegen.CodeGenResponse
-import protocbridge.codegen.CodeGenRequest
+import protocgen.CodeGenApp
+import protocgen.CodeGenResponse
+import protocgen.CodeGenRequest
 import scalapb.compiler.NameUtils
 
 object ZioCodeGenerator extends CodeGenApp {
