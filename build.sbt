@@ -10,8 +10,6 @@ ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
 ThisBuild / scalaVersion := Scala212
 
-ThisBuild / crossScalaVersions := Seq(Scala212, Scala213)
-
 skip in publish := true
 
 sonatypeProfileName := "com.thesamet"
@@ -40,6 +38,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   .in(file("core"))
   .settings(stdSettings)
   .settings(
+    crossScalaVersions := Seq(Scala212, Scala213),
     name := "zio-grpc-core",
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio" % zioVersion,
@@ -69,6 +68,7 @@ lazy val codeGen = project
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings)
   .settings(
+    scalaVersion := Scala212,
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
@@ -88,6 +88,7 @@ lazy val e2e = project
   .enablePlugins(LocalCodeGenPlugin)
   .settings(stdSettings)
   .settings(
+    crossScalaVersions := Seq(Scala212, Scala213),
     skip in publish := true,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-test" % zioVersion % "test",
