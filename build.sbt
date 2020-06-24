@@ -8,7 +8,7 @@ val Scala212 = "2.12.10"
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
-ThisBuild / scalaVersion := Scala213
+ThisBuild / scalaVersion := Scala212
 
 ThisBuild / crossScalaVersions := Seq(Scala212, Scala213)
 
@@ -85,6 +85,7 @@ lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGen)
 lazy val e2e = project
   .in(file("e2e"))
   .dependsOn(core.jvm)
+  .enablePlugins(LocalCodeGenPlugin)
   .settings(stdSettings)
   .settings(
     skip in publish := true,
@@ -94,14 +95,12 @@ lazy val e2e = project
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
       "io.grpc" % "grpc-netty" % grpcVersion
     ),
-    protocGenZio.addDependency,
     PB.targets in Compile := Seq(
       scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
-      (
-        protocGenZio.plugin.value,
-        Seq()
-      ) -> (Compile / sourceManaged).value
+      genModule(
+        "scalapb.zio_grpc.ZioCodeGenerator$"
+      ) -> (sourceManaged in Compile).value
     ),
-    Compile / PB.recompile := true, // always regenerate protos, not cache
+    codeGenClasspath := (codeGen / Compile / fullClasspath).value,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
