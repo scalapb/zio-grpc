@@ -16,13 +16,13 @@ Find the latest snapshot in [here](https://oss.sonatype.org/content/repositories
 
 Add the following to your `project/plugins.sbt`:
 
-    val zioGrpcVersion = "0.0.0+7-5434642d-SNAPSHOT"
+    val zioGrpcVersion = "0.3.0"
 
     resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-    addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.27")
+    addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
 
-    libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.0-M5"
+    libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.7"
 
     libraryDependencies += "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion
 
