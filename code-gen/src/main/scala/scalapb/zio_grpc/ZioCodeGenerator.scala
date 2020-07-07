@@ -247,6 +247,12 @@ class ZioFilePrinter(
               s"  transform(serviceImpl, scalapb.zio_grpc.ZTransform.provideEnv[R, $Status, Context](env))"
             )
             .add(
+              s"def provide[R <: zio.Has[_]](serviceImpl: ${ztraitName.name}[R, Any], env: R): ${ztraitName.fullName}[Any, Any] ="
+            )
+            .add(
+              s"  transform(serviceImpl, scalapb.zio_grpc.ZTransform.provideEnv[R, $Status](env))"
+            )
+            .add(
               s"def transformContext[R <: zio.Has[_] : zio.NeedsEnv, C1: zio.Tag, C2: zio.Tag](serviceImpl: ${ztraitName.name}[R, zio.Has[C1]], f: C2 => ${io("C1", "R")}): ${ztraitName.fullName}[R, zio.Has[C2]] ="
             )
             .add(
@@ -302,14 +308,20 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"implicit def bindableServiceWithMetadataAsEnv: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$SafeMetadata]], Any] =",
+          s"implicit def bindableServiceWithMetadata: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$SafeMetadata]], Any] =",
           s"  bindableServiceWithRequestContext.transform((s: ${ztraitName.fullName}[Any, zio.Has[$SafeMetadata]]) => ${ztraitName.fullName}.transform(s, scalapb.zio_grpc.ZTransform.provideSome[zio.Has[$SafeMetadata], $Status, zio.Has[$RequestContext]]((p: zio.Has[$RequestContext]) => zio.Has(p.get.metadata))))",
           s"implicit def bindableServiceWithAny: $ZBindableService.Aux[${ztraitName.fullName}[Any, Any], Any] =",
           s"  bindableServiceWithRequestContext.transform((s: ${ztraitName.fullName}[Any, Any]) => ${ztraitName.fullName}.transform(s, scalapb.zio_grpc.ZTransform.provideSome[Any, $Status, zio.Has[$RequestContext]](identity)))",
+          s"implicit def bindableServiceWithAnyAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, Any], R0] =",
+          s"  bindableServiceWithAny.transformM((s0: ${ztraitName.fullName}[R0, Any]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))"
+          /*
           s"implicit def bindableServiceWithRequestContextAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$RequestContext]], R0] =",
           s"  bindableServiceWithRequestContext.transformM((s0: ${ztraitName.fullName}[R0, zio.Has[$RequestContext]]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))",
+          s"implicit def bindableServiceWithAnyAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, Any], R0] =",
+          s"  bindableServiceWithAny.transformM((s0: ${ztraitName.fullName}[R0, Any]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))",
           s"implicit def bindableServiceWithMetadataAndR[R0 <: zio.Has[_]]: $ZBindableService.Aux[${ztraitName.fullName}[R0, zio.Has[$SafeMetadata]], R0] =",
           s"  bindableServiceWithMetadataAsEnv.transformM((s0: ${ztraitName.fullName}[R0, zio.Has[$SafeMetadata]]) => zio.ZIO.environment[R0].map(env => ${ztraitName.fullName}.provide(s0, env)))"
+           */
         )
         .add(
           s"implicit def bindableServiceWithRequestContext: $ZBindableService.Aux[${ztraitName.fullName}[Any, zio.Has[$RequestContext]], Any] = new $ZBindableService[${ztraitName.fullName}[Any, zio.Has[$RequestContext]]] {"

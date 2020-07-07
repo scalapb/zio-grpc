@@ -31,6 +31,11 @@ object ZTransform {
   ): ZTransform[R with Context, E, Context] =
     provideSome(ctx => env.union[Context](ctx))
 
+  def provideEnv[R <: Has[_], E](
+      env: R
+  ): ZTransform[R, E, Any] =
+    provideSome(_ => env)
+
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment */
   def transformContext[R <: Has[_], E, Context1 <: Has[

@@ -4,7 +4,7 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.0")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
 
-val zioGrpcVersion = "0.3.0"
+val zioGrpcVersion = "0.3.0-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion,
