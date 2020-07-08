@@ -61,9 +61,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
       case None          => IO.fail(Status.UNAUTHENTICATED)
     }
 
-  val serviceLayer = ZTestService.toLayer(
-    ZTestService.transformContext(ServiceWithConsole, parseUser(_))
-  )
+  val serviceLayer = ServiceWithConsole.transformContextM(parseUser(_)).toLayer
 
   val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Nothing, Server] =
     Server

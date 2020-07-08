@@ -4,12 +4,12 @@ import zio.ZIO
 import zio.stream.ZStream
 import zio.Has
 import zio.Tag
-import zio.NeedsEnv
 
 /** Describes a transformation of an a effect or a stream.
   *
-  * Instances of this class can be used to provide pre- or post-processing
-  * to all methods of a service.
+  * Instances of this class can be used to apply a transformation to all methods of a service
+  * to generate a new "decorated" service. This can be used for pre- or post-processing of
+  * requests/responses and also for environment and context transformations.
   */
 trait ZTransform[R, E, R0] {
   def effect[A](io: ZIO[R, E, A]): ZIO[R0, E, A]
@@ -29,54 +29,24 @@ object ZTransform {
   def provideEnv[R <: Has[_], E, Context <: Has[_]: Tag](
       env: R
   ): ZTransform[R with Context, E, Context] =
-    provideSome(ctx => env.union[Context](ctx))
+    provideSome(env.union[Context])
 
-  def provideEnv[R <: Has[_], E](
-      env: R
-  ): ZTransform[R, E, Any] =
-    provideSome(_ => env)
+  def provideEnv[R, E](env: R): ZTransform[R, E, Any] = provideSome((_: Any) => env)
 
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment */
-  def transformContext[R <: Has[_], E, Context1 <: Has[
-    _
-  ]: Tag, Context2 <: Has[
-    _
-  ]: Tag](
+  def transformContext[R, E, Context1 <: Has[_]: Tag, Context2](
       f: Context2 => ZIO[R, E, Context1]
-  )(implicit ev: NeedsEnv[R]): ZTransform[R with Context1, E, R with Context2] =
+  )(implicit ev: R with Context2 <:< R with Has[_]): ZTransform[R with Context1, E, R with Context2] =
     new ZTransform[R with Context1, E, R with Context2] {
-      def effect[A](
-          io: ZIO[R with Context1, E, A]
-      ): ZIO[R with Context2, E, A] =
+      def effect[A](io: ZIO[R with Context1, E, A]): ZIO[R with Context2, E, A] =
         ZIO
           .accessM(f)
-          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
+          .flatMap(nc => io.provideSome(ev(_).union[Context1](nc)))
 
-      def stream[A](
-          io: ZStream[R with Context1, E, A]
-      ): ZStream[R with Context2, E, A] =
+      def stream[A](io: ZStream[R with Context1, E, A]): ZStream[R with Context2, E, A] =
         ZStream
           .fromEffect(ZIO.accessM(f))
-          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
-    }
-
-  def transformContext[E, Context1 <: Has[_]: Tag, Context2 <: Has[_]: Tag](
-      f: Context2 => ZIO[Any, E, Context1]
-  ): ZTransform[Context1, E, Context2] =
-    new ZTransform[Context1, E, Context2] {
-      def effect[A](
-          io: ZIO[Context1, E, A]
-      ): ZIO[Context2, E, A] =
-        ZIO
-          .accessM(f)
-          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
-
-      def stream[A](
-          io: ZStream[Context1, E, A]
-      ): ZStream[Context2, E, A] =
-        ZStream
-          .fromEffect(ZIO.accessM(f))
-          .flatMap(nc => io.provideSome(r0 => r0.union[Context1](nc)))
+          .flatMap(nc => io.provideSome(ev(_).union[Context1](nc)))
     }
 }

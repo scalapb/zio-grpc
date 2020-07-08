@@ -29,52 +29,46 @@ object Server {
     def start: Task[Unit] = ZIO.effect(underlying.start()).unit
 
     def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
+
+    def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdown.ignore)
   }
 
   def zmanaged(builder: => ServerBuilder[_]): Managed[Throwable, Service] =
     zmanaged(builder, UIO.succeed(Nil))
 
+  @deprecated("Use ManagedServer.fromServiceList", "0.4.0")
   def zmanaged[R](
       builder: => ServerBuilder[_],
       services: URIO[R, List[ServerServiceDefinition]]
-  ): ZManaged[R, Throwable, Service] =
-    (for {
-      services0 <- services
-      server     = new ServiceImpl(
-                     services0
-                       .foldLeft(builder)({
-                         case (b, s) => b.addService(s)
-                       })
-                       .build()
-                   )
-      _         <- server.start
-    } yield server).toManaged(_.shutdown.ignore)
+  ): ZManaged[R, Throwable, Service] = ManagedServer.fromServiceList(builder, services)
 
+  @deprecated("Use ManagedServer.fromService", "0.4.0")
   def zmanaged[S0, R0](
       builder: => ServerBuilder[_],
       s0: S0
   )(implicit
-      b0: ZBindableService.Aux[S0, R0]
+      b0: ZBindableService[R0, S0]
   ): ZManaged[R0, Throwable, Service] =
-    zmanaged(
+    ManagedServer.fromServiceList(
       builder,
       URIO.collectAll(ZBindableService.serviceDefinition(s0) :: Nil)
     )
 
+  @deprecated("Use ManagedServer.fromServices", "0.4.0")
   def zmanaged[
-      S0,
-      S1,
       R0,
-      R1
+      S0,
+      R1,
+      S1
   ](
       builder: => ServerBuilder[_],
       s0: S0,
       s1: S1
   )(implicit
-      b0: ZBindableService.Aux[S0, R0],
-      b1: ZBindableService.Aux[S1, R1]
+      b0: ZBindableService[R0, S0],
+      b1: ZBindableService[R1, S1]
   ): ZManaged[R0 with R1, Throwable, Service] =
-    zmanaged(
+    ManagedServer.fromServiceList(
       builder,
       URIO.collectAll(
         ZBindableService.serviceDefinition(s0) ::
@@ -82,6 +76,7 @@ object Server {
       )
     )
 
+  @deprecated("Use ManagedServer.fromServices", "0.4.0")
   def zmanaged[
       R0,
       S0,
@@ -95,11 +90,11 @@ object Server {
       s1: S1,
       s2: S2
   )(implicit
-      b0: ZBindableService.Aux[S0, R0],
-      b1: ZBindableService.Aux[S1, R1],
-      b2: ZBindableService.Aux[S2, R2]
+      b0: ZBindableService[R0, S0],
+      b1: ZBindableService[R1, S1],
+      b2: ZBindableService[R2, S2]
   ): ZManaged[R0 with R1 with R2, Throwable, Service] =
-    zmanaged(
+    ManagedServer.fromServiceList(
       builder,
       URIO.collectAll(
         ZBindableService.serviceDefinition(s0) ::
@@ -108,13 +103,15 @@ object Server {
       )
     )
 
+  @deprecated("Use ServerLayer.fromService", "0.4.0")
   def zlive[R0, S0: Tag](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, R0]
+      b0: ZBindableService[R0, S0]
   ): ZLayer[R0 with Has[S0], Nothing, Server] =
     ZLayer.fromServiceManaged { s0: S0 => Server.zmanaged(builder, s0).orDie }
 
+  @deprecated("Use ServerLayer.fromServices", "0.4.0")
   def zlive[
       R0,
       S0: Tag,
@@ -123,13 +120,14 @@ object Server {
   ](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, R0],
-      b1: ZBindableService.Aux[S1, R1]
+      b0: ZBindableService[R0, S0],
+      b1: ZBindableService[R1, S1]
   ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Nothing, Server] =
     ZLayer.fromServicesManaged[S0, S1, R0 with R1, Nothing, Server.Service] { (s0: S0, s1: S1) =>
       Server.zmanaged(builder, s0, s1).orDie
     }
 
+  @deprecated("Use ServerLayer.fromServices", "0.4.0")
   def zlive[
       R0,
       S0: Tag,
@@ -140,9 +138,9 @@ object Server {
   ](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, R0],
-      b1: ZBindableService.Aux[S1, R1],
-      b2: ZBindableService.Aux[S2, R2]
+      b0: ZBindableService[R0, S0],
+      b1: ZBindableService[R1, S1],
+      b2: ZBindableService[R2, S2]
   ): ZLayer[R0 with R1 with R2 with Has[S0] with Has[S1] with Has[
     S2
   ], Nothing, Server] =
@@ -155,30 +153,113 @@ object Server {
       Server.Service
     ]((s0: S0, s1: S1, s2: S2) => Server.zmanaged(builder, s0, s1, s2).orDie)
 
+  @deprecated("Use ServerLayer.access", "0.4.0")
   def live[S0: Tag](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, Any]
+      b0: ZBindableService[Any, S0]
   ): ZLayer[Has[S0], Nothing, Server] =
     zlive[Any, S0](builder)
 
+  @deprecated("Use ServerLayer.fromServiceList(ServiceList.access[S0].access[S1])", "0.4.0")
   def live[S0: Tag, S1: Tag](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, Any],
-      b1: ZBindableService.Aux[S1, Any]
+      b0: ZBindableService[Any, S0],
+      b1: ZBindableService[Any, S1]
   ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
     zlive[Any, S0, Any, S1](builder)
 
+  @deprecated("Use ServerLayer.fromServiceList(ServiceList.access[S0].access[S1].access[S2])", "0.4.0")
   def live[S0: Tag, S1: Tag, S2: Tag](
       builder: => ServerBuilder[_]
   )(implicit
-      b0: ZBindableService.Aux[S0, Any],
-      b1: ZBindableService.Aux[S1, Any],
-      b2: ZBindableService.Aux[S2, Any]
+      b0: ZBindableService[Any, S0],
+      b1: ZBindableService[Any, S1],
+      b2: ZBindableService[Any, S2]
   ): ZLayer[Has[S0] with Has[S1] with Has[S2], Nothing, Server] =
     zlive[Any, S0, Any, S1, Any, S2](builder)
 
   def fromManaged(zm: Managed[Throwable, Service]) =
     ZLayer.fromManaged(zm.map(s => Has(s)))
+}
+
+object ServerLayer {
+  def fromServiceList[R](builder: => ServerBuilder[_], l: ServiceList[R]) =
+    ManagedServer.fromServiceList(builder, l).toLayer
+
+  def access[R, E, S1: Tag](
+      builder: => ServerBuilder[_]
+  )(implicit bs: ZBindableService[Any, S1]): ZLayer[R with Has[S1], Any, Server] =
+    fromServiceList(builder, ServiceList.accessEnv[R, S1])
+
+  def fromServiceLayer[R, E, S1: Tag](
+      serverBuilder: => ServerBuilder[_]
+  )(l: ZLayer[R, Throwable, Has[S1]])(implicit bs: ZBindableService[Any, S1]) =
+    l >>> fromServiceList(serverBuilder, ServiceList.access[S1])
+
+  def fromService[R1, S1](builder: => ServerBuilder[_], s1: S1)(implicit
+      bs: ZBindableService[R1, S1]
+  ): ZLayer[R1, Throwable, Server] =
+    fromServiceList(builder, ServiceList.add(s1))
+
+  def fromServices[R1, S1, R2, S2](builder: => ServerBuilder[_], s1: S1, s2: S2)(implicit
+      bs1: ZBindableService[R1, S1],
+      bs2: ZBindableService[R2, S2]
+  ): ZLayer[R1 with R2, Throwable, Server] =
+    fromServiceList(builder, ServiceList.add(s1).add(s2))
+
+  def fromServices[R1, S1, R2, S2, R3, S3](builder: => ServerBuilder[_], s1: S1, s2: S2, s3: S3)(implicit
+      bs1: ZBindableService[R1, S1],
+      bs2: ZBindableService[R2, S2],
+      bs3: ZBindableService[R3, S3]
+  ): ZLayer[R1 with R2 with R3, Throwable, Server] =
+    fromServiceList(builder, ServiceList.add(s1).add(s2).add(s3))
+}
+
+object ManagedServer {
+  def fromService[R1, S1](builder: => ServerBuilder[_], s1: S1)(implicit
+      bs: ZBindableService[R1, S1]
+  ): ZManaged[R1, Throwable, Server.Service] =
+    fromServiceList(builder, ServiceList.add(s1))
+
+  def fromServices[R1, S1, R2, S2](builder: => ServerBuilder[_], s1: S1, s2: S2)(implicit
+      bs1: ZBindableService[R1, S1],
+      bs2: ZBindableService[R2, S2]
+  ): ZManaged[R1 with R2, Throwable, Server.Service] =
+    fromServiceList(builder, ServiceList.add(s1).add(s2))
+
+  def fromServices[R1, S1, R2, S2, R3, S3](builder: => ServerBuilder[_], s1: S1, s2: S2, s3: S3)(implicit
+      bs1: ZBindableService[R1, S1],
+      bs2: ZBindableService[R2, S2],
+      bs3: ZBindableService[R3, S3]
+  ): ZManaged[R1 with R2 with R3, Throwable, Server.Service] =
+    fromServiceList(builder, ServiceList.add(s1).add(s2).add(s3))
+
+  def fromServiceList[R](
+      builder: => ServerBuilder[_],
+      services: URIO[R, List[ServerServiceDefinition]]
+  ): ZManaged[R, Throwable, Server.Service] = fromServiceList(builder, services.toManaged_)
+
+  def fromServiceList[R](
+      builder: => ServerBuilder[_],
+      services: ServiceList[R]
+  ): ZManaged[R, Throwable, Server.Service] =
+    fromServiceList(builder, services.bindAll)
+
+  def fromServiceList[R](
+      builder: => ServerBuilder[_],
+      services: ZManaged[R, Throwable, List[ServerServiceDefinition]]
+  ): ZManaged[R, Throwable, Server.Service] =
+    for {
+      services0 <- services
+      serverImpl = new Server.ServiceImpl(
+                     services0
+                       .foldLeft(builder)({
+                         case (b, s) => b.addService(s)
+                       })
+                       .build()
+                   )
+      server    <- serverImpl.toManaged
+    } yield server
 }

@@ -4,5 +4,6 @@ target
 .idea
 .metals
 .bloop
+.vscode
 metals.sbt
 examples/project/metals.sbt
