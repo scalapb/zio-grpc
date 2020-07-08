@@ -105,7 +105,7 @@ object CallDriver {
       runtime: Runtime[R],
       call: ZServerCall[Res],
       cancelled: Promise[Nothing, Unit],
-      queue: Queue[Either[Option[Status], Req]],
+      queue: Queue[Option[Req]],
       writeResponse: Stream[Status, Req] => ZIO[R, Status, Unit]
   ): CallDriver[R, Req] =
     CallDriver(
@@ -114,25 +114,17 @@ object CallDriver {
           runtime.unsafeRun(cancelled.succeed(()).unit)
 
         override def onHalfClose(): Unit =
-          runtime.unsafeRun(queue.offer(Left(None)).unit)
+          runtime.unsafeRun(queue.offer(None).unit)
 
         override def onMessage(message: Req): Unit =
           runtime.unsafeRun(
-            call.request(1) *> queue.offer(Right(message)).unit
+            call.request(1) *> queue.offer(Some(message)).unit
           )
       },
       run = {
         val requestStream = Stream
-          .fromQueue(queue)
-          .tap {
-            case Left(None) => queue.shutdown
-            case Left(Some(status)) =>
-              queue.shutdown *> ZIO.fail(status)
-            case _ => ZIO.unit
-          }
-          .collect {
-            case Right(v) => v
-          }
+          .fromQueueWithShutdown(queue)
+          .collectWhileSome
 
         (call.request(1) *>
           call.sendHeaders(new Metadata) *>
@@ -164,7 +156,7 @@ object CallDriver {
     for {
       runtime <- ZIO.runtime[R]
       cancelled <- Promise.make[Nothing, Unit]
-      queue <- Queue.unbounded[Either[Option[Status], Req]]
+      queue <- Queue.unbounded[Option[Req]]
     } yield streamingInputCallDriver[R, Req, Res](
       runtime,
       zioCall,

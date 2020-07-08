@@ -6,7 +6,6 @@ import io.grpc.Status
 import zio.stream.Stream
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
-import scalapb.zio_grpc.server.ZServerCall
 import zio.stream.ZStream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata

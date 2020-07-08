@@ -13,6 +13,7 @@ import zio.stream.ZStream
 import zio.ZIO
 import zio.Queue
 import scalapb.grpcweb.native.StatusInfo
+import zio.Exit
 
 object ClientCalls {
   def unaryCall[R, Req, Res](
@@ -44,7 +45,7 @@ object ClientCalls {
   ): ZStream[R, Status, Res] = {
     val e = (for {
       runtime <- ZIO.runtime[R]
-      queue <- Queue.unbounded[Either[Option[Status], Res]]
+      queue <- Queue.unbounded[Exit[Option[Status], Res]]
       rpc <- ZIO.effectTotal(
         channel.channel.client
           .rpcCall[Req, Res](
@@ -55,16 +56,17 @@ object ClientCalls {
           )
           .on(
             "data",
-            (res: Res) => runtime.unsafeRun(queue.offer(Right(res)).unit)
+            (res: Res) => runtime.unsafeRun(queue.offer(Exit.succeed(res)).unit)
           )
           .on(
             "status",
             { (status: StatusInfo) =>
-              val elem =
-                if (status.code != 0) Left(Some(Status.fromStatusInfo(status)))
-                else Left(None)
+              val exit =
+                if (status.code != 0)
+                  Exit.fail(Some(Status.fromStatusInfo(status)))
+                else Exit.fail(None)
               runtime.unsafeRun(
-                queue.offer(elem).unit
+                queue.offer(exit).unit
               )
             }
           )
@@ -72,7 +74,7 @@ object ClientCalls {
             "error",
             (ei: ErrorInfo) =>
               runtime.unsafeRun(
-                queue.offer(Left(Some(Status.fromErrorInfo(ei)))).unit
+                queue.offer(Exit.fail(Some(Status.fromErrorInfo(ei)))).unit
               )
           )
       )
@@ -81,15 +83,8 @@ object ClientCalls {
     Stream.fromEffect(e).flatMap {
       case (queue, rpc) =>
         Stream
-          .fromQueue(queue)
-          .tap {
-            case Left(Some(status)) =>
-              queue.shutdown *> IO.fail(status)
-            case _ => IO.unit
-          }
-          .collect {
-            case Right(v) => v
-          }
+          .fromQueueWithShutdown(queue)
+          .collectWhileSuccess
     }
   }
 
