@@ -51,13 +51,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client interrupts") {
         for {
-          fiber <-
-            TestServiceClient
-              .unary(Request(Request.Scenario.DELAY, in = 12))
-              .fork
-          _ <- TestServiceImpl.awaitReceived
-          _ <- fiber.interrupt
-          exit <- TestServiceImpl.awaitExit
+          fiber <- TestServiceClient
+                     .unary(Request(Request.Scenario.DELAY, in = 12))
+                     .fork
+          _     <- TestServiceImpl.awaitReceived
+          _     <- fiber.interrupt
+          exit  <- TestServiceImpl.awaitExit
         } yield assert(exit.interrupted)(isTrue)
       },
       testM("returns response on failures") {
@@ -82,7 +81,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
   def tuple[A, B](
       assertionA: Assertion[A],
       assertionB: Assertion[B]
-  ): Assertion[(A, B)] =
+  ): Assertion[(A, B)]             =
     Assertion.assertionDirect("tuple")(
       Assertion.Render.param(assertionA),
       Assertion.Render.param(assertionB)
@@ -126,15 +125,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellations") {
         assertM(for {
-          fb <-
-            TestServiceClient
-              .serverStreaming(
-                Request(Request.Scenario.DELAY, in = 12)
-              )
-              .runCollect
-              .fork
-          _ <- TestServiceImpl.awaitReceived
-          _ <- fb.interrupt
+          fb   <- TestServiceClient
+                    .serverStreaming(
+                      Request(Request.Scenario.DELAY, in = 12)
+                    )
+                    .runCollect
+                    .fork
+          _    <- TestServiceImpl.awaitReceived
+          _    <- fb.interrupt
           exit <- TestServiceImpl.awaitExit
         } yield exit)(fails(hasStatusCode(Status.CANCELLED)))
       },
@@ -186,19 +184,18 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("catches client cancellation") {
         assertM(for {
-          fiber <-
-            TestServiceClient
-              .clientStreaming(
-                Stream(
-                  Request(Scenario.OK, in = 17),
-                  Request(Scenario.OK, in = 12),
-                  Request(Scenario.DELAY, in = 33)
-                )
-              )
-              .fork
-          _ <- TestServiceImpl.awaitReceived
-          _ <- fiber.interrupt
-          exit <- TestServiceImpl.awaitExit
+          fiber <- TestServiceClient
+                     .clientStreaming(
+                       Stream(
+                         Request(Scenario.OK, in = 17),
+                         Request(Scenario.OK, in = 12),
+                         Request(Scenario.DELAY, in = 33)
+                       )
+                     )
+                     .fork
+          _     <- TestServiceImpl.awaitReceived
+          _     <- fiber.interrupt
+          exit  <- TestServiceImpl.awaitExit
         } yield exit.interrupted)(isTrue)
       },
       testM("returns response on failures") {
@@ -233,8 +230,8 @@ object TestServiceSpec extends DefaultRunnableSpec {
         call: Stream[Status, Req] => ZStream[R, Status, Res]
     ): zio.URIO[R, BidiFixture[Req, Res]] =
       for {
-        in <- ZQueue.unbounded[Res]
-        out <- ZQueue.unbounded[Req]
+        in    <- ZQueue.unbounded[Res]
+        out   <- ZQueue.unbounded[Req]
         fiber <- call(Stream.fromQueue(out)).foreach(in.offer).fork
       } yield BidiFixture(in, out, fiber)
   }
@@ -243,14 +240,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("bidi streaming request")(
       testM("returns successful response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
-          _ <- bf.send(Request(Scenario.OK, in = 1))
-          f1 <- bf.receive(1)
-          _ <- bf.send(Request(Scenario.OK, in = 3))
-          f3 <- bf.receive(3)
-          _ <- bf.send(Request(Scenario.OK, in = 5))
-          f5 <- bf.receive(5)
-          _ <- bf.halfClose
+          bf   <- BidiFixture(TestServiceClient.bidiStreaming)
+          _    <- bf.send(Request(Scenario.OK, in = 1))
+          f1   <- bf.receive(1)
+          _    <- bf.send(Request(Scenario.OK, in = 3))
+          f3   <- bf.receive(3)
+          _    <- bf.send(Request(Scenario.OK, in = 5))
+          f5   <- bf.receive(5)
+          _    <- bf.halfClose
           done <- bf.receive(1)
         } yield (f1, f3, f5, done))(
           equalTo(
@@ -266,11 +263,11 @@ object TestServiceSpec extends DefaultRunnableSpec {
       testM("returns correct error response") {
         assertM(for {
           bf <- BidiFixture(TestServiceClient.bidiStreaming)
-          _ <- bf.send(Request(Scenario.OK, in = 1))
+          _  <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
-          _ <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
-          _ <- bf.halfClose
-          j <- bf.fiber.join.run
+          _  <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
+          _  <- bf.halfClose
+          j  <- bf.fiber.join.run
         } yield (f1, j))(
           tuple(
             equalTo(List(Response("1"))),
@@ -282,16 +279,16 @@ object TestServiceSpec extends DefaultRunnableSpec {
         assertM(
           for {
             testServiceImpl <- ZIO.environment[TestServiceImpl]
-            collectFiber <- collectWithError(
-              TestServiceClient.bidiStreaming(
-                Stream(
-                  Request(Scenario.OK, in = 17)
-                ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain
-                  ++ Stream.fail(Status.CANCELLED)
-              )
-            ).fork
-            _ <- testServiceImpl.get.awaitExit
-            result <- collectFiber.join
+            collectFiber    <- collectWithError(
+                                 TestServiceClient.bidiStreaming(
+                                   Stream(
+                                     Request(Scenario.OK, in = 17)
+                                   ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain
+                                     ++ Stream.fail(Status.CANCELLED)
+                                 )
+                               ).fork
+            _               <- testServiceImpl.get.awaitExit
+            result          <- collectFiber.join
           } yield result
         )(
           tuple(anything, isSome(hasStatusCode(Status.CANCELLED)))

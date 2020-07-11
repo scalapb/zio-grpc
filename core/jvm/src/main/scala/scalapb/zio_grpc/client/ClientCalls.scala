@@ -40,13 +40,12 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
-      listener =>
-        call.start(listener, headers) *>
-          call.request(1) *>
-          call.sendMessage(req) *>
-          call.halfClose() *>
-          listener.getValue.map(_._2)
+    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+      call.start(listener, headers) *>
+        call.request(1) *>
+        call.sendMessage(req) *>
+        call.halfClose() *>
+        listener.getValue.map(_._2)
     }
 
   def serverStreamingCall[R, Req, Res](
@@ -100,13 +99,12 @@ object ClientCalls {
       headers: SafeMetadata,
       req: GStream[Req]
   ): ZIO[R, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) {
-      listener =>
-        call.start(listener, headers) *>
-          call.request(1) *>
-          req.foreach(call.sendMessage) *>
-          call.halfClose() *>
-          listener.getValue.map(_._2)
+    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+      call.start(listener, headers) *>
+        call.request(1) *>
+        req.foreach(call.sendMessage) *>
+        call.halfClose() *>
+        listener.getValue.map(_._2)
     }
 
   def bidiCall[R, Req, Res](
@@ -128,7 +126,7 @@ object ClientCalls {
         StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler(call))
       .flatMap { listener: StreamingClientCallListener[R, Res] =>
-        val init = Stream
+        val init              = Stream
           .fromEffect(
             call.start(listener, headers) *>
               call.request(1)

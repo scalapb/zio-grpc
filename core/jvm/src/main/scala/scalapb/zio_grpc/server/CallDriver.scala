@@ -54,7 +54,7 @@ object CallDriver {
                 completed
                   .fail(Status.INTERNAL.withDescription("Too many requests"))
                   .unit
-              case true =>
+              case true  =>
                 ZIO.unit
             }
           }
@@ -64,9 +64,7 @@ object CallDriver {
           completed.await *>
           call.sendHeaders(new Metadata) *>
           request.await >>= writeResponse
-      ).onExit(ex =>
-          call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
-        )
+      ).onExit(ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore)
         .ignore
         .race(cancelled.await)
     )
@@ -88,10 +86,10 @@ object CallDriver {
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
-      runtime <- ZIO.runtime[R]
+      runtime   <- ZIO.runtime[R]
       cancelled <- Promise.make[Nothing, Unit]
       completed <- Promise.make[Status, Unit]
-      request <- Promise.make[Nothing, Req]
+      request   <- Promise.make[Nothing, Req]
     } yield unaryInputCallDriver(
       runtime,
       zioCall,
@@ -129,9 +127,7 @@ object CallDriver {
         (call.request(1) *>
           call.sendHeaders(new Metadata) *>
           writeResponse(requestStream))
-          .onExit(ex =>
-            call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
-          )
+          .onExit(ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore)
           .ignore
           .race(cancelled.await)
       }
@@ -154,9 +150,9 @@ object CallDriver {
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
-      runtime <- ZIO.runtime[R]
+      runtime   <- ZIO.runtime[R]
       cancelled <- Promise.make[Nothing, Unit]
-      queue <- Queue.unbounded[Option[Req]]
+      queue     <- Queue.unbounded[Option[Req]]
     } yield streamingInputCallDriver[R, Req, Res](
       runtime,
       zioCall,

@@ -43,9 +43,7 @@ trait ZClientCall[-R, Req, Res] extends Any {
     }
 }
 
-class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res])
-    extends AnyVal
-    with ZClientCall[Any, Req, Res] {
+class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends AnyVal with ZClientCall[Any, Req, Res] {
   def start(responseListener: Listener[Res], headers: SafeMetadata): GIO[Unit] =
     GIO.effect(call.start(responseListener, headers.metadata))
 

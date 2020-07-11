@@ -16,8 +16,7 @@ sealed trait StreamingCallState[+Res]
 object StreamingCallState {
   case object Initial extends StreamingCallState[Nothing]
 
-  case class HeadersReceived[Res](headers: Metadata)
-      extends StreamingCallState[Res]
+  case class HeadersReceived[Res](headers: Metadata) extends StreamingCallState[Res]
 
   case class Failure[Res](s: String) extends StreamingCallState[Res]
 }
@@ -52,7 +51,7 @@ class StreamingClientCallListener[R, Res](
       .tap {
         case Left((status, trailers)) =>
           queue.shutdown *> IO.when(!status.isOk)(IO.fail(status))
-        case _ => IO.unit
+        case _                        => IO.unit
       }
       .collect {
         case Right(v) => v
@@ -65,7 +64,7 @@ object StreamingClientCallListener {
   ): URIO[R, StreamingClientCallListener[R, Res]] =
     for {
       runtime <- zio.ZIO.runtime[R]
-      state <- Ref.make[StreamingCallState[Res]](Initial)
-      queue <- Queue.unbounded[Either[(Status, Metadata), Res]]
+      state   <- Ref.make[StreamingCallState[Res]](Initial)
+      queue   <- Queue.unbounded[Either[(Status, Metadata), Res]]
     } yield new StreamingClientCallListener(runtime, call, state, queue)
 }

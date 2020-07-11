@@ -28,15 +28,15 @@ package object server {
         extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
-          case Scenario.OK =>
+          case Scenario.OK        =>
             ZIO.succeed(
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>
             ZIO.fail(Status.INTERNAL.withDescription("FOO!"))
-          case Scenario.DELAY => ZIO.never
-          case Scenario.DIE   => ZIO.die(new RuntimeException("FOO"))
-          case _              => ZIO.fail(Status.UNKNOWN)
+          case Scenario.DELAY     => ZIO.never
+          case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
+          case _                  => ZIO.fail(Status.UNKNOWN)
         })).onExit(exit.succeed(_))
 
       def serverStreaming(
@@ -54,22 +54,22 @@ package object server {
           }
           .flatMap { _ =>
             request.scenario match {
-              case Scenario.OK =>
+              case Scenario.OK          =>
                 ZStream(Response(out = "X1"), Response(out = "X2"))
-              case Scenario.ERROR_NOW =>
+              case Scenario.ERROR_NOW   =>
                 ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
               case Scenario.ERROR_AFTER =>
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
                     Status.INTERNAL.withDescription("FOO!")
                   )
-              case Scenario.DELAY =>
+              case Scenario.DELAY       =>
                 ZStream(
                   Response(out = "X1"),
                   Response(out = "X2")
                 ) ++ ZStream.never
-              case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
-              case _            => ZStream.fail(Status.UNKNOWN)
+              case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
+              case _                    => ZStream.fail(Status.UNKNOWN)
             }
           }
 
@@ -79,12 +79,12 @@ package object server {
         requestReceived.succeed(()) *> request
           .foldM(0)((state, req) =>
             req.scenario match {
-              case Scenario.OK    => ZIO.succeed(state + req.in)
-              case Scenario.DELAY => ZIO.never
-              case Scenario.DIE   => ZIO.die(new RuntimeException("foo"))
+              case Scenario.OK        => ZIO.succeed(state + req.in)
+              case Scenario.DELAY     => ZIO.never
+              case Scenario.DIE       => ZIO.die(new RuntimeException("foo"))
               case Scenario.ERROR_NOW =>
                 ZIO.fail((Status.INTERNAL.withDescription("InternalError")))
-              case _: Scenario => ZIO.fail(Status.UNKNOWN)
+              case _: Scenario        => ZIO.fail(Status.UNKNOWN)
             }
           )
           .map(r => Response(r.toString))
@@ -96,14 +96,14 @@ package object server {
         (ZStream.fromEffect(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
-              case Scenario.OK =>
+              case Scenario.OK        =>
                 Stream(Response(r.in.toString))
                   .repeat(Schedule.recurs(r.in - 1))
-              case Scenario.DELAY => Stream.never
-              case Scenario.DIE   => Stream.die(new RuntimeException("FOO"))
+              case Scenario.DELAY     => Stream.never
+              case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
                 Stream.fail(Status.INTERNAL.withDescription("InternalError"))
-              case _ => Stream.fail(Status.UNKNOWN)
+              case _                  => Stream.fail(Status.UNKNOWN)
             }
           } ++ Stream(Response("DONE"))))
           .ensuring(exit.succeed(Exit.succeed(Response())))

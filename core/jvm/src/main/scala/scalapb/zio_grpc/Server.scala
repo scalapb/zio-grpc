@@ -21,8 +21,7 @@ object Server {
     def start: Task[Unit]
   }
 
-  private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server)
-      extends Service {
+  private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
     def port: Task[Int] = ZIO.effect(underlying.getPort())
 
     def shutdown: Task[Unit] = ZIO.effect(underlying.shutdown()).unit
@@ -41,14 +40,14 @@ object Server {
   ): ZManaged[R, Throwable, Service] =
     (for {
       services0 <- services
-      server = new ServiceImpl(
-        services0
-          .foldLeft(builder)({
-            case (b, s) => b.addService(s)
-          })
-          .build()
-      )
-      _ <- server.start
+      server     = new ServiceImpl(
+                     services0
+                       .foldLeft(builder)({
+                         case (b, s) => b.addService(s)
+                       })
+                       .build()
+                   )
+      _         <- server.start
     } yield server).toManaged(_.shutdown.ignore)
 
   def zmanaged[S0, R0](
@@ -127,8 +126,8 @@ object Server {
       b0: ZBindableService.Aux[S0, R0],
       b1: ZBindableService.Aux[S1, R1]
   ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Nothing, Server] =
-    ZLayer.fromServicesManaged[S0, S1, R0 with R1, Nothing, Server.Service] {
-      (s0: S0, s1: S1) => Server.zmanaged(builder, s0, s1).orDie
+    ZLayer.fromServicesManaged[S0, S1, R0 with R1, Nothing, Server.Service] { (s0: S0, s1: S1) =>
+      Server.zmanaged(builder, s0, s1).orDie
     }
 
   def zlive[

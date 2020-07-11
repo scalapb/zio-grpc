@@ -18,8 +18,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
   val getUser = ZIO.access[Has[User]](_.get)
 
-  object ServiceWithConsole
-      extends ZTestService[Console with Clock, Has[User]] {
+  object ServiceWithConsole extends ZTestService[Console with Clock, Has[User]] {
     def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
       for {
         user <- getUser
@@ -58,16 +57,15 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         IO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
         )
-      case Some(name) => IO.succeed(User(name))
-      case None       => IO.fail(Status.UNAUTHENTICATED)
+      case Some(name)    => IO.succeed(User(name))
+      case None          => IO.fail(Status.UNAUTHENTICATED)
     }
 
   val serviceLayer = ZTestService.toLayer(
     ZTestService.transformContext(ServiceWithConsole, parseUser(_))
   )
 
-  val serverLayer
-      : ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Nothing, Server] =
+  val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Nothing, Server] =
     Server
       .live[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
 
@@ -79,9 +77,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(
-            ZClientInterceptor.headersUpdater((_, _, md) =>
-              ZIO.foreach(userName)(un => md.put(UserKey, un)).unit
-            )
+            ZClientInterceptor.headersUpdater((_, _, md) => ZIO.foreach(userName)(un => md.put(UserKey, un)).unit)
           )
         )
         TestServiceClient

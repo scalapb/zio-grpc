@@ -21,7 +21,7 @@ object ZTransform {
   /** Returns a ZTransform that can provide some of the environment of a service */
   def provideSome[R, E, R0](f: R0 => R): ZTransform[R, E, R0] =
     new ZTransform[R, E, R0] {
-      def effect[A](io: ZIO[R, E, A]): ZIO[R0, E, A] = io.provideSome(f)
+      def effect[A](io: ZIO[R, E, A]): ZIO[R0, E, A]         = io.provideSome(f)
       def stream[A](io: ZStream[R, E, A]): ZStream[R0, E, A] = io.provideSome(f)
     }
 

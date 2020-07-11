@@ -45,39 +45,39 @@ object ClientCalls {
   ): ZStream[R, Status, Res] = {
     val e = (for {
       runtime <- ZIO.runtime[R]
-      queue <- Queue.unbounded[Exit[Option[Status], Res]]
-      rpc <- ZIO.effectTotal(
-        channel.channel.client
-          .rpcCall[Req, Res](
-            channel.channel.baseUrl + "/" + method.fullName,
-            req,
-            scalajs.js.Dictionary[String](),
-            method.methodInfo
-          )
-          .on(
-            "data",
-            (res: Res) => runtime.unsafeRun(queue.offer(Exit.succeed(res)).unit)
-          )
-          .on(
-            "status",
-            { (status: StatusInfo) =>
-              val exit =
-                if (status.code != 0)
-                  Exit.fail(Some(Status.fromStatusInfo(status)))
-                else Exit.fail(None)
-              runtime.unsafeRun(
-                queue.offer(exit).unit
-              )
-            }
-          )
-          .on(
-            "error",
-            (ei: ErrorInfo) =>
-              runtime.unsafeRun(
-                queue.offer(Exit.fail(Some(Status.fromErrorInfo(ei)))).unit
-              )
-          )
-      )
+      queue   <- Queue.unbounded[Exit[Option[Status], Res]]
+      rpc     <- ZIO.effectTotal(
+                   channel.channel.client
+                     .rpcCall[Req, Res](
+                       channel.channel.baseUrl + "/" + method.fullName,
+                       req,
+                       scalajs.js.Dictionary[String](),
+                       method.methodInfo
+                     )
+                     .on(
+                       "data",
+                       (res: Res) => runtime.unsafeRun(queue.offer(Exit.succeed(res)).unit)
+                     )
+                     .on(
+                       "status",
+                       { (status: StatusInfo) =>
+                         val exit =
+                           if (status.code != 0)
+                             Exit.fail(Some(Status.fromStatusInfo(status)))
+                           else Exit.fail(None)
+                         runtime.unsafeRun(
+                           queue.offer(exit).unit
+                         )
+                       }
+                     )
+                     .on(
+                       "error",
+                       (ei: ErrorInfo) =>
+                         runtime.unsafeRun(
+                           queue.offer(Exit.fail(Some(Status.fromErrorInfo(ei)))).unit
+                         )
+                     )
+                 )
     } yield (queue, rpc))
 
     Stream.fromEffect(e).flatMap {

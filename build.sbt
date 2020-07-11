@@ -41,9 +41,9 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     crossScalaVersions := Seq(Scala212, Scala213),
     name := "zio-grpc-core",
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio" % zioVersion,
-      "dev.zio" %%% "zio-streams" % zioVersion,
-      "dev.zio" %%% "zio-test" % zioVersion % "test",
+      "dev.zio" %%% "zio"          % zioVersion,
+      "dev.zio" %%% "zio-streams"  % zioVersion,
+      "dev.zio" %%% "zio-test"     % zioVersion % "test",
       "dev.zio" %%% "zio-test-sbt" % zioVersion % "test"
     )
   )
@@ -58,7 +58,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   .jsSettings(
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.4.1",
-      "io.github.cquiroz" %%% "scala-java-time" % "2.0.0" % "test"
+      "io.github.cquiroz"            %%% "scala-java-time" % "2.0.0" % "test"
     ),
     npmDependencies in Compile += "grpc-web" -> "1.0.7"
   )
@@ -91,16 +91,16 @@ lazy val e2e = project
     crossScalaVersions := Seq(Scala212, Scala213),
     skip in publish := true,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-test" % zioVersion % "test",
-      "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
+      "dev.zio"              %% "zio-test"             % zioVersion % "test",
+      "dev.zio"              %% "zio-test-sbt"         % zioVersion % "test",
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-      "io.grpc" % "grpc-netty" % grpcVersion
+      "io.grpc"               % "grpc-netty"           % grpcVersion
     ),
     PB.targets in Compile := Seq(
       scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
       genModule(
         "scalapb.zio_grpc.ZioCodeGenerator$"
-      ) -> (sourceManaged in Compile).value
+      )                        -> (sourceManaged in Compile).value
     ),
     codeGenClasspath := (codeGen / Compile / fullClasspath).value,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")

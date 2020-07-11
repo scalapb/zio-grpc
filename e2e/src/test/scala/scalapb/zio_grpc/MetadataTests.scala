@@ -14,18 +14,18 @@ trait MetadataTests {
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient]
 
-  val authClient = clientLayer(Some("bob"))
+  val authClient   = clientLayer(Some("bob"))
   val unauthClient = clientLayer(Some("alice"))
-  val unsetClient = clientLayer(None)
+  val unsetClient  = clientLayer(None)
 
   val permissionDenied = fails(hasStatusCode(Status.PERMISSION_DENIED))
-  val unauthenticated = fails(hasStatusCode(Status.UNAUTHENTICATED))
+  val unauthenticated  = fails(hasStatusCode(Status.UNAUTHENTICATED))
 
-  val unaryEffect = TestServiceClient.unary(Request())
+  val unaryEffect           = TestServiceClient.unary(Request())
   val serverStreamingEffect =
     TestServiceClient.serverStreaming(Request()).runCollect
   val clientStreamingEffect = TestServiceClient.clientStreaming(Stream.empty)
-  val bidiEffect = TestServiceClient.bidiStreaming(Stream.empty).runCollect
+  val bidiEffect            = TestServiceClient.bidiStreaming(Stream.empty).runCollect
 
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(

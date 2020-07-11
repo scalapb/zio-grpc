@@ -16,8 +16,7 @@ object UnaryCallState {
 
   case class HeadersReceived[Res](headers: Metadata) extends UnaryCallState[Res]
 
-  case class ResponseReceived[Res](headers: Metadata, message: Res)
-      extends UnaryCallState[Res]
+  case class ResponseReceived[Res](headers: Metadata, message: Res) extends UnaryCallState[Res]
 
   case class Failure[Res](s: String) extends UnaryCallState[Res]
 }
@@ -46,9 +45,9 @@ class UnaryClientCallListener[Res](
         .update({
           case Initial                  => Failure("onMessage called before onHeaders")
           case HeadersReceived(headers) => ResponseReceived(headers, message)
-          case ResponseReceived(_, _) =>
+          case ResponseReceived(_, _)   =>
             Failure("onMessage called more than once for unary call")
-          case f @ Failure(_) => f
+          case f @ Failure(_)           => f
         })
         .unit
     )
@@ -57,19 +56,18 @@ class UnaryClientCallListener[Res](
     runtime.unsafeRun {
       for {
         s <- state.get
-        _ <-
-          if (!status.isOk) promise.fail(status)
-          else
-            s match {
-              case ResponseReceived(headers, message) =>
-                promise.succeed((headers, message))
-              case Failure(errorMessage) =>
-                promise.fail(Status.INTERNAL.withDescription(errorMessage))
-              case _ =>
-                promise.fail(
-                  Status.INTERNAL.withDescription("No data received")
-                )
-            }
+        _ <- if (!status.isOk) promise.fail(status)
+             else
+               s match {
+                 case ResponseReceived(headers, message) =>
+                   promise.succeed((headers, message))
+                 case Failure(errorMessage)              =>
+                   promise.fail(Status.INTERNAL.withDescription(errorMessage))
+                 case _                                  =>
+                   promise.fail(
+                     Status.INTERNAL.withDescription("No data received")
+                   )
+               }
       } yield ()
     }
 
@@ -80,7 +78,7 @@ object UnaryClientCallListener {
   def make[Res] =
     for {
       runtime <- zio.ZIO.runtime[Any]
-      state <- Ref.make[UnaryCallState[Res]](Initial)
+      state   <- Ref.make[UnaryCallState[Res]](Initial)
       promise <- Promise.make[Status, (Metadata, Res)]
     } yield new UnaryClientCallListener[Res](runtime, state, promise)
 }

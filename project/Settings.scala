@@ -39,7 +39,7 @@ object Settings {
           "-Xmax-classfile-name",
           "242"
         ) ++ std2xOptions
-      case _ => Seq()
+      case _             => Seq()
     }
 
   def stdSettings =
