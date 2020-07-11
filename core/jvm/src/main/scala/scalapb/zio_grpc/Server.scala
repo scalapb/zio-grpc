@@ -33,6 +33,7 @@ object Server {
     def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdown.ignore)
   }
 
+  @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
   def zmanaged(builder: => ServerBuilder[_]): Managed[Throwable, Service] =
     zmanaged(builder, UIO.succeed(Nil))
 
@@ -188,12 +189,12 @@ object ServerLayer {
   def fromServiceList[R](builder: => ServerBuilder[_], l: ServiceList[R]) =
     ManagedServer.fromServiceList(builder, l).toLayer
 
-  def access[R, E, S1: Tag](
+  def access[R, S1: Tag](
       builder: => ServerBuilder[_]
   )(implicit bs: ZBindableService[Any, S1]): ZLayer[R with Has[S1], Any, Server] =
     fromServiceList(builder, ServiceList.accessEnv[R, S1])
 
-  def fromServiceLayer[R, E, S1: Tag](
+  def fromServiceLayer[R, S1: Tag](
       serverBuilder: => ServerBuilder[_]
   )(l: ZLayer[R, Throwable, Has[S1]])(implicit bs: ZBindableService[Any, S1]) =
     l >>> fromServiceList(serverBuilder, ServiceList.access[S1])
@@ -218,6 +219,9 @@ object ServerLayer {
 }
 
 object ManagedServer {
+  def fromBuilder(builder: => ServerBuilder[_]): ZManaged[Any, Throwable, Server.Service] =
+    fromServiceList(builder, ServiceList)
+
   def fromService[R1, S1](builder: => ServerBuilder[_], s1: S1)(implicit
       bs: ZBindableService[R1, S1]
   ): ZManaged[R1, Throwable, Server.Service] =
