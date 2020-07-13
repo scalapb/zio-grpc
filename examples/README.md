@@ -1,7 +1,7 @@
 To test the server:
 
-    sbt "server/runMain examples.ExampleServer"
+    sbt "runMain zio_grpc.examples.helloworld.HelloWorldServer"
 
 On another shell:
 
-    sbt "client/runMain examples.ExampleClient"
+    sbt "runMain zio_grpc.examples.helloworld.HelloWorldClient"

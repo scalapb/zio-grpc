@@ -105,3 +105,17 @@ lazy val e2e = project
     codeGenClasspath := (codeGen / Compile / fullClasspath).value,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
+
+lazy val docs = project
+  .in(file("zio-grpc-docs"))
+  .settings(
+    skip in publish := true,
+    moduleName := "zio-grpc-docs",
+    mdocVariables := Map(
+      "sbtProtocVersion" -> "0.99.34",
+      "grpcVersion"      -> "1.30.2",
+      "zioGrpcVersion"   -> "0.4.0-RC1",
+      "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
+    )
+  )
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
