@@ -54,7 +54,7 @@ object GreeterServiceWithMetadata {
 
   val live: ZLayer[Clock, Nothing, Has[Greeter]] =
     ZLayer.fromService { c: Clock.Service =>
-      ZGreeter.transformContext(new LiveService(c), findUser(_))
+      new LiveService(c).transformContextM(findUser(_))
     }
 }
 
