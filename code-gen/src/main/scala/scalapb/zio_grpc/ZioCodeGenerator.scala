@@ -205,7 +205,9 @@ class ZioFilePrinter(
         )
         .add("}")
         .add(
-          s"type ${traitName.name} = ${ztraitName.name}[Any, zio.Has[scalapb.zio_grpc.RequestContext]]"
+          s"type ${traitName.name} = ${ztraitName.name}[Any, Any]",
+          s"type R${traitName.name}[R] = ${ztraitName.name}[R, Any]",
+          s"type RC${traitName.name}[R] = ${ztraitName.name}[R, zio.Has[$RequestContext]]"
         )
         .add("")
         .add(s"object ${ztraitName.name} {")
