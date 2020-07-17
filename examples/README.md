@@ -1,7 +1,7 @@
 To test the server:
 
-    sbt "runMain examples.ExampleServer"
+    sbt "project server; runMain examples.ExampleServer"
 
 On another shell:
 
-    sbt "runMain examples.ExampleClient"
+    sbt "project client; runMain examples.ExampleClient"
