@@ -17,7 +17,7 @@ object ExampleClient extends zio.App {
   def clientLayer: Layer[Throwable, GreeterClient] =
     GreeterClient.live(
       ZManagedChannel(
-        ManagedChannelBuilder.forAddress("localhost", 8080).usePlaintext()
+        ManagedChannelBuilder.forAddress("localhost", 9090).usePlaintext()
       )
     )
 
