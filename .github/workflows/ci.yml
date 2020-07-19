@@ -35,6 +35,6 @@ jobs:
       run: |
         sbt ++${{matrix.scala}} test
 
-#    - name: Examples
-#      run: |
-#        cd examples && sbt compile && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
+    - name: Examples
+      run: |
+        cd examples && sbt compile && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
