@@ -24,7 +24,10 @@ object RouteGuideClientApp extends App {
     )
 
   // start: getFeature
-  def getFeature(lat: Int, lng: Int): ZIO[RouteGuideClient with Console, Status, Unit] =
+  def getFeature(
+      lat: Int,
+      lng: Int
+  ): ZIO[RouteGuideClient with Console, Status, Unit] =
     (for {
       f <- RouteGuideClient.getFeature(Point(lat, lng))
       _ <- putStrLn(s"""Found feature called "${f.name}".""")
@@ -44,56 +47,57 @@ object RouteGuideClientApp extends App {
   def recordRoute(numPoints: Int) =
     for {
       summary <- RouteGuideClient.recordRoute(
-                   ZStream
-                     .repeatEffect(
-                       nextIntBetween(0, features.size).map(features(_).getLocation)
-                     )
-                     .tap(p => putStrLn(s"Visiting (${p.latitude}, ${p.longitude})"))
-                     .schedule(Schedule.randomDelay(200.millis, 500.millis))
-                     .take(numPoints)
-                 )
-      _       <- putStrLn(
-                   s"Finished trip with ${summary.pointCount} points. " +
-                     s"Passed ${summary.featureCount} features. " +
-                     s"Travelled ${summary.distance} meters. " +
-                     s"It took ${summary.elapsedTime} seconds."
-                 )
+        ZStream
+          .repeatEffect(
+            nextIntBetween(0, features.size).map(features(_).getLocation)
+          )
+          .tap(p => putStrLn(s"Visiting (${p.latitude}, ${p.longitude})"))
+          .schedule(Schedule.randomDelay(200.millis, 500.millis))
+          .take(numPoints)
+      )
+      _ <- putStrLn(
+        s"Finished trip with ${summary.pointCount} points. " +
+          s"Passed ${summary.featureCount} features. " +
+          s"Travelled ${summary.distance} meters. " +
+          s"It took ${summary.elapsedTime} seconds."
+      )
     } yield ()
   // end: recordRoute
 
   // start: routeChat
   val routeChat =
     for {
-      res <- RouteGuideClient
-               .routeChat(
-                 ZStream(
-                   RouteNote(
-                     location = Some(Point(0, 0)),
-                     message = "First message"
-                   ),
-                   RouteNote(
-                     location = Some(Point(0, 10_000_000)),
-                     message = "Second Message"
-                   ),
-                   RouteNote(
-                     location = Some(Point(10_000_000, 0)),
-                     message = "Third Message"
-                   ),
-                   RouteNote(
-                     location = Some(Point(10_000_000, 10_000_000)),
-                     message = "Four Message"
-                   )
-                 ).tap { note =>
-                   putStrLn(
-                     s"""Sending message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
-                   )
-                 }
-               )
-               .foreach { note =>
-                 putStrLn(
-                   s"""Got message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
-                 )
-               }
+      res <-
+        RouteGuideClient
+          .routeChat(
+            ZStream(
+              RouteNote(
+                location = Some(Point(0, 0)),
+                message = "First message"
+              ),
+              RouteNote(
+                location = Some(Point(0, 10_000_000)),
+                message = "Second Message"
+              ),
+              RouteNote(
+                location = Some(Point(10_000_000, 0)),
+                message = "Third Message"
+              ),
+              RouteNote(
+                location = Some(Point(10_000_000, 10_000_000)),
+                message = "Four Message"
+              )
+            ).tap { note =>
+              putStrLn(
+                s"""Sending message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
+              )
+            }
+          )
+          .foreach { note =>
+            putStrLn(
+              s"""Got message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
+            )
+          }
     } yield ()
   // end: routeChat
 
@@ -108,18 +112,19 @@ object RouteGuideClientApp extends App {
       // Calls listFeatures with a rectangle of interest. Prints
       // each response feature as it arrives.
       // start: listFeatures
-      _ <- RouteGuideClient
-             .listFeatures(
-               Rectangle(
-                 lo = Some(Point(400000000, -750000000)),
-                 hi = Some(Point(420000000, -730000000))
-               )
-             )
-             .zipWithIndex
-             .foreach {
-               case (feature, index) =>
-                 putStrLn(s"Result #${index + 1}: $feature")
-             }
+      _ <-
+        RouteGuideClient
+          .listFeatures(
+            Rectangle(
+              lo = Some(Point(400000000, -750000000)),
+              hi = Some(Point(420000000, -730000000))
+            )
+          )
+          .zipWithIndex
+          .foreach {
+            case (feature, index) =>
+              putStrLn(s"Result #${index + 1}: $feature")
+          }
       // end: listFeatures
 
       _ <- recordRoute(10)

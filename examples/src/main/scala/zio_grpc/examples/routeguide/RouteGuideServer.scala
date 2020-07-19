@@ -109,7 +109,7 @@ class RouteGuideService(
 
   /** Gets the feature with the given point.
     *
-   * @param location the location to check
+    * @param location the location to check
     * @return A non-empty option if a feature is defined at that point, None otherwise.
     */
   // start: findFeature

@@ -27,7 +27,8 @@ object SafeMetadata {
   def make: UIO[SafeMetadata] = fromMetadata(new Metadata)
 
   /** Creates a new SafeMetadata by taking ownership of the given metadata.
-    * The provided metadata should not be used after calling this method. */
+    * The provided metadata should not be used after calling this method.
+    */
   def fromMetadata(metadata: => Metadata): UIO[SafeMetadata] =
     Semaphore.make(1).map(s => new SafeMetadata(s, metadata))
 }

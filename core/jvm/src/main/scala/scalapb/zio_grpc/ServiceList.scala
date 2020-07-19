@@ -7,7 +7,7 @@ import zio.ZIO
 
 /** Represents a managed list of services to be added to the a server.
   *
- * This is just a wrapper around a list of ServerServiceDefinition.
+  * This is just a wrapper around a list of ServerServiceDefinition.
   */
 sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwable, List[ServerServiceDefinition]]) {
 
@@ -27,7 +27,7 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
       sd <- s1.mapM(bs.bindService(_))
     } yield sd :: l)
 
-  /** Adds a dependency on a service that will be provided later from the environment or a Layer **/
+  /** Adds a dependency on a service that will be provided later from the environment or a Layer * */
   def access[B: Tag](implicit bs: ZBindableService[Any, B]): ServiceList[Has[B] with RR] =
     accessEnv[Any, B]
 
