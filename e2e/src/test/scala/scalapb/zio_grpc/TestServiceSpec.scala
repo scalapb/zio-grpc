@@ -240,7 +240,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("bidi streaming request")(
       testM("returns successful response") {
         assertM(for {
-          bf   <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf   <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _    <- bf.send(Request(Scenario.OK, in = 1))
           f1   <- bf.receive(1)
           _    <- bf.send(Request(Scenario.OK, in = 3))
@@ -262,7 +262,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       testM("returns correct error response") {
         assertM(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming)
+          bf <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _  <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _  <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
@@ -280,7 +280,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           for {
             testServiceImpl <- ZIO.environment[TestServiceImpl]
             collectFiber    <- collectWithError(
-                                 TestServiceClient.bidiStreaming(
+                                 TestServiceClient.bidiStreaming[Any](
                                    Stream(
                                      Request(Scenario.OK, in = 17)
                                    ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain

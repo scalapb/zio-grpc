@@ -31,9 +31,9 @@ object BindableServiceSpec extends DefaultRunnableSpec {
 
     def serverStreaming(request: Request): ZStream[R with C, Status, Response] = ???
 
-    def clientStreaming(request: zio.stream.Stream[Status, Request]): ZIO[R with C, Status, Response] = ???
+    def clientStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZIO[R with C, Status, Response] = ???
 
-    def bidiStreaming(request: zio.stream.Stream[Status, Request]): ZStream[R with C, Status, Response] = ???
+    def bidiStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZStream[R with C, Status, Response] = ???
   }
 
   object S1 extends UnimpTestService[Int, Any, Has[RequestContext]]

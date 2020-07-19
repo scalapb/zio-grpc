@@ -35,11 +35,11 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
       }
 
     def clientStreaming(
-        request: zio.stream.Stream[Status, Request]
+        request: zio.stream.ZStream[Any, Status, Request]
     ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))
 
     def bidiStreaming(
-        request: zio.stream.Stream[Status, Request]
+        request: zio.stream.ZStream[Any, Status, Request]
     ): ZStream[Has[User], Status, Response] =
       ZStream.accessStream { u: Has[User] =>
         ZStream(
