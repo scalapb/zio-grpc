@@ -1,6 +1,5 @@
 package scalapb.zio_grpc.client
 
-import scalapb.zio_grpc.GStream
 import io.grpc.CallOptions
 import zio.Exit
 import zio.ZIO

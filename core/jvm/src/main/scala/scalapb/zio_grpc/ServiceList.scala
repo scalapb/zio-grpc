@@ -2,8 +2,6 @@ package scalapb.zio_grpc
 
 import zio.{Has, Tag}
 import io.grpc.ServerServiceDefinition
-import io.grpc.ServerBuilder
-import zio.ZLayer
 import zio.ZManaged
 import zio.ZIO
 

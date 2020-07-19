@@ -4,7 +4,6 @@ import zio.IO
 import zio.stream.Stream
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.ZChannel
-import scalapb.zio_grpc.GStream
 import io.grpc.MethodDescriptor
 import io.grpc.CallOptions
 import scalapb.grpcweb.native.ErrorInfo
@@ -81,7 +80,7 @@ object ClientCalls {
     } yield (queue, rpc))
 
     Stream.fromEffect(e).flatMap {
-      case (queue, rpc) =>
+      case (queue, rpc@_) =>
         Stream
           .fromQueueWithShutdown(queue)
           .collectWhileSuccess
