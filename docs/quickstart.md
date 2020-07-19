@@ -132,3 +132,7 @@ If you still have the previous version of the server running, stop it by hitting
 
 ## What's next
 * Work through the [Basics Tutorial](basics.md).
+
+:::note
+This document, "ZIO gRPC: Quick Start", is a derivative of ["gRPC &ndash; Quick Start"](https://grpc.io/docs/languages/java/quickstart/) by [gRPC Authors](https://grpc.io/), used under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0). "ZIO gRPC: Quick Start" is licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0) by Nadav Samet.
+:::

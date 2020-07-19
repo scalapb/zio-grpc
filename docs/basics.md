@@ -243,7 +243,6 @@ Now let's look at something a little more complicated: the client-side streaming
 method `RecordRoute()`, where we get a stream of `Point`s from the client and
 return a single `RouteSummary` with information about their trip once the stream finishes.
 
-
 ```scala mdoc:passthrough:silent
 S.example("routeguide/RouteGuideServer.scala", "recordRoute")
 ```
@@ -260,7 +259,6 @@ The `fold` method gives us a `IO[Status, RouteSummary]`. Using the `timed` metho
 the effect thus far. We then use `map` to turn it back to a `RouteSummary` that contains the elapsed time in seconds.
 
 ### Bidirectional streaming RPC
-
 
 Finally, let's look at our bidirectional streaming RPC `RouteChat()`.
 
@@ -341,7 +339,6 @@ def routeChat[R0](req: ZStream[R0, Status, RouteNote]):
   ZStream[RouteGuideClient with R0, Status, RouteNote]
 ```
 
-
 ### Simple RPC
 Calling the simple RPC `GetFeature` on the static accessor stub is as
 straightforward as instantiating a local effect:
@@ -419,3 +416,7 @@ S.example("routeguide/RouteGuideClientApp.scala", "appLogic")
    ```bash
    sbt "runMain zio_grpc.examples.routeguide.RouteGuideClientApp"
    ```
+
+:::note
+This document, "ZIO gRPC: Basics Tutorial", is a derivative of ["gRPC &ndash; Basics Tutorial"](https://grpc.io/docs/languages/java/basics/) by [gRPC Authors](https://grpc.io/), used under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0). "ZIO gRPC: Basics Tutorial" is licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0) by Nadav Samet.
+:::
