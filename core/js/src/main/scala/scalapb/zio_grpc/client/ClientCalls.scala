@@ -80,7 +80,7 @@ object ClientCalls {
     } yield (queue, rpc))
 
     Stream.fromEffect(e).flatMap {
-      case (queue, rpc@_) =>
+      case (queue, rpc @ _) =>
         Stream
           .fromQueueWithShutdown(queue)
           .collectWhileSuccess
