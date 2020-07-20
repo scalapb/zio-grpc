@@ -33,7 +33,7 @@ jobs:
 
     - name: Compile and test
       run: |
-        sbt ++${{matrix.scala}} test
+        sbt ++${{matrix.scala}} coreJVM/test e2e/test
 
     - name: Examples
       run: |
