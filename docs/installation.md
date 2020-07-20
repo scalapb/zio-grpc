@@ -18,8 +18,8 @@ Then, add the following line to your `build.sbt`:
 
 ```scala
 PB.targets in Compile := Seq(
-    scalapb.gen() -> (sourceManaged in Compile).value / "scalapb",
-    scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value / "scalapb"
+  scalapb.gen() -> (sourceManaged in Compile).value / "scalapb",
+  scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value / "scalapb"
 )
 
 libraryDependencies ++= Seq(

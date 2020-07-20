@@ -6,7 +6,7 @@ import zio.ZManaged
 
 object ZManagedChannel {
   def apply[R](
-      builder: ManagedChannelBuilder[_],
+      builder: => ManagedChannelBuilder[_],
       interceptors: Seq[ZClientInterceptor[R]] = Nil
   ): ZManagedChannel[R] =
     ZManaged.make(ZIO.effect(new ZChannel(builder.build(), interceptors)))(

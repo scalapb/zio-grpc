@@ -107,15 +107,28 @@ lazy val e2e = project
   )
 
 lazy val docs = project
+  .enablePlugins(LocalCodeGenPlugin)
   .in(file("zio-grpc-docs"))
+  .dependsOn(core.jvm)
   .settings(
     skip in publish := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
       "sbtProtocVersion" -> "0.99.34",
       "grpcVersion"      -> "1.30.2",
-      "zioGrpcVersion"   -> "0.4.0-RC1",
+      "zioGrpcVersion"   -> "0.4.0-RC2",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
-    )
+    ),
+    libraryDependencies ++= Seq(
+      "io.grpc"               % "grpc-netty"           % grpcVersion,
+      "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
+    ),
+    PB.targets in Compile := Seq(
+      scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
+      genModule(
+        "scalapb.zio_grpc.ZioCodeGenerator$"
+      )                        -> (sourceManaged in Compile).value
+    ),
+    codeGenClasspath := (codeGen / Compile / fullClasspath).value
   )
   .enablePlugins(MdocPlugin, DocusaurusPlugin)

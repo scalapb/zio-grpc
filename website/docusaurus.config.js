@@ -7,6 +7,7 @@ module.exports = {
   organizationName: 'scalapb', // Usually your GitHub org/user name.
   projectName: 'zio-grpc', // Usually your repo name.
   themeConfig: {
+    sidebarCollapsible: false,
     navbar: {
       title: 'ZIO gRPC',
       logo: {

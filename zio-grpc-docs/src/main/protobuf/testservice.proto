@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package myexample;
+
+message Request {
+}
+
+message Response {
+  string message = 1;
+}
+
+service ServiceName {
+    rpc Unary(Request) returns (Response);
+
+    rpc ServerStreaming(Request) returns (stream Response);
+
+    rpc ClientStreaming(stream Request) returns (Response);
+
+    rpc BidiStreaming(stream Request) returns (stream Response);
+}
+
+service SimpleService {
+    rpc SayHello(Request) returns (Response);
+}
