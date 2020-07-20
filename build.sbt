@@ -111,6 +111,7 @@ lazy val docs = project
   .in(file("zio-grpc-docs"))
   .dependsOn(core.jvm)
   .settings(
+    crossScalaVersions := Seq(Scala212),
     skip in publish := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(

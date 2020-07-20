@@ -36,16 +36,16 @@ object ZTransform {
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment
     */
-  def transformContext[R, E, Context1 <: Has[_]: Tag, Context2](
-      f: Context2 => ZIO[R, E, Context1]
-  )(implicit ev: R with Context2 <:< R with Has[_]): ZTransform[R with Context1, E, R with Context2] =
-    new ZTransform[R with Context1, E, R with Context2] {
-      def effect[A](io: ZIO[R with Context1, E, A]): ZIO[R with Context2, E, A] =
+  def transformContext[R, E, Context1 <: Has[_]: Tag, R2 <: R, Context2](
+      f: Context2 => ZIO[R2, E, Context1]
+  )(implicit ev: R with Context2 <:< R with Has[_]): ZTransform[R with Context1, E, R2 with Context2] =
+    new ZTransform[R with Context1, E, R2 with Context2] {
+      def effect[A](io: ZIO[R with Context1, E, A]): ZIO[R2 with Context2, E, A] =
         ZIO
           .accessM(f)
           .flatMap(nc => io.provideSome(ev(_).union[Context1](nc)))
 
-      def stream[A](io: ZStream[R with Context1, E, A]): ZStream[R with Context2, E, A] =
+      def stream[A](io: ZStream[R with Context1, E, A]): ZStream[R2 with Context2, E, A] =
         ZStream
           .fromEffect(ZIO.accessM(f))
           .flatMap(nc => io.provideSome(ev(_).union[Context1](nc)))

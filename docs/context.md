@@ -49,6 +49,7 @@ For example, we can provide a function that returns an effect that always succee
 val fixedUserService =
   MyService.transformContextM((rc: RequestContext) => ZIO.succeed(User("foo")))
 ```
+
 and we got our service, which still depends on an environment of type `Console`, however the context is now `Has[RequestContext]` so it can be bound to a gRPC server.
 
 Here is how we would extract a user from a metadata header:
@@ -72,3 +73,68 @@ object MyServer extends ServerMain {
   def services = ServiceList.add(rcService)
 }
 ```
+
+Note that in the general case, the context transformation may introduce an additional dependency to our server. This may be needed if our transformation needed to access an external service. For example, let's create a `UserDatabase` module:
+
+```scala mdoc
+type UserDatabase = Has[UserDatabase.Service]
+object UserDatabase {
+  trait Service {
+    def fetchUser(name: String): IO[Status, User]
+  }
+
+  // accessor
+  def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
+    ZIO.accessM[UserDatabase](_.get.fetchUser(name))
+
+  val live = zio.ZLayer.succeed(
+    new Service {
+      def fetchUser(name: String): IO[Status, User] = IO.succeed(User(name))
+    }
+  )
+}
+```
+
+Now,
+The context transformation effect we apply may introduce an additional environmental dependency to our service. For example:
+```scala mdoc
+import zio.clock._
+import zio.duration._
+
+val myServiceAuthWithDatabase  =
+  MyService.transformContextM(
+    (rc: RequestContext) =>
+        rc.metadata.get(UserKey)
+        .someOrFail(Status.UNAUTHENTICATED)
+        .flatMap(UserDatabase.fetchUser)
+  )
+```
+
+And now our service depends not only on a `Console`, but also on a `UserDatabase`.
+
+We can turn our service into a ZLayer:
+
+```scala mdoc
+val myServiceLive = myServiceAuthWithDatabase.toLayer
+```
+
+notice how the dependencies moved to the input side of the `Layer` and the resulting layer is of
+type `ZSimpleService[Any, Has[RequestContext]]]`, which means no environment is expected, and it assumes
+a `Has[RequestContext]` context. To use this layer in an app, we can wire it like so:
+
+```scala mdoc
+import scalapb.zio_grpc.ServerLayer
+
+val serverLayer =
+    ServerLayer.fromServiceLayer(
+        io.grpc.ServerBuilder.forPort(8080)
+    )(myServiceLive)
+
+val ourApp = (UserDatabase.live ++ Console.any) >>> serverLayer
+
+object LayeredApp extends zio.App {
+    def run(args: List[String]) = ourApp.build.useForever.exitCode
+}
+```
+
+`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are using a `zio.App` rather than `ServerMain` which does not support this use case yet.
