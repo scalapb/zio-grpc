@@ -14,7 +14,7 @@ libraryDependencies ++=
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % "@zioGrpcVersion@"
 ```
 
-Then, add the following line to your `build.sbt`:
+Then, add the following lines to your `build.sbt`:
 
 ```scala
 PB.targets in Compile := Seq(
@@ -26,6 +26,10 @@ libraryDependencies ++= Seq(
     "io.grpc" % "grpc-netty" % "@grpcVersion@"
 )
 ```
+
+This configuration will set up the ScalaPB code generator alongside the ZIO gRPC code generator.
+Upon compilation, the source generator will process all proto files under `src/main/protobuf`.
+The ScalaPB generator will generate case classes for all messages as well as methods to serialize and deserialize those messages. The ZIO gRPC code generator will generate code as described in the [generated code section](generated-code.md).
 
 ## Generating code using ScalaPBC (CLI)
 

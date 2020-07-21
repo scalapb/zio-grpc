@@ -113,7 +113,7 @@ val channel = ZManagedChannel(
 
 ### Using the client as a layer
 
-A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you are using. Therefore, it makes sense to have a singleton client and provide access to it to your effects through a `ZLayer`:
+A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you need to connect to. You can create a `ZLayer` to provide this service using the `live` method on the client companion object. Then simply write your logic using the accessor methods. Finally, inject the layer using `provideCustomLayer` at the top of your app:
 
 ```scala mdoc
 import myexample.testservice.ZioTestservice.ServiceNameClient
@@ -121,13 +121,17 @@ import myexample.testservice.{Request, Response}
 import zio._
 import zio.console._
 
+// create layer:
 val clientLayer = ServiceNameClient.live(channel)
 
 val myAppLogicNeedsEnv = for {
+  // use layer through accessor methods:
   res <- ServiceNameClient.unary(Request())
   _ <- putStrLn(res.toString)
 } yield ()
 
+// myAppLogicNeedsEnv needs access to a ServiceNameClient. We turn it into
+// a self-contained effect (IO) by providing the layer to it:
 val myAppLogic1 = myAppLogicNeedsEnv.provideCustomLayer(clientLayer)
 
 object LayeredApp extends zio.App {
