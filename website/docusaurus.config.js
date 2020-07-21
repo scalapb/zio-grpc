@@ -1,18 +1,18 @@
 module.exports = {
   title: 'ZIO gRPC',
-  tagline: 'Build gRPC clients and services with ZIO',
+  tagline: 'Build gRPC clients and servers with ZIO',
   url: 'https://scalapb.github.io/zio-grpc/',
   baseUrl: '/zio-grpc/',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/zio-grpc.svg',
   organizationName: 'scalapb', // Usually your GitHub org/user name.
   projectName: 'zio-grpc', // Usually your repo name.
   themeConfig: {
     sidebarCollapsible: false,
     navbar: {
-      title: 'ZIO gRPC',
+      title: ' ',
       logo: {
-        alt: 'My Site Logo',
-        src: 'img/logo.svg',
+        alt: 'ZIO gRPC',
+        src: 'img/zio-grpc.svg',
       },
       links: [
         {
@@ -74,7 +74,7 @@ module.exports = {
     },
     prism: {
       additionalLanguages: ['scala', 'protobuf'],
-      theme: require('prism-react-renderer/themes/dracula')
+      theme: require('prism-react-renderer/themes/nightOwlLight')
     }
   },
   presets: [
