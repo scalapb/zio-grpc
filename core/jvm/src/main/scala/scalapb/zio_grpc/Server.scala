@@ -191,7 +191,7 @@ object ServerLayer {
 
   def access[R, S1: Tag](
       builder: => ServerBuilder[_]
-  )(implicit bs: ZBindableService[Any, S1]): ZLayer[R with Has[S1], Any, Server] =
+  )(implicit bs: ZBindableService[R, S1]): ZLayer[R with Has[S1], Any, Server] =
     fromServiceList(builder, ServiceList.accessEnv[R, S1])
 
   def fromServiceLayer[R, S1: Tag](

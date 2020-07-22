@@ -4,7 +4,7 @@ import zio.Has
 import zio.URIO
 import io.grpc.ServerServiceDefinition
 
-trait ZGeneratedService[R, C, S[_, _]] {
+trait ZGeneratedService[-R, -C, S[-_, -_]] {
   this: S[R, C] =>
 
   def genericBind(

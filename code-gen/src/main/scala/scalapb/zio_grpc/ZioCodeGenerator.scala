@@ -206,7 +206,7 @@ class ZioFilePrinter(
 
     def print(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"trait ${ztraitName.name}[R, Context] extends scalapb.zio_grpc.ZGeneratedService[R, Context, ${ztraitName.name}] {"
+        s"trait ${ztraitName.name}[-R, -Context] extends scalapb.zio_grpc.ZGeneratedService[R, Context, ${ztraitName.name}] {"
       ).indented(
         _.add("self =>")
           .print(service.getMethods().asScala.toVector)(
