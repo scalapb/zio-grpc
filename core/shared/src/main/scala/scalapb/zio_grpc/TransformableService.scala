@@ -6,22 +6,28 @@ import zio.{Has, Tag, TagKK, ZIO}
 import zio.ZLayer
 
 trait TransformableService[S[_, _]] {
-  def transform[R1, C1, R2, C2](
-      instance: S[R1, C1],
-      transform: ZTransform[R1 with C1, Status, R2 with C2]
-  ): S[R2, C2]
+  def transform[RIn, ContextIn, ROut, ContextOut](
+      instance: S[RIn, ContextIn],
+      transform: ZTransform[RIn with ContextIn, Status, ROut with ContextOut]
+  ): S[ROut, ContextOut]
 
   def provide[R, Context](s: S[R, Context], r: R)(implicit ev: Combinable[R, Context]): S[Any, Context] =
     transform(s, ZTransform.provideEnv(r))
 
-  def transformContextM[R, C: Tag, R2 <: R, C2: Tag](s: S[R, Has[C]], f: C2 => ZIO[R2, Status, C]): S[R2, Has[C2]] =
-    transform[R, Has[C], R2, Has[C2]](
+  def transformContextM[R, FromContext: Tag, R0 <: R, ToContext: Tag](
+      s: S[R, Has[FromContext]],
+      f: ToContext => ZIO[R0, Status, FromContext]
+  ): S[R0, Has[ToContext]] =
+    transform[R, Has[FromContext], R0, Has[ToContext]](
       s,
-      ZTransform.transformContext[R, Status, Has[C], R2, Has[C2]](hc2 => f(hc2.get).map(Has(_)))
+      ZTransform.transformContext[R, Status, Has[FromContext], R0, Has[ToContext]](hc2 => f(hc2.get).map(Has(_)))
     )
 
-  def transformContext[R, C1: Tag, C2: Tag](s: S[R, Has[C1]], f: C2 => C1): S[R, Has[C2]] =
-    transformContextM[R, C1, R, C2](s, (hc2: C2) => ZIO.succeed(f(hc2)))
+  def transformContext[R, FromContext: Tag, ToContext: Tag](
+      s: S[R, Has[FromContext]],
+      f: ToContext => FromContext
+  ): S[R, Has[ToContext]] =
+    transformContextM[R, FromContext, R, ToContext](s, (hc2: ToContext) => ZIO.succeed(f(hc2)))
 
   def toLayer[R, C: Tag](
       s: S[R, C]
