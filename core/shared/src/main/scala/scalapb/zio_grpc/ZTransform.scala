@@ -26,12 +26,10 @@ object ZTransform {
     }
 
   /** Provides the entire environment of a service (leaving only the context) */
-  def provideEnv[R <: Has[_], E, Context <: Has[_]: Tag](
+  def provideEnv[R, E, Context](
       env: R
-  ): ZTransform[R with Context, E, Context] =
-    provideSome(env.union[Context])
-
-  def provideEnv[R, E](env: R): ZTransform[R, E, Any] = provideSome((_: Any) => env)
+  )(implicit comb: Combinable[R, Context]): ZTransform[R with Context, E, Context] =
+    provideSome(c => comb.union(env, c))
 
   /** Changes the Context type of the service from Context1 to Context2, by
     * applying an effectful function on the environment

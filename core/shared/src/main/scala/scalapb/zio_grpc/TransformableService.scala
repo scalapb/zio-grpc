@@ -11,10 +11,7 @@ trait TransformableService[S[_, _]] {
       transform: ZTransform[R1 with C1, Status, R2 with C2]
   ): S[R2, C2]
 
-  def provide[R](s: S[R, Any], r: R): S[Any, Any] =
-    transform(s, ZTransform.provideEnv(r))
-
-  def provide[R <: Has[_], Context <: Has[_]: Tag](s: S[R, Context], r: R): S[Any, Context] =
+  def provide[R, Context](s: S[R, Context], r: R)(implicit ev: Combinable[R, Context]): S[Any, Context] =
     transform(s, ZTransform.provideEnv(r))
 
   def transformContextM[R, C: Tag, R2 <: R, C2: Tag](s: S[R, Has[C]], f: C2 => ZIO[R2, Status, C]): S[R2, Has[C2]] =
@@ -26,7 +23,9 @@ trait TransformableService[S[_, _]] {
   def transformContext[R, C1: Tag, C2: Tag](s: S[R, Has[C1]], f: C2 => C1): S[R, Has[C2]] =
     transformContextM[R, C1, R, C2](s, (hc2: C2) => ZIO.succeed(f(hc2)))
 
-  def toLayer[R <: Has[_], C <: Has[_]: Tag](s: S[R, C])(implicit ev: TagKK[S]): ZLayer[R, Nothing, Has[S[Any, C]]] =
+  def toLayer[R, C: Tag](
+      s: S[R, C]
+  )(implicit ev1: TagKK[S], ev2: Combinable[R, C]): ZLayer[R, Nothing, Has[S[Any, C]]] =
     ZLayer.fromFunction(provide(s, _))
 }
 
@@ -39,15 +38,16 @@ object TransformableService {
     )(implicit ev: S[R, C] <:< S[R, Has[C1]], TS: TransformableService[S]): S[R0, Has[C2]] =
       TS.transformContextM(service, f)
 
-    def provide[R0 <: Has[_], C0 <: Has[_]: Tag](
-        r: R0
-    )(implicit ev: S[R, C] <:< S[R0, C0], TS: TransformableService[S]): S[Any, C0] =
-      TS.provide[R0, C0](service, r)
+    def provide[R0, C0](
+        r: R
+    )(implicit TS: TransformableService[S], ev1: Combinable[R, C], ev2: S[R, C] <:< S[R0, C0]): S[Any, C] =
+      TS.provide[R, C](service, r)
 
-    def toLayer[R0 <: Has[_], C0 <: Has[_]](implicit
+    def toLayer[R0, C0](implicit
         ev1: S[R, C] <:< S[R0, C0],
-        ev2: Tag[C0],
-        ev3: TagKK[S],
+        ev2: Combinable[R0, C0],
+        ev3: Tag[C0],
+        ev4: TagKK[S],
         TS: TransformableService[S]
     ): ZLayer[R0, Nothing, Has[S[Any, C0]]] = TS.toLayer[R0, C0](service)
   }
