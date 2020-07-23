@@ -109,8 +109,8 @@ object Server {
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService[R0, S0]
-  ): ZLayer[R0 with Has[S0], Nothing, Server] =
-    ZLayer.fromServiceManaged { s0: S0 => Server.zmanaged(builder, s0).orDie }
+  ): ZLayer[R0 with Has[S0], Throwable, Server] =
+    ZLayer.fromServiceManaged { s0: S0 => Server.zmanaged(builder, s0) }
 
   @deprecated("Use ServerLayer.fromServices", "0.4.0")
   def zlive[
@@ -123,9 +123,9 @@ object Server {
   )(implicit
       b0: ZBindableService[R0, S0],
       b1: ZBindableService[R1, S1]
-  ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Nothing, Server] =
-    ZLayer.fromServicesManaged[S0, S1, R0 with R1, Nothing, Server.Service] { (s0: S0, s1: S1) =>
-      Server.zmanaged(builder, s0, s1).orDie
+  ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Throwable, Server] =
+    ZLayer.fromServicesManaged[S0, S1, R0 with R1, Throwable, Server.Service] { (s0: S0, s1: S1) =>
+      Server.zmanaged(builder, s0, s1)
     }
 
   @deprecated("Use ServerLayer.fromServices", "0.4.0")
@@ -144,22 +144,22 @@ object Server {
       b2: ZBindableService[R2, S2]
   ): ZLayer[R0 with R1 with R2 with Has[S0] with Has[S1] with Has[
     S2
-  ], Nothing, Server] =
+  ], Throwable, Server] =
     ZLayer.fromServicesManaged[
       S0,
       S1,
       S2,
       R0 with R1 with R2,
-      Nothing,
+      Throwable,
       Server.Service
-    ]((s0: S0, s1: S1, s2: S2) => Server.zmanaged(builder, s0, s1, s2).orDie)
+    ]((s0: S0, s1: S1, s2: S2) => Server.zmanaged(builder, s0, s1, s2))
 
   @deprecated("Use ServerLayer.access", "0.4.0")
   def live[S0: Tag](
       builder: => ServerBuilder[_]
   )(implicit
       b0: ZBindableService[Any, S0]
-  ): ZLayer[Has[S0], Nothing, Server] =
+  ): ZLayer[Has[S0], Throwable, Server] =
     zlive[Any, S0](builder)
 
   @deprecated("Use ServerLayer.fromServiceList(ServiceList.access[S0].access[S1])", "0.4.0")
@@ -168,7 +168,7 @@ object Server {
   )(implicit
       b0: ZBindableService[Any, S0],
       b1: ZBindableService[Any, S1]
-  ): ZLayer[Has[S0] with Has[S1], Nothing, Server] =
+  ): ZLayer[Has[S0] with Has[S1], Throwable, Server] =
     zlive[Any, S0, Any, S1](builder)
 
   @deprecated("Use ServerLayer.fromServiceList(ServiceList.access[S0].access[S1].access[S2])", "0.4.0")
@@ -178,7 +178,7 @@ object Server {
       b0: ZBindableService[Any, S0],
       b1: ZBindableService[Any, S1],
       b2: ZBindableService[Any, S2]
-  ): ZLayer[Has[S0] with Has[S1] with Has[S2], Nothing, Server] =
+  ): ZLayer[Has[S0] with Has[S1] with Has[S2], Throwable, Server] =
     zlive[Any, S0, Any, S1, Any, S2](builder)
 
   def fromManaged(zm: Managed[Throwable, Service]) =
@@ -189,9 +189,14 @@ object ServerLayer {
   def fromServiceList[R](builder: => ServerBuilder[_], l: ServiceList[R]) =
     ManagedServer.fromServiceList(builder, l).toLayer
 
-  def access[R, S1: Tag](
+  def access[S1: Tag](
       builder: => ServerBuilder[_]
-  )(implicit bs: ZBindableService[R, S1]): ZLayer[R with Has[S1], Any, Server] =
+  )(implicit bs: ZBindableService[Any, S1]): ZLayer[Any with Has[S1], Throwable, Server] =
+    fromServiceList(builder, ServiceList.access[S1])
+
+  def accessEnv[R, S1: Tag](
+      builder: => ServerBuilder[_]
+  )(implicit bs: ZBindableService[R, S1]): ZLayer[R with Has[S1], Throwable, Server] =
     fromServiceList(builder, ServiceList.accessEnv[R, S1])
 
   def fromServiceLayer[R, S1: Tag](

@@ -49,9 +49,9 @@ class StreamingClientCallListener[R, Res](
     ZStream
       .fromQueue(queue)
       .tap {
-        case Left((status, trailers)) =>
+        case Left((status, trailers @ _)) =>
           queue.shutdown *> IO.when(!status.isOk)(IO.fail(status))
-        case _                        => IO.unit
+        case _                            => IO.unit
       }
       .collect {
         case Right(v) => v

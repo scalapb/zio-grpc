@@ -20,8 +20,8 @@ import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import TestUtils._
 
 object TestServiceSpec extends DefaultRunnableSpec {
-  val serverLayer: ZLayer[TestServiceImpl, Nothing, Server] =
-    Server.live[TestServiceImpl.Service](ServerBuilder.forPort(0))
+  val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
+    ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.fromServiceManaged { ss: Server.Service =>
@@ -320,5 +320,5 @@ object TestServiceSpec extends DefaultRunnableSpec {
       serverStreamingSuite,
       clientStreamingSuite,
       bidiStreamingSuite
-    ).provideLayer(layers)
+    ).provideLayer(layers.orDie)
 }

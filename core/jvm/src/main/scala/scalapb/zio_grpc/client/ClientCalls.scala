@@ -130,7 +130,6 @@ object ClientCalls {
             call.start(listener, headers) *>
               call.request(1)
           )
-          .drain
         val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
           .fromEffect(call.halfClose())).drain
         sendRequestStream.merge(listener.stream)

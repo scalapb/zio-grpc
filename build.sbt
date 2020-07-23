@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val grpcVersion = "1.30.1"
+val grpcVersion = "1.30.2"
 
 val Scala213 = "2.13.3"
 

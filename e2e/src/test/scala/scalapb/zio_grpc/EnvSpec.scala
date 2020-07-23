@@ -63,9 +63,8 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
   val serviceLayer = ServiceWithConsole.transformContextM(parseUser(_)).toLayer
 
-  val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Nothing, Server] =
-    Server
-      .live[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
+  val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Throwable, Server] =
+    ServerLayer.access[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
 
   override def clientLayer(
       userName: Option[String]
@@ -89,5 +88,5 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   def spec =
     suite("EnvSpec")(
       specs: _*
-    ).provideLayer(layers)
+    ).provideLayer(layers.orDie)
 }
