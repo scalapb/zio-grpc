@@ -1,6 +1,6 @@
 ---
 title: Basics Tutorial
-description: A basic tutorial introduction to gRPC in Java.
+description: A basic tutorial introduction to ZIO gRPC
 ---
 
 This tutorial provides a basic introduction to Scala programmers to working with ZIO gRPC.
@@ -15,11 +15,10 @@ It assumes that you have read the [Introduction to
 gRPC](https://grpc.io/docs/what-is-grpc/introduction/) and are familiar with
 [protocol buffers](https://developers.google.com/protocol-buffers/docs/overview). Note
 that the example in this tutorial uses the
-[proto3](https://github.com/google/protobuf/releases) version of the protocol
-buffers language: you can find out more in the [proto3 language
-guide](https://developers.google.com/protocol-buffers/docs/proto3) and [Java
+proto3 version of the protocol buffers language: you can find out more in the [proto3 language
+guide](https://developers.google.com/protocol-buffers/docs/proto3) and [ScalaPB
 generated code
-guide](https://developers.google.com/protocol-buffers/docs/reference/java-generated).
+guide](https://scalapb.github.io/generated-code.html).
 
 ## Why use gRPC?
 
@@ -202,8 +201,8 @@ S.example("routeguide/RouteGuideServer.scala", "findFeature")
 ```
 
 The `getFeature()` method takes the request (of type `Point`), and returns a ZIO
-effect that represents the work of computing the response. As in all ZIO effect, the
-value that is returned is a suspended effect: nothing actually happens until ZIO runtime
+effect that represents the work of computing the response. The value that is returned represents a
+a suspended effect: nothing actually happens until ZIO runtime
 ultimately runs the effect. The type of the effect is `ZIO[ZEnv, Status, Feature]` which means
 it is a computation:
 * can fail with value of type `Status` (this type comes from grpc-java and represents a gRPC status code).
