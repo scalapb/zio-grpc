@@ -8,7 +8,7 @@ This library enables you to write purely functional [gRPC](https://grpc.io/) ser
 
 ## Documentation
 
-* [https://scalapb.github.io/zio-grpc](ZIO gRPC homepage)
+* [ZIO gRPC homepage](https://scalapb.github.io/zio-grpc)
 
 ## Highlights
 
@@ -44,7 +44,7 @@ Add the following to your `build.sbt`:
 ## Usage
 
 Place your service proto files in `src/main/protobuf`, and the plugin
-will generate Scala sources for them. Learn more about how to use [ZIO gRPC generated code](https://scalapb.github.io/docs/generated-code.md).
+will generate Scala sources for them. Learn more about how to use [ZIO gRPC generated code](https://scalapb.github.io/zio-grpc/docs/generated-code.md).
 
 See a full example at the [examples directory](https://github.com/scalapb/zio-grpc/tree/master/examples).
 
