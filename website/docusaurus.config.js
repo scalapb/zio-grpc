@@ -81,6 +81,9 @@ module.exports = {
       additionalLanguages: ['scala', 'protobuf'],
       theme: require('prism-react-renderer/themes/nightOwlLight'),
       darkTheme: require('prism-react-renderer/themes/dracula')
+    },
+    googleAnalytics: {
+      trackingID: 'UA-346180-20'
     }
   },
   presets: [
