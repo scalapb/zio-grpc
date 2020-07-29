@@ -91,8 +91,7 @@ module.exports = {
           homePageId: 'intro',
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
-          editUrl:
-            'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
+          // editUrl: 'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
           path: '../zio-grpc-docs/target/mdoc'
         },
         blog: {
