@@ -8,7 +8,7 @@ import styles from './styles.module.css';
 
 const features = [
   {
-    imageUrl: 'img/undraw_docusaurus_mountain.svg',
+    imageUrl: 'img/start-quickly-and-scale.svg',
     title: <>Start Quickly and Scale</>,
     description: (
       <>
@@ -18,7 +18,7 @@ const features = [
     ),
   },
   {
-    imageUrl: 'img/undraw_docusaurus_react.svg',
+    imageUrl: 'img/functional-and-type-safe.svg',
     title: <>Functional and Type-safe</>,
     description: (
       <>
@@ -29,17 +29,17 @@ const features = [
   },
   {
     title: <>Stream with ZStream</>,
-    imageUrl: 'img/waterfall.svg',
+    imageUrl: 'img/stream-with-zstream.svg',
     description: (
       <>
-        Use ZIO's feature rich ZStreams to create server streaming, client streaming
+        Use ZIO's feature-rich ZStreams to create server-streaming, client-streaming
         and bi-directionally streaming RPC endpoints.
       </>
     ),
   },
   {
     title: <>Highly Concurrent</>,
-    imageUrl: 'img/undraw_docusaurus_react.svg',
+    imageUrl: 'img/highly-concurrent.svg',
     description: (
       <>
         Leverage the power of ZIO to build asynchronous clients and servers
@@ -49,7 +49,7 @@ const features = [
   },
   {
     title: <>Safe Cancellations</>,
-    imageUrl: 'img/undraw_docusaurus_react.svg',
+    imageUrl: 'img/safe-cancellations.svg',
     description: (
       <>
         Safely cancel an RPC call by interrupting the effect. Resources on the server will never leak!
@@ -58,11 +58,10 @@ const features = [
   },
   {
     title: <>Browser Ready</>,
-    imageUrl: 'img/undraw_docusaurus_tree.svg',
+    imageUrl: 'img/browser-ready.svg',
     description: (
       <>
-        Use ZIO gRPC with Scala.js to connect to your service from
-        the browser with grpc-web.
+        ZIO gRPC comes with Scala.js support so you can send RPCs to your service from the browser.
       </>
     ),
   },
@@ -86,19 +85,20 @@ function Feature({imageUrl, title, description}) {
 function Home() {
   const context = useDocusaurusContext();
   const {siteConfig = {}} = context;
+  const img = useBaseUrl('img/zio-grpc-hero.png');
   return (
     <Layout
       title={`ZIO gRPC: Write gRPC services and clients with ZIO`}
       description="ZIO gRPC lets you write purely functional gRPC services in Scala using ZIO.">
       <header className={clsx('hero hero--primary', styles.heroBanner)}>
         <div className="container">
-          <h1 className="hero__title">{siteConfig.title}</h1>
+          <img src={img} width="80%"/>
           <p className="hero__subtitle">{siteConfig.tagline}</p>
           <div className={styles.buttons}>
             <Link
               className={clsx(
-                'button button--outline button--secondary button--lg',
-                styles.getStarted,
+                // 'button button--outline button--secondary button--lg button-zio',
+                styles.indexCtasGetStartedButton,
               )}
               to={useBaseUrl('docs/')}>
               Get Started

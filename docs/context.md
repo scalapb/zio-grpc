@@ -52,6 +52,8 @@ val fixedUserService =
 
 and we got our service, which still depends on an environment of type `Console`, however the context is now `Has[RequestContext]` so it can be bound to a gRPC server.
 
+### Accessing metadata
+
 Here is how we would extract a user from a metadata header:
 ```scala mdoc
 import zio.IO
@@ -74,7 +76,11 @@ object MyServer extends ServerMain {
 }
 ```
 
-Note that in the general case, the context transformation may introduce an additional dependency to our server. This may be needed if our transformation needed to access an external service. For example, let's create a `UserDatabase` module:
+### Depending on a service
+
+A context transformation may introduce a dependency on another service. For example, you
+may want to organize your code such that there is a `UserDatabase` service that provides
+a `fetchUser` effect that retrieves users from a database. Here is how you can do this:
 
 ```scala mdoc
 type UserDatabase = Has[UserDatabase.Service]
@@ -89,9 +95,9 @@ object UserDatabase {
 
   val live = zio.ZLayer.succeed(
     new Service {
-      def fetchUser(name: String): IO[Status, User] = IO.succeed(User(name))
-    }
-  )
+      def fetchUser(name: String): IO[Status, User] =
+        IO.succeed(User(name))
+    })
 }
 ```
 
@@ -102,16 +108,17 @@ import zio.clock._
 import zio.duration._
 
 val myServiceAuthWithDatabase  =
-  MyService.transformContextM(
+  MyService.transformContextM {
     (rc: RequestContext) =>
         rc.metadata.get(UserKey)
         .someOrFail(Status.UNAUTHENTICATED)
         .flatMap(UserDatabase.fetchUser)
-  )
+  }
 ```
 
-And now our service depends not only on a `Console`, but also on a `UserDatabase`.
+And now our service not only depends on a `Console`, but also on a `UserDatabase`.
 
+## Using a service as ZLayer
 We can turn our service into a ZLayer:
 
 ```scala mdoc
@@ -127,14 +134,16 @@ import scalapb.zio_grpc.ServerLayer
 
 val serverLayer =
     ServerLayer.fromServiceLayer(
-        io.grpc.ServerBuilder.forPort(8080)
+        io.grpc.ServerBuilder.forPort(9000)
     )(myServiceLive)
 
-val ourApp = (UserDatabase.live ++ Console.any) >>> serverLayer
+val ourApp = (UserDatabase.live ++ Console.any) >>>
+    serverLayer
 
 object LayeredApp extends zio.App {
     def run(args: List[String]) = ourApp.build.useForever.exitCode
 }
 ```
 
-`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are using a `zio.App` rather than `ServerMain` which does not support this use case yet.
+`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are directly using a `zio.App` rather than `ServerMain` which does
+not support this use case yet.

@@ -3,7 +3,7 @@ module.exports = {
   tagline: 'Build gRPC clients and servers with ZIO',
   url: 'https://scalapb.github.io/zio-grpc/',
   baseUrl: '/zio-grpc/',
-  favicon: 'img/zio-grpc.svg',
+  favicon: 'img/favicon.ico',
   organizationName: 'scalapb', // Usually your GitHub org/user name.
   projectName: 'zio-grpc', // Usually your repo name.
   themeConfig: {
@@ -12,9 +12,9 @@ module.exports = {
       title: ' ',
       logo: {
         alt: 'ZIO gRPC',
-        src: 'img/zio-grpc.svg',
+        src: 'img/zio-grpc-hero.png',
       },
-      links: [
+      items: [
         {
           to: 'docs/',
           activeBasePath: 'docs',
@@ -38,6 +38,10 @@ module.exports = {
             {
               label: 'Introduction',
               to: 'docs/',
+            },
+            {
+              label: 'Installation',
+              to: 'docs/installation',
             },
           ],
         },
@@ -70,11 +74,12 @@ module.exports = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Nadav Samet`,
+      copyright: `Copyright © ${new Date().getFullYear()} <a href="https://www.linkedin.com/in/nadav-samet/">Nadav Samet</a>`,
     },
     prism: {
       additionalLanguages: ['scala', 'protobuf'],
-      theme: require('prism-react-renderer/themes/nightOwlLight')
+      theme: require('prism-react-renderer/themes/nightOwlLight'),
+      darkTheme: require('prism-react-renderer/themes/dracula')
     }
   },
   presets: [
@@ -101,8 +106,5 @@ module.exports = {
         },
       },
     ],
-  ],
-  plugins: [
-    '@docusaurus/plugin-content-docs',
   ]
 };

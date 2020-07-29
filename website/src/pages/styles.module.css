@@ -10,6 +10,8 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  background: rgb(55,49,43);
+
 }
 
 @media screen and (max-width: 966px) {
@@ -29,9 +31,25 @@
   align-items: center;
   padding: 2rem 0;
   width: 100%;
+  text-align: center;
 }
 
 .featureImage {
-  height: 200px;
-  width: 200px;
+  height: 225px;
+  width: 225px;
+}
+
+.indexCtasGetStartedButton {
+  border: 1px solid var(--ifm-color-primary);
+  display: inline-block;
+  line-height: 1.2em;
+  text-decoration: none !important;
+  text-transform: uppercase;
+  transition: background 0.3s, color 0.3s;
+  border-radius: 8px;
+  border-width: 2px;
+  color: #fff;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 18px 36px;
 }

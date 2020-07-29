@@ -18,11 +18,10 @@ Inside the object, for each service `ServiceName` that is defined in a `.proto` 
 ```scala
 trait ZServiceName[R, Context] {
   // methods for each RPC
-  def sayHello(request: HelloRequest): ZIO[R with Context, Status, HelloReply]
+  def sayHello(request: HelloRequest):
+    ZIO[R with Context, Status, HelloReply]
 }
 type ServiceName = ZServiceName[Any, Any]
-type RServiceName[R] = ZServiceName[R, Any]
-type RCServiceName[R] = ZServiceName[R, zio.Has[scalapb.zio_grpc.RequestContext]]
 ```
 
 The trait `ZServiceName` is to be extended when implementing a server for this service. The trait takes two type parameters: `R` and `Context`:
@@ -72,23 +71,29 @@ type ServiceNameClient = Has[ServiceNameClient.Service]
 object ServiceNameClient {
   trait ZService[R] {
     // methods for use as a client
-    def sayHello(request: HelloRequest): ZIO[R, Status, HelloReply]
+    def sayHello(request: HelloRequest):
+      ZIO[R, Status, HelloReply]
   }
   type Service = ZService[Any]
 
   // accessor methods
-  def sayHello(request: HelloRequest): ZIO[ServiceNameClient, Status, HelloReply]
+  def sayHello(request: HelloRequest):
+    ZIO[ServiceNameClient, Status, HelloReply]
 
   def managed[R](
       managedChannel: ZManagedChannel[R],
-      options: CallOptions = io.grpc.CallOptions.DEFAULT,
-      headers: zio.UIO[SafeMetadata] = scalapb.zio_grpc.SafeMetadata.make
-  ): zio.Managed[Throwable, ServiceNameClient.ZService[R]]
+      options: CallOptions =
+          io.grpc.CallOptions.DEFAULT,
+      headers: zio.UIO[SafeMetadata] =
+          scalapb.zio_grpc.SafeMetadata.make
+  ): zio.Managed[Throwable, ZService[R]]
 
   def live[R](
       managedChannel: ZManagedChannel[R],
-      options: CallOptions = io.grpc.CallOptions.DEFAULT,
-      headers: zio.UIO[scalapb.zio_grpc.SafeMetadata] = scalapb.zio_grpc.SafeMetadata.make
+      options: CallOptions =
+          io.grpc.CallOptions.DEFAULT,
+      headers: zio.UIO[scalapb.zio_grpc.SafeMetadata] =
+          scalapb.zio_grpc.SafeMetadata.make
   ): zio.ZLayer[R, Throwable, ServiceNameClient]
 }
 ```
