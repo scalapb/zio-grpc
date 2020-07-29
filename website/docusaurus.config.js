@@ -8,7 +8,7 @@ module.exports = {
   projectName: 'zio-grpc', // Usually your repo name.
   themeConfig: {
     sidebarCollapsible: false,
-    image: 'https://scalapb.github.io/zio-grpc/img/zio-grpc-hero.png',
+    image: 'https://scalapb.github.io/zio-grpc/img/zio-grpc-social.png',
     navbar: {
       title: ' ',
       logo: {
