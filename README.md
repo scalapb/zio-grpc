@@ -1,8 +1,14 @@
+![ZIO gRPC Logo](./website/static/img/zio-grpc-hero.png)
+
 [![Snapshot Artifacts][Badge-SonatypeSnapshots]][Link-SonatypeSnapshots]
 
-# zio-grpc
+# Welcome to ZIO-gRPC
 
-This library enables you to write purely functional [gRPC](https://grpc.io/) services using ZIO.
+This library enables you to write purely functional [gRPC](https://grpc.io/) services using [ZIO](https://zio.dev).
+
+## Documentation
+
+* [https://scalapb.github.io/zio-grpc](ZIO gRPC homepage)
 
 ## Highlights
 
@@ -16,22 +22,15 @@ Find the latest snapshot in [here](https://oss.sonatype.org/content/repositories
 
 Add the following to your `project/plugins.sbt`:
 
-    val zioGrpcVersion = "0.3.0"
-
-    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+    val zioGrpcVersion = "0.4.0-RC2"
 
     addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
 
-    libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.7"
-
     libraryDependencies += "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion
-
 Add the following to your `build.sbt`:
 
-    val grpcVersion = "1.26.0"
+    val grpcVersion = "1.30.2"
     
-    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
-
     PB.targets in Compile := Seq(
         scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
         scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value,
@@ -44,55 +43,8 @@ Add the following to your `build.sbt`:
 
 ## Usage
 
-Add services under `src/main/protobuf`. For example:
-
-```protobuf
-syntax = "proto3";
-
-package examples;
-
-message Request {
-    string name = 1;
-}
-
-message Response {
-    string resp = 1;
-}
-
-message Point {
-    int32 x = 1;
-    int32 y = 2;
-}
-
-service MyService {
-    rpc Greet(Request) returns (Response);
-
-    rpc Points(Request) returns (stream Point);
-
-    rpc Bidi(stream Point) returns (stream Response);
-}
-```
-
-This would generate a service like this:
-```scala
-type MyService = zio.Has[MyServer.Service[Any]]
-
-object MyService {
-  trait Service[R] {
-    def greet(request: Request): ZIO[R, Status, Response]
-    def points(request: Request): ZStream[R, Status, Point]
-    def bidi(request: ZStream[Any, Status, Point]): ZStream[R, Status, Response]
-  }
-
-  // creates a client service
-  def clientService: MyService = ...
-
-  // accessors to use a client provided from the environment:
-  def greet(request: Request): ZIO[MyService, Status, Response] = ...
-  def points(request: Request): ZStream[MyService, Status, Point] = ...
-  def bidi(request: ZStream[Any, Status, Point]): ZStream[MyService, Status, Response] = ...
-}
-```
+Place your service proto files in `src/main/protobuf`, and the plugin
+will generate Scala sources for them. Learn more about how to use [ZIO gRPC generated code](https://scalapb.github.io/docs/generated-code.md).
 
 See a full example at the [examples directory](https://github.com/scalapb/zio-grpc/tree/master/examples).
 
