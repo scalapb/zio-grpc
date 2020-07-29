@@ -1,6 +1,7 @@
 ---
 title: Context and Dependencies
 sidebar_label: Context and Dependencies
+custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/context.md
 ---
 
 When implementing a server, ZIO gRPC allows you to specify that your service

@@ -1,6 +1,7 @@
 ---
 title: Generated Code Reference
 sidebar_label: Generated code
+custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/generated-code.md
 ---
 
 ## Packages and code location

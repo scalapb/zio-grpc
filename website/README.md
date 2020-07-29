@@ -1,6 +1,6 @@
 # Website
 
-This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator.
+This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator. It also uses [mdoc](https://scalameta.org/mdoc/) to compile and run the code in the markdown to ensure correctness.
 
 ### Installation
 
@@ -9,6 +9,14 @@ $ yarn
 ```
 
 ### Local Development
+
+On one terminal, we are going to have `mdoc` watch our markdown files and process them whenever they change. Start `sbt`, and type the following command:
+
+```
+docs/mdoc --watch
+```
+
+On another terminal, go to the `website` directory, and type:
 
 ```
 $ yarn start
@@ -26,8 +34,4 @@ This command generates static content into the `build` directory and can be serv
 
 ### Deployment
 
-```
-$ GIT_USER=<Your GitHub username> USE_SSH=true yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The website is deployed through Github actions whenever a commit is pushed to master.

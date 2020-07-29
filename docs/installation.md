@@ -1,6 +1,7 @@
 ---
 title: Installing ZIO gRPC
 sidebar_label: Installing
+custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/installation.md
 ---
 
 ## Installation using SBT (Recommended)

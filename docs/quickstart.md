@@ -1,5 +1,6 @@
 ---
 title: Quick Start
+custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/quickstart.md
 ---
 
 This guide gets you started with ZIO gRPC with a simple working example.

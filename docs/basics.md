@@ -1,6 +1,7 @@
 ---
 title: Basics Tutorial
 description: A basic tutorial introduction to ZIO gRPC
+custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/basics.md
 ---
 
 This tutorial provides a basic introduction to Scala programmers to working with ZIO gRPC.
