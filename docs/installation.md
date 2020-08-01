@@ -19,12 +19,13 @@ Then, add the following lines to your `build.sbt`:
 
 ```scala
 PB.targets in Compile := Seq(
-    scalapb.gen() -> (sourceManaged in Compile).value / "scalapb",
+    scalapb.gen(grpc = true) -> (sourceManaged in Compile).value / "scalapb",
     scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value / "scalapb"
 )
 
 libraryDependencies ++= Seq(
-    "io.grpc" % "grpc-netty" % "@grpcVersion@"
+    "io.grpc" % "grpc-netty" % "@grpcVersion@",
+    "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
 )
 ```
 
