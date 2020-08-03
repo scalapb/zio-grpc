@@ -103,9 +103,7 @@ def sayHelloAgain(request: HelloRequest) =
 
 ### Update the client
 
-Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and add the following method to `GreeterImpl`:
-
-Update the definition of `myAppLogic`:
+Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and update the definition of the `myAppLogic` method in `GreeterImpl`:
 
 ```scala
 def myAppLogic =
@@ -119,7 +117,7 @@ def myAppLogic =
 
 ## Run the updated app
 
-If you still have the previous version of the server running, stop it by hitting `Ctrl-C`. Run the server and client like you did before. Execute the following command from the `examples` directory:
+If you still have the previous version of the server running, stop it by hitting `Ctrl-C`. Then run the server and client like you did before inside the `examples` directory:
 
 1. Run the server:
    ```bash
