@@ -11,7 +11,7 @@ trait TransformableService[S[_, _]] {
       transform: ZTransform[RIn with ContextIn, Status, ROut with ContextOut]
   ): S[ROut, ContextOut]
 
-  def provide[R, Context](s: S[R, Context], r: R)(implicit ev: Combinable[R, Context]): S[Any, Context] =
+  def provide[R, Context](s: S[R, Context], r: R)(implicit ev: Has.Union[R, Context]): S[Any, Context] =
     transform(s, ZTransform.provideEnv(r))
 
   def transformContextM[R, FromContext: Tag, R0 <: R, ToContext: Tag](
@@ -31,7 +31,7 @@ trait TransformableService[S[_, _]] {
 
   def toLayer[R, C: Tag](
       s: S[R, C]
-  )(implicit ev1: TagKK[S], ev2: Combinable[R, C]): ZLayer[R, Nothing, Has[S[Any, C]]] =
+  )(implicit ev1: TagKK[S], ev2: Has.Union[R, C]): ZLayer[R, Nothing, Has[S[Any, C]]] =
     ZLayer.fromFunction(provide(s, _))
 }
 
@@ -46,12 +46,12 @@ object TransformableService {
 
     def provide[R0, C0](
         r: R
-    )(implicit TS: TransformableService[S], ev1: Combinable[R, C], ev2: S[R, C] <:< S[R0, C0]): S[Any, C] =
+    )(implicit TS: TransformableService[S], ev1: Has.Union[R, C], ev2: S[R, C] <:< S[R0, C0]): S[Any, C] =
       TS.provide[R, C](service, r)
 
     def toLayer[R0, C0](implicit
         ev1: S[R, C] <:< S[R0, C0],
-        ev2: Combinable[R0, C0],
+        ev2: Has.Union[R0, C0],
         ev3: Tag[C0],
         ev4: TagKK[S],
         TS: TransformableService[S]

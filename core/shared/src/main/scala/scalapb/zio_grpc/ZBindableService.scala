@@ -24,7 +24,7 @@ object ZBindableService {
       ev2: T <:< S[R, C],
       ev3: GenericBindable[S],
       ev4: CanBind[C],
-      ev5: Combinable[R, C]
+      ev5: zio.Has.Union[R, C]
   ): ZBindableService[R, T] =
     new ZBindableService[R, T] {
       def bindService(s: T): zio.URIO[R, ServerServiceDefinition] =
