@@ -193,7 +193,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
                        )
                      )
                      .fork
-          _     <- TestServiceImpl.awaitReceived
+          _     <- TestServiceImpl.awaitDelayReceived
           _     <- fiber.interrupt
           exit  <- TestServiceImpl.awaitExit
         } yield exit.interrupted)(isTrue)
