@@ -24,7 +24,7 @@ package object server {
     class Service(
         requestReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
-    )(clock: Clock.Service, console: Console.Service)
+    )(clock: Clock.Service)
         extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
@@ -93,7 +93,7 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        (ZStream.fromEffect(requestReceived.succeed(())).drain ++
+        ((ZStream.fromEffect(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>
@@ -106,7 +106,8 @@ package object server {
               case _                  => Stream.fail(Status.UNKNOWN)
             }
           } ++ Stream(Response("DONE"))))
-          .ensuring(exit.succeed(Exit.succeed(Response())))
+          .ensuring(exit.succeed(Exit.succeed(Response()))))
+          .provide(Has(clock))
 
       def awaitReceived = requestReceived.await
 
@@ -114,23 +115,21 @@ package object server {
     }
 
     def make(
-        clock: Clock.Service,
-        console: Console.Service
+        clock: Clock.Service
     ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
         p2 <- Promise.make[Nothing, Exit[Status, Response]]
-      } yield new Service(p1, p2)(clock, console)
+      } yield new Service(p1, p2)(clock)
 
     val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      ZLayer.fromServicesM[
+      ZLayer.fromServiceM[
         Clock.Service,
-        Console.Service,
         Any,
         Nothing,
         TestServiceImpl.Service
-      ] { (clock: Clock.Service, console: Console.Service) =>
-        make(clock, console)
+      ] { (clock: Clock.Service) =>
+        make(clock)
       }
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
