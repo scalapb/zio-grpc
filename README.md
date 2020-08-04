@@ -22,7 +22,7 @@ Find the latest snapshot in [here](https://oss.sonatype.org/content/repositories
 
 Add the following to your `project/plugins.sbt`:
 
-    val zioGrpcVersion = "0.4.0-RC2"
+    val zioGrpcVersion = "0.4.0-RC3"
 
     addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
 
