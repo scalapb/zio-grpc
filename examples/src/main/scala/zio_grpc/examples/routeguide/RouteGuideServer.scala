@@ -156,6 +156,6 @@ object RouteGuideServer extends ServerMain {
   } yield new RouteGuideService(featuresDatabase.feature, routeNotes)
 
   def services: ServiceList[zio.ZEnv] =
-    ServiceList.addM[ZEnv, RouteGuideService](createRouteGuide)
+    ServiceList.addM(createRouteGuide)
 }
 // end: serverMain
