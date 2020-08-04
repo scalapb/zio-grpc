@@ -52,7 +52,7 @@ object RouteGuideClientApp extends App {
             nextIntBetween(0, features.size).map(features(_).getLocation)
           )
           .tap(p => putStrLn(s"Visiting (${p.latitude}, ${p.longitude})"))
-          .schedule(Schedule.randomDelay(200.millis, 500.millis))
+          .schedule(Schedule.spaced(300.millis))
           .take(numPoints)
       )
       _ <- putStrLn(
