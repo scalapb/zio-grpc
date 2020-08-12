@@ -1,9 +1,7 @@
 package scalapb.zio_grpc
 
-import zio.{Has, Tag}
+import zio.{Has, Tag, ZIO, ZLayer, ZManaged}
 import io.grpc.ServerServiceDefinition
-import zio.ZManaged
-import zio.ZIO
 
 /** Represents a managed list of services to be added to the a server.
   *
@@ -39,6 +37,9 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
     })
 
   def provide(r: RR): ServiceList[Any] = new ServiceList[Any](bindAll.provide(r))
+
+  def provideLayer[R1 <: RR](layer: ZLayer[Any, Throwable, R1]): ServiceList[Any] =
+    new ServiceList[Any](bindAll.provideLayer(layer))
 }
 
 object ServiceList extends ServiceList(ZManaged.succeed(Nil)) {
