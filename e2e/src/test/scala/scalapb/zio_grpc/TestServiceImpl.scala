@@ -25,7 +25,7 @@ package object server {
         requestReceived: zio.Promise[Nothing, Unit],
         delayReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
-    )(clock: Clock.Service)
+    )(clock: Clock.Service, console: Console.Service)
         extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
@@ -104,12 +104,13 @@ package object server {
               case Scenario.DELAY     => Stream.never
               case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
-                Stream.fail(Status.INTERNAL.withDescription("InternalError"))
-              case _                  => Stream.fail(Status.UNKNOWN)
+                // Stream.fromEffect(zio.console.putStrLn("*** Got error now!")).drain ++
+                Stream.fail(Status.INTERNAL.withDescription("Intentional error"))
+              case _                  => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
             }
           } ++ Stream(Response("DONE"))))
           .ensuring(exit.succeed(Exit.succeed(Response()))))
-          .provide(Has(clock))
+          .provide(Has(clock) ++ Has(console))
 
       def awaitReceived = requestReceived.await
 
@@ -119,22 +120,24 @@ package object server {
     }
 
     def make(
-        clock: Clock.Service
+        clock: Clock.Service,
+        console: Console.Service
     ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
         p2 <- Promise.make[Nothing, Unit]
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
-      } yield new Service(p1, p2, p3)(clock)
+      } yield new Service(p1, p2, p3)(clock, console)
 
     val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      ZLayer.fromServiceM[
+      ZLayer.fromServicesM[
         Clock.Service,
+        Console.Service,
         Any,
         Nothing,
         TestServiceImpl.Service
-      ] { (clock: Clock.Service) =>
-        make(clock)
+      ] { (clock: Clock.Service, console: Console.Service) =>
+        make(clock, console)
       }
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires

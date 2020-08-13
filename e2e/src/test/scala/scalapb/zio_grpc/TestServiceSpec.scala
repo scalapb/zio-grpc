@@ -215,24 +215,24 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   case class BidiFixture[Req, Res](
       in: Queue[Res],
-      out: Queue[Req],
+      out: Queue[Option[Req]],
       fiber: Fiber[Status, Unit]
   ) {
-    def send(r: Req) = out.offer(r)
+    def send(r: Req) = out.offer(Some(r))
 
     def receive(n: Int) = ZIO.collectAll(ZIO.replicate(n)(in.take))
 
-    def halfClose = out.shutdown
+    def halfClose = out.offer(None)
   }
 
   object BidiFixture {
     def apply[R, Req, Res](
         call: Stream[Status, Req] => ZStream[R, Status, Res]
-    ): zio.URIO[R, BidiFixture[Req, Res]] =
+    ): zio.URIO[R with zio.console.Console, BidiFixture[Req, Res]] =
       for {
         in    <- ZQueue.unbounded[Res]
-        out   <- ZQueue.unbounded[Req]
-        fiber <- call(Stream.fromQueue(out)).foreach(in.offer).fork
+        out   <- ZQueue.unbounded[Option[Req]]
+        fiber <- call(Stream.fromQueue(out).collectWhileSome).foreach(in.offer).fork
       } yield BidiFixture(in, out, fiber)
   }
 
@@ -271,7 +271,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
         } yield (f1, j))(
           tuple(
             equalTo(List(Response("1"))),
-            fails(hasStatusCode(Status.INTERNAL))
+            fails(hasDescription("Intentional error") && hasStatusCode(Status.INTERNAL))
           )
         )
       },
@@ -320,5 +320,5 @@ object TestServiceSpec extends DefaultRunnableSpec {
       serverStreamingSuite,
       clientStreamingSuite,
       bidiStreamingSuite
-    ).provideLayer(layers.orDie)
+    ).provideCustomLayer(layers.orDie)
 }

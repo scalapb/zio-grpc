@@ -121,7 +121,7 @@ object CallDriver {
       },
       run = {
         val requestStream = Stream
-          .fromQueueWithShutdown(queue)
+          .fromQueue(queue)
           .collectWhileSome
 
         (call.request(1) *>
