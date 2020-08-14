@@ -29,7 +29,7 @@ Add the following to your `project/plugins.sbt`:
     libraryDependencies += "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion
 Add the following to your `build.sbt`:
 
-    val grpcVersion = "1.30.2"
+    val grpcVersion = "1.31.1"
     
     PB.targets in Compile := Seq(
         scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
