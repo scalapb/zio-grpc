@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val grpcVersion = "1.31.1"
+val grpcVersion = "1.32.1"
 
 val Scala213 = "2.13.3"
 
@@ -116,7 +116,7 @@ lazy val docs = project
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
       "sbtProtocVersion" -> "0.99.34",
-      "grpcVersion"      -> "1.31.1",
+      "grpcVersion"      -> "1.32.1",
       "zioGrpcVersion"   -> "0.4.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
