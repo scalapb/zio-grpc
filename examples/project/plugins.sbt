@@ -1,6 +1,6 @@
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.0-RC2")
 
 val zioGrpcVersion = "0.4.0"
 
