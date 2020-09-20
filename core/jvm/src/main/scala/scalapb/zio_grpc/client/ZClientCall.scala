@@ -86,7 +86,7 @@ object ZClientCall {
   def headersTransformer[R, Req, Res](
       clientCall: ZClientCall[R, Req, Res],
       updateHeaders: SafeMetadata => ZIO[R, Status, SafeMetadata]
-  ) =
+  ): ZClientCall[R, Req, Res] =
     new ForwardingZClientCall[R, Req, Res, R](clientCall) {
       override def start(
           responseListener: Listener[Res],

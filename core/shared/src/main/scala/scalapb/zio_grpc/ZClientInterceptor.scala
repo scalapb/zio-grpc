@@ -37,7 +37,7 @@ object ZClientInterceptor {
           methodDescriptor: MethodDescriptor[Req, Res],
           call: CallOptions,
           clientCall: ZClientCall[R, Req, Res]
-      ) =
+      ): ZClientCall[R, Req, Res] =
         ZClientCall.headersTransformer(
           clientCall,
           _ => effect(methodDescriptor, call)
@@ -56,7 +56,7 @@ object ZClientInterceptor {
           methodDescriptor: MethodDescriptor[Req, Res],
           call: CallOptions,
           clientCall: ZClientCall[R, Req, Res]
-      ) =
+      ): ZClientCall[R, Req, Res] =
         ZClientCall.headersTransformer(
           clientCall,
           md => effect(methodDescriptor, call, md) *> ZIO.succeed(md)
