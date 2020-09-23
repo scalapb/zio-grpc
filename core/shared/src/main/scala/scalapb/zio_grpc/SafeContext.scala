@@ -11,6 +11,6 @@ object SafeContext {
     protected def name: String
     protected def default: ZIO[R, E, A]
 
-    def get(context: SafeContext): ZIO[R, E, A]
+    def get: ZIO[R with Has[RequestContext], E, A]
   }
 }
