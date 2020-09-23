@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 import io.grpc.Context
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 final private class CallContext private (context: Context) extends SafeContext {
   private[zio_grpc] def get[T](key: Context.Key[T]): Option[T] = Option(key.get(context))
