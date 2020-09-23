@@ -1,16 +1,16 @@
 package scalapb.zio_grpc
 
-import zio.UIO
+import zio._
 
 private[zio_grpc] trait SafeContext
 
 object SafeContext {
   case object Root extends SafeContext
 
-  trait Key[T] {
+  trait Key[R, E, A] {
     protected def name: String
-    protected def default: Option[T]
+    protected def default: ZIO[R, E, A]
 
-    def get(context: SafeContext): UIO[Option[T]]
+    def get(context: SafeContext): ZIO[R, E, A]
   }
 }
