@@ -98,7 +98,8 @@ class ZioFilePrinter(
     private val traitName  = OuterObject / service.name
     private val ztraitName = OuterObject / ("Z" + service.name)
 
-    private val clientServiceName = OuterObject / (service.name + "Client")
+    private val clientServiceName  = OuterObject / (service.name + "Client")
+    private val accessorsClassName = OuterObject / (service.name + "Accessors")
 
     def methodInType(method: MethodDescriptor, inEnvType: String): String = {
       val scalaInType = method.inputType.scalaType
@@ -268,55 +269,65 @@ class ZioFilePrinter(
           s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
         )
         .add("")
-        .add(s"object ${clientServiceName.name} {")
+        .add("// accessor methods")
+        .add(s"class ${accessorsClassName.name}[Context: zio.Tag] {")
+        .indented(
+          _.print(service.getMethods().asScala.toVector)(printAccessor)
+        )
+        .add("}")
+        .add("")
+        .add(s"object ${clientServiceName.name} extends ${accessorsClassName.name}[Any] {")
         .indent
         .add(
-          s"trait ZService[R] {"
+          s"trait ZService[R, Context] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(
             printClientMethodSignature(
               inEnvType = "R0",
-              outEnvType = "R"
+              outEnvType = "R with Context"
             )
           )
             .add("")
             .add("// Returns a copy of the service with new default metadata")
-            .add(s"def withMetadataM(headersEffect: zio.UIO[$SafeMetadata]): ZService[R]")
-            .add(s"def withMetadata(headers: $SafeMetadata): ZService[R] = withMetadataM(zio.ZIO.succeed(headers))")
+            .add(s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C]")
+            .add(
+              s"def withMetadata(headers: $SafeMetadata): ZService[R, Any] = withMetadataM(zio.ZIO.succeed(headers))"
+            )
         )
         .add("}")
-        .add(
-          s"type Service = ZService[Any]"
-        )
+        .add(s"type Service = ZService[Any, Any]")
+        .add(s"type Accessors[Context] = ${accessorsClassName.fullName}[Context]")
         .add("")
-        .add("// accessor methods")
-        .print(service.getMethods().asScala.toVector)(printAccessor)
         .add("")
         .add(
-          s"private[this] class ServiceStub[R](channel: $ZChannel[R], options: $CallOptions, headers: zio.UIO[$SafeMetadata])"
+          s"private[this] class ServiceStub[R, Context](channel: $ZChannel[R], options: $CallOptions, headers: zio.ZIO[Context, $Status, $SafeMetadata])"
         )
-        .add(s"    extends ${clientServiceName.name}.ZService[R] {")
+        .add(s"    extends ${clientServiceName.name}.ZService[R, Context] {")
         .indented(
           _.print(service.getMethods().asScala.toVector)(
-            printClientImpl(envType = "R")
+            printClientImpl(envType = "R with Context")
           )
             .add(
-              s"override def withMetadataM(headersEffect: zio.UIO[$SafeMetadata]): ZService[R] = new ServiceStub(channel, options, headersEffect)"
+              s"override def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C] = new ServiceStub(channel, options, headersEffect)"
             )
             .add(
-              s"override def withMetadata(headers: $SafeMetadata): ZService[R] = new ServiceStub(channel, options, zio.ZIO.succeed(headers))"
+              s"override def withMetadata(headers: $SafeMetadata): ZService[R, Any] = new ServiceStub(channel, options, zio.ZIO.succeed(headers))"
             )
         )
-        .add("}")
-        .add(
-          s"def managed[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R]] = managedChannel.map {"
-        )
-        .add("  channel => new ServiceStub[R](channel, options, headers)")
         .add("}")
         .add("")
         .add(
-          s"def live[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = zio.ZLayer.fromFunctionManaged((r: R) => managed(managedChannel.map(_.provide(r)), options, headers))"
+          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
+        )
+        .add("  channel => new ServiceStub[R, Context](channel, options, headers)")
+        .add("}")
+        .add("")
+        .add(
+          s"def live[R](managedChannel: $ZManagedChannel[R]): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = live(managedChannel, $CallOptions.DEFAULT, $SafeMetadata.make)"
+        )
+        .add(
+          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[Context, $Status, $SafeMetadata]): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
         )
         .outdent
         .add("}")
@@ -329,7 +340,7 @@ class ZioFilePrinter(
         clientMethodSignature(
           method,
           inEnvType = "R0",
-          outEnvType = clientServiceName.name
+          outEnvType = s"zio.Has[${clientServiceName.name}.ZService[Any, Context]] with Context"
         ) + " = "
       val innerCall         = s"_.get.${method.name}(request)"
       val clientCall        = method.streamType match {
