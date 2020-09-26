@@ -62,6 +62,7 @@ class ZioFilePrinter(
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
+  val ZChannel            = "scalapb.zio_grpc.ZChannel"
   val ZBindableService    = "scalapb.zio_grpc.ZBindableService"
   val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
   private val OuterObject =
@@ -279,6 +280,10 @@ class ZioFilePrinter(
               outEnvType = "R"
             )
           )
+            .add("")
+            .add("// Returns a copy of the service with new default metadata")
+            .add(s"def withMetadataM(headersEffect: zio.UIO[$SafeMetadata]): ZService[R]")
+            .add(s"def withMetadata(headers: $SafeMetadata): ZService[R] = withMetadataM(zio.ZIO.succeed(headers))")
         )
         .add("}")
         .add(
@@ -289,17 +294,25 @@ class ZioFilePrinter(
         .print(service.getMethods().asScala.toVector)(printAccessor)
         .add("")
         .add(
+          s"private[this] class ServiceStub[R](channel: $ZChannel[R], options: $CallOptions, headers: zio.UIO[$SafeMetadata])"
+        )
+        .add(s"    extends ${clientServiceName.name}.ZService[R] {")
+        .indented(
+          _.print(service.getMethods().asScala.toVector)(
+            printClientImpl(envType = "R")
+          )
+            .add(
+              s"override def withMetadataM(headersEffect: zio.UIO[$SafeMetadata]): ZService[R] = new ServiceStub(channel, options, headersEffect)"
+            )
+            .add(
+              s"override def withMetadata(headers: $SafeMetadata): ZService[R] = new ServiceStub(channel, options, zio.ZIO.succeed(headers))"
+            )
+        )
+        .add("}")
+        .add(
           s"def managed[R](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R]] = managedChannel.map {"
         )
-        .indent
-        .add("channel => new ZService[R] {")
-        .indent
-        .print(service.getMethods().asScala.toVector)(
-          printClientImpl(envType = "R")
-        )
-        .outdent
-        .add("}")
-        .outdent
+        .add("  channel => new ServiceStub[R](channel, options, headers)")
         .add("}")
         .add("")
         .add(
