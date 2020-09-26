@@ -5,29 +5,21 @@ import io.grpc.examples.routeguide.route_guide._
 import io.grpc.ManagedChannelBuilder
 import zio.console._
 import zio.random._
-import scalapb.zio_grpc.{ZManagedChannel, ZClientInterceptor}
+import scalapb.zio_grpc.ZManagedChannel
 import zio.Layer
 import io.grpc.Channel
-import zio.{App, ZIO, Has, ZLayer}
+import zio.{App, ZIO}
 import io.grpc.Status
 import zio.stream.ZStream
 import scala.io.Source
 import zio.Schedule
 import zio.duration._
 
-trait MetadataProvider {
-}
-
 object RouteGuideClientApp extends App {
-  val myInterceptor: ZClientInterceptor[Has[MetadataProvider]] = ???
-
-  val clientLayer: ZLayer[MetadataProvider, Throwable, RouteGuideClient] =
+  val clientLayer: Layer[Throwable, RouteGuideClient] =
     RouteGuideClient.live(
       ZManagedChannel(
-        ManagedChannelBuilder.forAddress("localhost", 8980).usePlaintext(),
-        interceptors=Seq(
-          myInterceptor
-        )
+        ManagedChannelBuilder.forAddress("localhost", 8980).usePlaintext()
       )
     )
 
