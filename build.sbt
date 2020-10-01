@@ -49,7 +49,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "io.grpc" % "grpc-services" % grpcVersion
+      "io.grpc" % "grpc-services" % grpcVersion,
+      "io.grpc" % "grpc-context"  % grpcVersion
     )
   )
   .jsConfigure(
