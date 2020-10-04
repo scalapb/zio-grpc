@@ -39,6 +39,10 @@ object TransformableService {
   def apply[S[_, _]](implicit ts: TransformableService[S]) = ts
 
   final class TransformableServiceOps[S[_, _], R, C](private val service: S[R, C]) extends AnyVal {
+    def transform[ROut, ContextOut](
+        transform: ZTransform[R with C, Status, ROut with ContextOut]
+    )(implicit TS: TransformableService[S]): S[ROut, ContextOut] = TS.transform(service, transform)
+
     def transformContextM[C1: Tag, C2: Tag, R0 <: R](
         f: C2 => ZIO[R0, Status, C1]
     )(implicit ev: S[R, C] <:< S[R, Has[C1]], TS: TransformableService[S]): S[R0, Has[C2]] =

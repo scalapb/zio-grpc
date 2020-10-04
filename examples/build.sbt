@@ -1,5 +1,7 @@
 scalaVersion := "2.13.1"
 
+resolvers += Resolver.sonatypeRepo("snapshots")
+
 val grpcVersion = "1.30.1"
 
 PB.targets in Compile := Seq(

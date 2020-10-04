@@ -1,10 +1,8 @@
 import Settings.stdSettings
 
-val grpcVersion = "1.32.1"
-
 val Scala213 = "2.13.3"
 
-val Scala212 = "2.12.11"
+val Scala212 = "2.12.12"
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
@@ -32,8 +30,6 @@ inThisBuild(
   )
 )
 
-val zioVersion = "1.0.1"
-
 lazy val core = crossProject(JSPlatform, JVMPlatform)
   .in(file("core"))
   .settings(stdSettings)
@@ -41,15 +37,15 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     crossScalaVersions := Seq(Scala212, Scala213),
     name := "zio-grpc-core",
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio"          % zioVersion,
-      "dev.zio" %%% "zio-streams"  % zioVersion,
-      "dev.zio" %%% "zio-test"     % zioVersion % "test",
-      "dev.zio" %%% "zio-test-sbt" % zioVersion % "test"
+      "dev.zio" %%% "zio"          % Version.zio,
+      "dev.zio" %%% "zio-streams"  % Version.zio,
+      "dev.zio" %%% "zio-test"     % Version.zio % "test",
+      "dev.zio" %%% "zio-test-sbt" % Version.zio % "test"
     )
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      "io.grpc" % "grpc-services" % grpcVersion
+      "io.grpc" % "grpc-services" % Version.grpc
     )
   )
   .jsConfigure(
@@ -73,7 +69,8 @@ lazy val codeGen = project
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb" %% "compilerplugin" % scalapb.compiler.Version.scalapbVersion
+      "com.thesamet.scalapb"   %% "compilerplugin"          % scalapb.compiler.Version.scalapbVersion,
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.2.0"
     )
   )
 
@@ -91,10 +88,10 @@ lazy val e2e = project
     crossScalaVersions := Seq(Scala212, Scala213),
     skip in publish := true,
     libraryDependencies ++= Seq(
-      "dev.zio"              %% "zio-test"             % zioVersion % "test",
-      "dev.zio"              %% "zio-test-sbt"         % zioVersion % "test",
+      "dev.zio"              %% "zio-test"             % Version.zio % "test",
+      "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test",
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-      "io.grpc"               % "grpc-netty"           % grpcVersion
+      "io.grpc"               % "grpc-netty"           % Version.grpc
     ),
     PB.targets in Compile := Seq(
       scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
@@ -121,7 +118,7 @@ lazy val docs = project
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
     libraryDependencies ++= Seq(
-      "io.grpc"               % "grpc-netty"           % grpcVersion,
+      "io.grpc"               % "grpc-netty"           % Version.grpc,
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     ),
     PB.targets in Compile := Seq(

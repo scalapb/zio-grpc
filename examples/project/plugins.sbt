@@ -1,8 +1,10 @@
+resolvers += Resolver.sonatypeRepo("snapshots")
+
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.0-RC2")
 
-val zioGrpcVersion = "0.4.0"
+val zioGrpcVersion = "0.4.0+13-da095577-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion,
