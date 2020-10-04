@@ -6,7 +6,6 @@ import scalapb.compiler.ProtobufGenerator
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
 import protocbridge.Artifact
 import com.google.protobuf.Descriptors.FileDescriptor
-import scalapb.zio_grpc.compat.JavaConverters._
 import scalapb.compiler.DescriptorImplicits
 import com.google.protobuf.Descriptors.ServiceDescriptor
 import com.google.protobuf.Descriptors.MethodDescriptor
@@ -16,6 +15,8 @@ import protocgen.CodeGenApp
 import protocgen.CodeGenResponse
 import protocgen.CodeGenRequest
 import scalapb.compiler.NameUtils
+
+import scala.jdk.CollectionConverters._
 
 object ZioCodeGenerator extends CodeGenApp {
   override def registerExtensions(registry: ExtensionRegistry): Unit =
