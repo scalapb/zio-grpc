@@ -19,4 +19,6 @@ object GreeterImpl extends ZGreeter[ZEnv, Any] {
 
 object HelloWorldServer extends ServerMain {
   def services: ServiceList[zio.ZEnv] = ServiceList.add(GreeterImpl)
+
+  override def port: Int = 9090
 }
