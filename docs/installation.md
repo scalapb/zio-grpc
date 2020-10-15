@@ -11,7 +11,7 @@ If you are building with sbt, add the following to your `project/plugins.sbt`:
 ```scala
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "@sbtProtocVersion@")
 
-libraryDependencies ++=
+libraryDependencies +=
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % "@zioGrpcVersion@"
 ```
 
