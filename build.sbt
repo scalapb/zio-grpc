@@ -99,6 +99,7 @@ lazy val e2e = project
         "scalapb.zio_grpc.ZioCodeGenerator$"
       )                        -> (sourceManaged in Compile).value
     ),
+    PB.protocVersion := "3.13.0",
     codeGenClasspath := (codeGen / Compile / fullClasspath).value,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
