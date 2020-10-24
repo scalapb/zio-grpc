@@ -34,6 +34,10 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         )
       }
 
+    def serverEnumStreaming(
+        request: Request
+    ): ZStream[Console with Has[User], Status, EnumResponse] = ???
+
     def clientStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
     ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))

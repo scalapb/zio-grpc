@@ -18,10 +18,20 @@ message Response {
     string out = 1;
 }
 
+message EnumResponse {
+    enum Mood {
+        HAPPY = 0;
+        SAD = 1;
+    }
+    Mood status = 1;
+}
+
 service TestService {
     rpc Unary(Request) returns (Response);
 
     rpc ServerStreaming(Request) returns (stream Response);
+    
+    rpc ServerEnumStreaming(Request) returns (stream EnumResponse);
 
     rpc ClientStreaming(stream Request) returns (Response);
 

@@ -5,7 +5,7 @@ import zio.Has
 import zio.clock.Clock
 import zio.console.Console
 import io.grpc.Status
-import scalapb.zio_grpc.testservice.{Request, Response}
+import scalapb.zio_grpc.testservice.{EnumResponse, Request, Response}
 import zio.ZIO
 import zio.stream.ZStream
 import io.grpc.ServerBuilder
@@ -28,6 +28,8 @@ object BindableServiceSpec extends DefaultRunnableSpec {
     def unary(request: Request): ZIO[R with C, Status, Response] = ???
 
     def serverStreaming(request: Request): ZStream[R with C, Status, Response] = ???
+
+    def serverEnumStreaming(request: Request): ZStream[R with C, Status, EnumResponse] = ???
 
     def clientStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZIO[R with C, Status, Response] = ???
 

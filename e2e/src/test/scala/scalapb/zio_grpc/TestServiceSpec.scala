@@ -98,6 +98,15 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )(equalTo((List(Response("X1"), Response("X2")), None)))
       },
+      testM("returns successful response with enum") {
+        assertM(
+          collectWithError(
+            TestServiceClient.serverEnumStreaming(
+              Request(Request.Scenario.OK, in = 12)
+            )
+          )
+        )(equalTo((List(EnumResponse(EnumResponse.Mood.HAPPY), EnumResponse(EnumResponse.Mood.SAD)), None)))
+      },
       testM("returns correct error response") {
         assertM(
           collectWithError(

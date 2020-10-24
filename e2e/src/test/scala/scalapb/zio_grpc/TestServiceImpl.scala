@@ -2,7 +2,7 @@ package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.Request
 import zio.ZIO
-import scalapb.zio_grpc.testservice.Response
+import scalapb.zio_grpc.testservice.{EnumResponse, Response}
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.clock.Clock
@@ -72,6 +72,21 @@ package object server {
               case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
               case _                    => ZStream.fail(Status.UNKNOWN)
             }
+          }
+
+      def serverEnumStreaming(request: Request): ZStream[Any, Status, EnumResponse] =
+        ZStream
+          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
+            ex.foldM(
+              failed =>
+                if (failed.interrupted)
+                  exit.succeed(Exit.fail(Status.CANCELLED))
+                else exit.succeed(Exit.fail(Status.UNKNOWN)),
+              _ => exit.succeed(Exit.succeed(Response()))
+            )
+          }
+          .flatMap { _ =>
+            ZStream(EnumResponse(EnumResponse.Mood.HAPPY), EnumResponse(EnumResponse.Mood.SAD))
           }
 
       def clientStreaming(
