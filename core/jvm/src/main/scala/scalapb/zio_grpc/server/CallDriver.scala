@@ -116,13 +116,14 @@ object CallDriver {
 
         override def onMessage(message: Req): Unit =
           runtime.unsafeRun(
-            call.request(1) *> queue.offer(Some(message)).unit
+            queue.offer(Some(message)).unit
           )
       },
       run = {
         val requestStream = Stream
           .fromQueue(queue)
           .collectWhileSome
+          .tap(_ => call.request(1))
 
         (call.request(1) *>
           call.sendHeaders(new Metadata) *>
