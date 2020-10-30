@@ -65,6 +65,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
+      },
+      testM("setting deadline interrupts the servers") {
+        for {
+          r    <- TestServiceClient.withTimeoutMillis(50).unary(Request(Request.Scenario.DELAY, in = 12)).run
+          exit <- TestServiceImpl.awaitExit
+        } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.interrupted)(isTrue)
       }
     )
 
