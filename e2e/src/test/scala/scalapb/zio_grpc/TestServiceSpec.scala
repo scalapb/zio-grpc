@@ -78,7 +78,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       zs: ZStream[R, E, A]
   ): URIO[R, (List[A], Option[E])] =
     zs.either
-      .fold[Either[E, A], (List[A], Option[E])]((Nil, None)) {
+      .fold((List.empty[A], Option.empty[E])) {
         case ((l, _), Left(e))  => (l, Some(e))
         case ((l, e), Right(a)) => (a :: l, e)
       }
