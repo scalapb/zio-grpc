@@ -264,8 +264,8 @@ object ManagedServer {
       services0 <- services
       serverImpl = new Server.ServiceImpl(
                      services0
-                       .foldLeft(builder)({
-                         case (b, s) => b.addService(s)
+                       .foldLeft(builder)({ case (b, s) =>
+                         b.addService(s)
                        })
                        .build()
                    )
