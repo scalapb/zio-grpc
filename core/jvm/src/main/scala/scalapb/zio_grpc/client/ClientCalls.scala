@@ -32,14 +32,16 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    unaryCall(channel.newCall(method, options), headers, req)
+    channel.newCall(method, options) >>= (
+      unaryCall(_, headers, req)
+    )
 
   private def unaryCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+    ZIO.bracketExit(UnaryClientCallListener.make[R, Res](call))(exitHandler(call)) { listener =>
       call.start(listener, headers) *>
         call.request(1) *>
         call.sendMessage(req) *>
@@ -54,10 +56,8 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    serverStreamingCall(
-      channel.newCall(method, options),
-      headers,
-      req
+    ZStream.fromEffect(channel.newCall(method, options)) >>= (
+      serverStreamingCall(_, headers, req)
     )
 
   private def serverStreamingCall[R, Req, Res](
@@ -87,10 +87,8 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZIO[R with R0, Status, Res] =
-    clientStreamingCall(
-      channel.newCall(method, options),
-      headers,
-      req
+    channel.newCall(method, options) >>= (
+      clientStreamingCall(_, headers, req)
     )
 
   private def clientStreamingCall[R, R0, Req, Res](
@@ -98,10 +96,10 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZIO[R with R0, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+    ZIO.bracketExit(UnaryClientCallListener.make[R, Res](call))(exitHandler(call)) { listener =>
       call.start(listener, headers) *>
         call.request(1) *>
-        req.foreach(call.sendMessage) *>
+        req.foreach(call.sendMessageWhenReady) *>
         call.halfClose() *>
         listener.getValue.map(_._2)
     }
@@ -113,7 +111,9 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZStream[R with R0, Status, Res] =
-    bidiCall(channel.newCall(method, options), headers, req)
+    ZStream.fromEffect(channel.newCall(method, options)) >>= (
+      bidiCall(_, headers, req)
+    )
 
   private def bidiCall[R, R0, Req, Res](
       call: ZClientCall[R, Req, Res],
@@ -130,7 +130,7 @@ object ClientCalls {
             call.start(listener, headers) *>
               call.request(1)
           )
-        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
+        val sendRequestStream = (init ++ req.tap(call.sendMessageWhenReady) ++ Stream
           .fromEffect(call.halfClose())).drain
         sendRequestStream.merge(listener.stream)
       }

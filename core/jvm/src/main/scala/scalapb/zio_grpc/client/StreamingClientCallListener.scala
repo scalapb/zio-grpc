@@ -45,6 +45,9 @@ class StreamingClientCallListener[R, Res](
   override def onClose(status: Status, trailers: Metadata): Unit =
     runtime.unsafeRun(queue.offer(Left((status, trailers))).unit)
 
+  override def onReady(): Unit =
+    runtime.unsafeRun(call.onReady())
+
   def stream: ZStream[R, Status, Res] =
     ZStream
       .fromQueue(queue)

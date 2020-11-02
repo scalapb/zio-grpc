@@ -19,16 +19,17 @@ class ZServerCallHandler[R, Req, Res](
       call: ServerCall[Req, Res],
       headers: Metadata
   ): Listener[Req] = {
-    val zioCall = new ZServerCall(call)
-    val runner  = for {
-      driver <- SafeMetadata.fromMetadata(headers) >>= { md =>
-                  mkDriver(zioCall, RequestContext.fromServerCall(md, call))
-                }
+    val runner = for {
+      readyPromise <- Ref.make[Option[Promise[Nothing, Unit]]](None)
+      zioCall       = new ZServerCall(call, readyPromise)
+      driver       <- SafeMetadata.fromMetadata(headers) >>= { md =>
+                        mkDriver(zioCall, RequestContext.fromServerCall(md, call))
+                      }
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
       // service.
-      _      <- driver.run.forkDaemon
+      _            <- driver.run.forkDaemon
     } yield driver.listener
 
     runtime.unsafeRun(runner)
@@ -71,7 +72,7 @@ object ZServerCallHandler {
     unaryInput(
       runtime,
       (req: Req, metadata: RequestContext, call: ZServerCall[Res]) =>
-        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+        impl(req).provide(Has(metadata)).foreach(call.sendMessageWhenReady)
     )
 
   def clientStreamingCallHandler[Req, Res](
@@ -89,6 +90,6 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req, metadata, call) => impl(req).provide(Has(metadata)).foreach(call.sendMessageWhenReady)
     )
 }

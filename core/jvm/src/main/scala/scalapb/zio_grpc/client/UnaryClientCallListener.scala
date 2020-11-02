@@ -1,12 +1,8 @@
 package scalapb.zio_grpc.client
 
-import zio.Runtime
-import zio.Ref
-
+import zio.{IO, Promise, Ref, Runtime, URIO}
 import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
-import zio.Promise
-import zio.IO
 import UnaryCallState._
 
 sealed trait UnaryCallState[+Res]
@@ -21,8 +17,9 @@ object UnaryCallState {
   case class Failure[Res](s: String) extends UnaryCallState[Res]
 }
 
-class UnaryClientCallListener[Res](
-    runtime: Runtime[Any],
+class UnaryClientCallListener[R, Res](
+    runtime: Runtime[R],
+    call: ZClientCall[R, _, Res],
     state: Ref[UnaryCallState[Res]],
     promise: Promise[Status, (Metadata, Res)]
 ) extends ClientCall.Listener[Res] {
@@ -71,14 +68,19 @@ class UnaryClientCallListener[Res](
       } yield ()
     }
 
+  override def onReady(): Unit =
+    runtime.unsafeRun(call.onReady())
+
   def getValue: IO[Status, (Metadata, Res)] = promise.await
 }
 
 object UnaryClientCallListener {
-  def make[Res] =
+  def make[R, Res](
+      call: ZClientCall[R, _, Res]
+  ): URIO[R, UnaryClientCallListener[R, Res]] =
     for {
-      runtime <- zio.ZIO.runtime[Any]
+      runtime <- zio.ZIO.runtime[R]
       state   <- Ref.make[UnaryCallState[Res]](Initial)
       promise <- Promise.make[Status, (Metadata, Res)]
-    } yield new UnaryClientCallListener[Res](runtime, state, promise)
+    } yield new UnaryClientCallListener[R, Res](runtime, call, state, promise)
 }

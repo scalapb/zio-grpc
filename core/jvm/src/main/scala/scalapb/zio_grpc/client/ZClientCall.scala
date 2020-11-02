@@ -2,25 +2,21 @@ package scalapb.zio_grpc.client
 
 import io.grpc.ClientCall
 import io.grpc.ClientCall.Listener
-import scalapb.zio_grpc.GIO
+import scalapb.zio_grpc.{GIO, SafeMetadata, ZCall}
 import zio.ZIO
 import io.grpc.Status
-import scalapb.zio_grpc.SafeMetadata
+import scalapb.zio_grpc.ZCall.ReadyPromise
 
-trait ZClientCall[-R, Req, Res] extends Any {
+trait ZClientCall[-R, Req, Res] extends ZCall[R, Req] {
   self =>
   def start(
       responseListener: Listener[Res],
       headers: SafeMetadata
   ): ZIO[R, Status, Unit]
 
-  def request(numMessages: Int): ZIO[R, Status, Unit]
-
   def cancel(message: String): ZIO[R, Status, Unit]
 
   def halfClose(): ZIO[R, Status, Unit]
-
-  def sendMessage(message: Req): ZIO[R, Status, Unit]
 
   def provide(r: R): ZClientCall[Any, Req, Res] =
     new ZClientCall[Any, Req, Res] {
@@ -40,10 +36,25 @@ trait ZClientCall[-R, Req, Res] extends Any {
 
       def sendMessage(message: Req): ZIO[Any, Status, Unit] =
         self.sendMessage(message).provide(r)
+
+      override def sendMessageWhenReady(message: Req): ZIO[Any, Status, Unit] =
+        self.sendMessageWhenReady(message).provide(r)
+
+      override def onReady(): ZIO[Any, Status, Unit] =
+        self.onReady().provide(r)
+
+      private[zio_grpc] def isReady: ZIO[Any, Status, Boolean] =
+        self.isReady.provide(r)
+
+      private[zio_grpc] def readyPromise: ReadyPromise =
+        self.readyPromise
     }
 }
 
-class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends AnyVal with ZClientCall[Any, Req, Res] {
+class ZClientCallImpl[Req, Res](
+    private val call: ClientCall[Req, Res],
+    private[zio_grpc] val readyPromise: ReadyPromise
+) extends ZClientCall[Any, Req, Res] {
   def start(responseListener: Listener[Res], headers: SafeMetadata): GIO[Unit] =
     GIO.effect(call.start(responseListener, headers.metadata))
 
@@ -57,11 +68,17 @@ class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends 
 
   def sendMessage(message: Req): GIO[Unit] =
     GIO.effect(call.sendMessage(message))
+
+  private[zio_grpc] val isReady: GIO[Boolean] =
+    GIO.effect(call.isReady)
 }
 
 object ZClientCall {
-  def apply[Req, Res](call: ClientCall[Req, Res]): ZClientCall[Any, Req, Res] =
-    new ZClientCallImpl(call)
+  def apply[Req, Res](
+      call: ClientCall[Req, Res],
+      readyPromise: ReadyPromise
+  ): ZClientCall[Any, Req, Res] =
+    new ZClientCallImpl(call, readyPromise)
 
   class ForwardingZClientCall[R, Req, Res, R1 >: R](
       protected val delegate: ZClientCall[R1, Req, Res]
@@ -81,6 +98,18 @@ object ZClientCall {
 
     override def sendMessage(message: Req): ZIO[R, Status, Unit] =
       delegate.sendMessage(message)
+
+    override def sendMessageWhenReady(message: Req): ZIO[R, Status, Unit] =
+      delegate.sendMessageWhenReady(message)
+
+    override def onReady(): ZIO[R, Status, Unit] =
+      delegate.onReady()
+
+    override private[zio_grpc] def isReady: ZIO[R, Status, Boolean] =
+      delegate.isReady
+
+    override private[zio_grpc] def readyPromise: ReadyPromise =
+      delegate.readyPromise
   }
 
   def headersTransformer[R, Req, Res](
