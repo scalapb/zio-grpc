@@ -26,6 +26,6 @@ sbt `runMain zio_grpc.examples.helloworld.HelloWorldServer`
 
 3. Launch the `Envoy` proxy: `make proxy`
 
-4. Launch the client: `make client run`
+4. Launch the client: `make run`
 
 5. Open the web browser with `localhost:8081` and check the server response in the browser console
