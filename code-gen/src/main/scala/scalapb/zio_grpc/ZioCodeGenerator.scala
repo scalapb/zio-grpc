@@ -57,14 +57,17 @@ class ZioFilePrinter(
   val Channel             = "io.grpc.Channel"
   val CallOptions         = "io.grpc.CallOptions"
   val ClientCalls         = "scalapb.zio_grpc.client.ClientCalls"
+  val Duration            = "zio.duration.Duration"
   val SafeMetadata        = "scalapb.zio_grpc.SafeMetadata"
   val Status              = "io.grpc.Status"
+  val Deadline            = "io.grpc.Deadline"
   val methodDescriptor    = "io.grpc.MethodDescriptor"
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
   val ZBindableService    = "scalapb.zio_grpc.ZBindableService"
+  val Nanos               = "java.util.concurrent.TimeUnit.NANOSECONDS"
   val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
   private val OuterObject =
     file.scalaPackage / s"Zio${NameUtils.snakeCaseToCamelCase(baseName(file.getName), true)}"
@@ -271,16 +274,23 @@ class ZioFilePrinter(
         )
         .add("")
         .add("// accessor methods")
-        .add(s"class ${accessorsClassName.name}[Context: zio.Tag] {")
+        .add(
+          s"class ${accessorsClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
+        )
         .indented(
           _.print(service.getMethods().asScala.toVector)(printAccessor)
+            .add(
+              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsClassName.name}(callOptions.flatMap(f))"
+            )
         )
         .add("}")
         .add("")
-        .add(s"object ${clientServiceName.name} extends ${accessorsClassName.name}[Any] {")
+        .add(
+          s"object ${clientServiceName.name} extends ${accessorsClassName.name}[Any](zio.ZIO.succeed($CallOptions.DEFAULT)) {"
+        )
         .indent
         .add(
-          s"trait ZService[R, Context] {"
+          s"trait ZService[R, Context] extends scalapb.zio_grpc.CallOptionsMethods[ZService[R, Context]] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(
@@ -290,9 +300,10 @@ class ZioFilePrinter(
             )
           )
             .add("")
-            .add("// Returns a copy of the service with new default metadata")
-            .add(s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C]")
             .add(
+              "// Returns a copy of the service with new default metadata",
+              s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C]",
+              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context]",
               s"def withMetadata(headers: $SafeMetadata): ZService[R, Any] = withMetadataM(zio.ZIO.succeed(headers))"
             )
         )
@@ -302,7 +313,7 @@ class ZioFilePrinter(
         .add("")
         .add("")
         .add(
-          s"private[this] class ServiceStub[R, Context](channel: $ZChannel[R], options: $CallOptions, headers: zio.ZIO[Context, $Status, $SafeMetadata])"
+          s"private[this] class ServiceStub[R, Context](channel: $ZChannel[R], options: zio.IO[$Status, $CallOptions], headers: zio.ZIO[Context, $Status, $SafeMetadata])"
         )
         .add(s"    extends ${clientServiceName.name}.ZService[R, Context] {")
         .indented(
@@ -310,25 +321,24 @@ class ZioFilePrinter(
             printClientImpl(envType = "R with Context")
           )
             .add(
-              s"override def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C] = new ServiceStub(channel, options, headersEffect)"
-            )
-            .add(
-              s"override def withMetadata(headers: $SafeMetadata): ZService[R, Any] = new ServiceStub(channel, options, zio.ZIO.succeed(headers))"
+              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R, Context] = new ServiceStub(channel, options.flatMap(f), headers)",
+              s"override def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C] = new ServiceStub(channel, options, headersEffect)",
+              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context] = new ServiceStub(channel, callOptions, headers)"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
+          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
         )
         .add("  channel => new ServiceStub[R, Context](channel, options, headers)")
         .add("}")
         .add("")
         .add(
-          s"def live[R](managedChannel: $ZManagedChannel[R]): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = live(managedChannel, $CallOptions.DEFAULT, $SafeMetadata.make)"
+          s"def live[R](managedChannel: $ZManagedChannel[R]): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = live(managedChannel, zio.ZIO.succeed($CallOptions.DEFAULT), $SafeMetadata.make)"
         )
         .add(
-          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: $CallOptions = $CallOptions.DEFAULT, headers: zio.ZIO[Context, $Status, $SafeMetadata]): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
+          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
         )
         .outdent
         .add("}")
@@ -343,7 +353,7 @@ class ZioFilePrinter(
           inEnvType = "R0",
           outEnvType = s"zio.Has[${clientServiceName.name}.ZService[Any, Context]] with Context"
         ) + " = "
-      val innerCall         = s"_.get.${method.name}(request)"
+      val innerCall         = s"_.get.withCallOptionsM(callOptions).${method.name}(request)"
       val clientCall        = method.streamType match {
         case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
         case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
@@ -365,19 +375,19 @@ class ZioFilePrinter(
         case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
       }
       val prefix     = method.streamType match {
-        case StreamType.Unary           => s"headers.flatMap"
-        case StreamType.ClientStreaming => s"headers.flatMap"
+        case StreamType.Unary           => s"headers.zip(options).flatMap"
+        case StreamType.ClientStreaming => s"headers.zip(options).flatMap"
         case StreamType.ServerStreaming =>
-          s"zio.stream.ZStream.fromEffect(headers).flatMap"
+          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
         case StreamType.Bidirectional   =>
-          s"zio.stream.ZStream.fromEffect(headers).flatMap"
+          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
       }
       fp.add(
         clientMethodSignature(
           method,
           inEnvType = "R0",
           outEnvType = envType
-        ) + s" = $prefix { headers => $clientCall("
+        ) + s" = $prefix { case (headers, options) => $clientCall("
       ).indent
         .add(
           s"channel, ${method.grpcDescriptor.fullName}, options,"

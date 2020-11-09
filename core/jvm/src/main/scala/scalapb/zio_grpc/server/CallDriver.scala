@@ -69,8 +69,7 @@ object CallDriver {
         .race(cancelled.await)
     )
 
-  /**
-    * Creates a [[CallDriver]] for a request with a unary input.
+  /** Creates a [[CallDriver]] for a request with a unary input.
     *
     * writeResponse: given a request, returns a effects that computes
     * the response and writes it through the given ZServerCall.
@@ -133,8 +132,7 @@ object CallDriver {
       }
     )
 
-  /**
-    * Creates a [[CallDriver]] for a request with a streaming input.
+  /** Creates a [[CallDriver]] for a request with a streaming input.
     *
     * writeResponse: given a request, returns a effects that computes
     * the response and writes it through the given ZServerCall.

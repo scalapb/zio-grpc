@@ -298,7 +298,7 @@ ZIO gRPC provides a base trait to quickly set up gRPC services with zero boilerp
 
 In this section, we'll look at creating a client for our `RouteGuide`
 service. You can see our complete example client code in
-[RouteGuideClientApp.java](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideClientApp.java).
+[RouteGuideClientApp.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideClientApp.scala).
 
 ### Instantiating a client
 
