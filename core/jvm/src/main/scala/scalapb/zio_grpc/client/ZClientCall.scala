@@ -3,7 +3,7 @@ package scalapb.zio_grpc.client
 import io.grpc.ClientCall
 import io.grpc.ClientCall.Listener
 import scalapb.zio_grpc.{GIO, SafeMetadata, ZCall}
-import zio.ZIO
+import zio.{Semaphore, ZIO}
 import io.grpc.Status
 import scalapb.zio_grpc.ZCall.ReadyPromise
 
@@ -48,12 +48,16 @@ trait ZClientCall[-R, Req, Res] extends ZCall[R, Req] {
 
       private[zio_grpc] def readyPromise: ReadyPromise =
         self.readyPromise
+
+      private[zio_grpc] def readySync: Semaphore =
+        self.readySync
     }
 }
 
 class ZClientCallImpl[Req, Res](
     private val call: ClientCall[Req, Res],
-    private[zio_grpc] val readyPromise: ReadyPromise
+    private[zio_grpc] val readyPromise: ReadyPromise,
+    private[zio_grpc] val readySync: Semaphore
 ) extends ZClientCall[Any, Req, Res] {
   def start(responseListener: Listener[Res], headers: SafeMetadata): GIO[Unit] =
     GIO.effect(call.start(responseListener, headers.metadata))
@@ -76,9 +80,10 @@ class ZClientCallImpl[Req, Res](
 object ZClientCall {
   def apply[Req, Res](
       call: ClientCall[Req, Res],
-      readyPromise: ReadyPromise
+      readyPromise: ReadyPromise,
+      readySync: Semaphore
   ): ZClientCall[Any, Req, Res] =
-    new ZClientCallImpl(call, readyPromise)
+    new ZClientCallImpl(call, readyPromise, readySync)
 
   class ForwardingZClientCall[R, Req, Res, R1 >: R](
       protected val delegate: ZClientCall[R1, Req, Res]
@@ -110,6 +115,9 @@ object ZClientCall {
 
     override private[zio_grpc] def readyPromise: ReadyPromise =
       delegate.readyPromise
+
+    override private[zio_grpc] def readySync: Semaphore =
+      delegate.readySync
   }
 
   def headersTransformer[R, Req, Res](

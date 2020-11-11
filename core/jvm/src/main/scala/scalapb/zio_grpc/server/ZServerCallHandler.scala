@@ -21,7 +21,8 @@ class ZServerCallHandler[R, Req, Res](
   ): Listener[Req] = {
     val runner = for {
       readyPromise <- Ref.make[Option[Promise[Nothing, Unit]]](None)
-      zioCall       = new ZServerCall(call, readyPromise)
+      readySync    <- Semaphore.make(1)
+      zioCall       = new ZServerCall(call, readyPromise, readySync)
       driver       <- SafeMetadata.fromMetadata(headers) >>= { md =>
                         mkDriver(zioCall, RequestContext.fromServerCall(md, call))
                       }

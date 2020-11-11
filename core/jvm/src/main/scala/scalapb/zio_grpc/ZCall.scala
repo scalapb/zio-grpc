@@ -2,7 +2,7 @@ package scalapb.zio_grpc
 
 import io.grpc.Status
 import scalapb.zio_grpc.ZCall.ReadyPromise
-import zio.{Promise, Ref, UIO, ZIO}
+import zio.{Promise, Ref, Semaphore, UIO, ZIO}
 
 object ZCall {
   type ReadyPromise = Ref[Option[Promise[Nothing, Unit]]]
@@ -15,15 +15,17 @@ trait ZCall[-R, A] extends Any {
   def sendMessage(message: A): ZIO[R, Status, Unit]
 
   def sendMessageWhenReady(message: A): ZIO[R, Status, Unit] =
-    ZIO.ifM(isReady)(
-      sendMessage(message),
-      Promise.make[Nothing, Unit].flatMap { promise =>
-        readyPromise.set(Some(promise)) *> ZIO.ifM(isReady)(
-          sendMessage(message),
-          promise.await *> sendMessage(message)
-        )
-      }
-    )
+    readySync.withPermit {
+      ZIO.ifM(isReady)(
+        sendMessage(message),
+        Promise.make[Nothing, Unit].flatMap { promise =>
+          readyPromise.set(Some(promise)) *> ZIO.ifM(isReady)(
+            sendMessage(message),
+            promise.await *> sendMessage(message)
+          )
+        }
+      )
+    }
 
   def onReady(): ZIO[R, Status, Unit] =
     readyPromise
@@ -32,8 +34,11 @@ trait ZCall[-R, A] extends Any {
         case None          => ZIO.unit                 -> None
       }
       .flatten
+      .whenM(isReady)
 
   private[zio_grpc] def isReady: ZIO[R, Status, Boolean]
 
   private[zio_grpc] def readyPromise: ReadyPromise
+
+  private[zio_grpc] def readySync: Semaphore
 }

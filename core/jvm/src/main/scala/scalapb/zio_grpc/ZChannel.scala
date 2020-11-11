@@ -3,7 +3,7 @@ package scalapb.zio_grpc
 import io.grpc.CallOptions
 import io.grpc.MethodDescriptor
 import scalapb.zio_grpc.client.ZClientCall
-import zio.{Promise, Ref, Task, UIO, ZIO}
+import zio.{Promise, Ref, Semaphore, Task, ZIO}
 import io.grpc.ManagedChannel
 
 class ZChannel[-R](
@@ -15,10 +15,12 @@ class ZChannel[-R](
       options: CallOptions
   ): GIO[ZClientCall[R, Req, Res]] =
     Ref.make[Option[Promise[Nothing, Unit]]](None).flatMap { readyPromise =>
-      GIO.effect {
-        interceptors.foldLeft[ZClientCall[R, Req, Res]](
-          ZClientCall(channel.newCall(methodDescriptor, options), readyPromise)
-        )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
+      Semaphore.make(1).flatMap { readySync =>
+        GIO.effect {
+          interceptors.foldLeft[ZClientCall[R, Req, Res]](
+            ZClientCall(channel.newCall(methodDescriptor, options), readyPromise, readySync)
+          )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
+        }
       }
     }
 
