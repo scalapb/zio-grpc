@@ -65,6 +65,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
+      },
+      testM("setting deadline interrupts the servers") {
+        for {
+          r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).run
+          exit <- TestServiceImpl.awaitExit
+        } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.interrupted)(isTrue)
       }
     )
 
@@ -72,7 +78,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       zs: ZStream[R, E, A]
   ): URIO[R, (List[A], Option[E])] =
     zs.either
-      .fold[Either[E, A], (List[A], Option[E])]((Nil, None)) {
+      .fold((List.empty[A], Option.empty[E])) {
         case ((l, _), Left(e))  => (l, Some(e))
         case ((l, e), Right(a)) => (a :: l, e)
       }

@@ -53,7 +53,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.4.1",
+      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.4.2",
       "io.github.cquiroz"            %%% "scala-java-time" % "2.0.0" % "test"
     ),
     npmDependencies in Compile += "grpc-web" -> "1.0.7"
@@ -114,7 +114,7 @@ lazy val docs = project
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
       "sbtProtocVersion" -> "0.99.34",
-      "grpcVersion"      -> "1.31.1",
+      "grpcVersion"      -> "1.33.1",
       "zioGrpcVersion"   -> "0.4.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),

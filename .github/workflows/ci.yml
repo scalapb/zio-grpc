@@ -37,3 +37,9 @@ jobs:
     - name: Examples
       run: |
         cd examples && sbt compile && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
+  # Single final job for mergify.
+  ci-passed:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - run: ':'

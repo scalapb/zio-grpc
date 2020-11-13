@@ -56,8 +56,8 @@ class StreamingClientCallListener[R, Res](
           queue.shutdown *> IO.when(!status.isOk)(IO.fail(status))
         case _                            => call.request(1)
       }
-      .collect {
-        case Right(v) => v
+      .collect { case Right(v) =>
+        v
       }
 }
 
