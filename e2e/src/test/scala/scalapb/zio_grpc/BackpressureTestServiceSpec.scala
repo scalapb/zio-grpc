@@ -13,8 +13,7 @@ import zio.stream.Stream
 import zio.test.Assertion._
 import zio.test._
 
-/**
-  * Test backpressure by sending a huge stream to a slow consumer and counting messages were sent.
+/** Test backpressure by sending a huge stream to a slow consumer and counting messages were sent.
   * Use gRPC in-process transport to eliminate TCP buffering.
   * Few messages may still be buffered into internal queues.
   * @note do not use in-process direct executor to avoid bug: [[https://github.com/grpc/grpc-java/issues/3084]]
