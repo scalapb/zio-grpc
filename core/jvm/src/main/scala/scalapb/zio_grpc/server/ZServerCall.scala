@@ -2,7 +2,7 @@ package scalapb.zio_grpc.server
 
 import io.grpc.{Metadata, ServerCall, Status}
 import zio.{Semaphore, ZIO}
-import scalapb.zio_grpc.{GIO, ZCall}
+import scalapb.zio_grpc.{GIO, ZCallBase}
 import scalapb.zio_grpc.ZCall.ReadyPromise
 
 /** Wrapper around [[io.grpc.ServerCall]] that lifts its effects into ZIO values */
@@ -10,7 +10,7 @@ class ZServerCall[Res](
     private val call: ServerCall[_, Res],
     private[zio_grpc] val readyPromise: ReadyPromise,
     private[zio_grpc] val readySync: Semaphore
-) extends ZCall[Any, Res] {
+) extends ZCallBase[Any, Res] {
   def request(n: Int): GIO[Unit] = GIO.effect(call.request(n))
 
   def sendMessage(message: Res): GIO[Unit] =

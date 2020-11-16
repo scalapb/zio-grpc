@@ -8,12 +8,25 @@ object ZCall {
   type ReadyPromise = Ref[Option[Promise[Nothing, Unit]]]
 }
 
-trait ZCall[-R, A] extends Any {
-
+trait ZCall[-R, A] {
   def request(n: Int): ZIO[R, Status, Unit]
 
   def sendMessage(message: A): ZIO[R, Status, Unit]
 
+  def sendMessageWhenReady(message: A): ZIO[R, Status, Unit]
+
+  def onReady(): ZIO[R, Status, Unit]
+}
+
+trait ZCallNoBackpressure[-R, A] extends ZCall[R, A] {
+  def sendMessageWhenReady(message: A): ZIO[R, Status, Unit] =
+    sendMessage(message)
+
+  def onReady(): ZIO[R, Status, Unit] =
+    ZIO.unit
+}
+
+trait ZCallBackpressure[-R, A] extends ZCall[R, A] {
   def sendMessageWhenReady(message: A): ZIO[R, Status, Unit] =
     readySync.withPermit {
       ZIO.ifM(isReady)(
@@ -42,3 +55,6 @@ trait ZCall[-R, A] extends Any {
 
   private[zio_grpc] def readySync: Semaphore
 }
+
+//TODO merge with ZCall after switching to the backpressure supports calls
+trait ZCallBase[-R, A] extends ZCallNoBackpressure[R, A]
