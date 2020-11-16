@@ -13,16 +13,16 @@ class ZChannel[-R](
   def newCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       options: CallOptions
-  ): GIO[ZClientCall[R, Req, Res]] =
-    Ref.make[Option[Promise[Nothing, Unit]]](None).flatMap { readyPromise =>
-      Semaphore.make(1).flatMap { readySync =>
-        GIO.effect {
-          interceptors.foldLeft[ZClientCall[R, Req, Res]](
-            ZClientCall(channel.newCall(methodDescriptor, options), readyPromise, readySync)
-          )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
-        }
-      }
-    }
+  ): GIO[ZClientCall[R, Req, Res]] = for {
+    readyPromise    <- Ref.make[Option[Promise[Nothing, Unit]]](None)
+    readySync       <- Semaphore.make(1)
+    call             = ZClientCall(channel.newCall(methodDescriptor, options), readyPromise, readySync)
+    interceptedCall <- GIO.effect {
+                         interceptors.foldLeft[ZClientCall[R, Req, Res]](call)((call, interceptor) =>
+                           interceptor.interceptCall(methodDescriptor, options, call)
+                         )
+                       }
+  } yield interceptedCall
 
   def shutdown(): Task[Unit] = ZIO.effect(channel.shutdown()).unit
 
