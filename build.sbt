@@ -114,7 +114,7 @@ lazy val docs = project
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
       "sbtProtocVersion" -> "0.99.34",
-      "grpcVersion"      -> "1.33.1",
+      "grpcVersion"      -> "1.34.0",
       "zioGrpcVersion"   -> "0.4.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
