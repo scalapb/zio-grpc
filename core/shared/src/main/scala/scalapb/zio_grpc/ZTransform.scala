@@ -5,7 +5,7 @@ import zio.stream.ZStream
 import zio.Has
 import zio.Tag
 
-/** Describes a transformation of an a effect or a stream.
+/** Describes a transformation of an effect or a stream.
   *
   * Instances of this class can be used to apply a transformation to all methods of a service
   * to generate a new "decorated" service. This can be used for pre- or post-processing of
