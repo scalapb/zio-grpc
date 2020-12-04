@@ -2,6 +2,7 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio.test.Assertion._
+import zio.test.TestAspect.timeout
 import zio.Fiber
 import zio.ZIO
 import zio.Queue
@@ -18,6 +19,7 @@ import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.ZQueue
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import TestUtils._
+import zio.duration._
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
@@ -216,7 +218,16 @@ object TestServiceSpec extends DefaultRunnableSpec {
             )
             .run
         )(fails(hasStatusCode(Status.INTERNAL)))
-      }
+      },
+      testM("returns response on failures for infinite input") {
+        assertM(
+          TestServiceClient
+            .clientStreaming(
+              Stream.repeat(Request(Scenario.DIE, in = 33))
+            )
+            .run
+        )(fails(hasStatusCode(Status.INTERNAL)))
+      } @@ timeout(5.seconds)
     )
 
   case class BidiFixture[Req, Res](

@@ -99,11 +99,15 @@ object ClientCalls {
       req: ZStream[R0, Status, Req]
   ): ZIO[R with R0, Status, Res] =
     ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+      val callStream   = req.tap(call.sendMessage).drain ++ ZStream.fromEffect(call.halfClose()).drain
+      val resultStream = ZStream.fromEffect(listener.getValue)
+
       call.start(listener, headers) *>
         call.request(1) *>
-        req.foreach(call.sendMessage) *>
-        call.halfClose() *>
-        listener.getValue.map(_._2)
+        callStream
+          .merge(resultStream)
+          .runCollect
+          .map(res => res.last._2)
     }
 
   def bidiCall[R, R0, Req, Res](
