@@ -202,7 +202,7 @@ S.example("routeguide/RouteGuideServer.scala", "findFeature")
 ```
 
 The `getFeature()` method takes the request (of type `Point`), and returns a ZIO
-effect that represents the work of computing the response. The value that is returned represents a
+effect that represents the work of computing the response. The value that is returned represents
 a suspended effect: nothing actually happens until ZIO runtime
 ultimately runs the effect. The type of the effect is `ZIO[ZEnv, Status, Feature]` which means
 it is a computation:
@@ -365,7 +365,7 @@ S.example("routeguide/RouteGuideClientApp.scala", "listFeatures")
 
 Now `listFeatures` returns a `ZStream`. We use `zipWithIndex` to get a stream
 where each of the original elements are accompanied with a zero-based index. We turn
-this stream into a single effect that processes the entire streasm by calling `foreach`
+this stream into a single effect that processes the entire stream by calling `foreach`
  and providing it with a function that maps each element into an effect. In this case,
  the effect prints the feature.
 
