@@ -7,7 +7,7 @@ import zio.Managed
 import zio.Has
 
 package object zio_grpc {
-  type GIO[A] = IO[Status, A]
+  type GIO[+A] = IO[Status, A]
 
   type GStream[A] = Stream[Status, A]
 

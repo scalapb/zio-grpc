@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package scalapb.zio_grpc;
+
+message Dummy {}
+
+service BackpressureTestService {
+    rpc ClientStreaming(stream Dummy) returns (Dummy);
+
+    rpc ServerStreaming(Dummy) returns (stream Dummy);
+
+    rpc BidiStreaming(stream Dummy) returns (stream Dummy);
+}

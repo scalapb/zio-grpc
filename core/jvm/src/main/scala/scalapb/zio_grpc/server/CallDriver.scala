@@ -58,6 +58,9 @@ object CallDriver {
                 ZIO.unit
             }
           }
+
+        override def onReady(): Unit =
+          runtime.unsafeRun(call.onReady())
       },
       run = (
         call.request(2) *>
@@ -115,13 +118,17 @@ object CallDriver {
 
         override def onMessage(message: Req): Unit =
           runtime.unsafeRun(
-            call.request(1) *> queue.offer(Some(message)).unit
+            queue.offer(Some(message)).unit
           )
+
+        override def onReady(): Unit =
+          runtime.unsafeRun(call.onReady())
       },
       run = {
         val requestStream = Stream
           .fromQueue(queue)
           .collectWhileSome
+          .tap(_ => call.request(1))
 
         (call.request(1) *>
           call.sendHeaders(new Metadata) *>
