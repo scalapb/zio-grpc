@@ -22,14 +22,14 @@ Find the latest snapshot in [here](https://oss.sonatype.org/content/repositories
 
 Add the following to your `project/plugins.sbt`:
 
-    val zioGrpcVersion = "0.4.0"
+    val zioGrpcVersion = "0.4.2"
 
-    addSbtPlugin("com.thesamet" % "sbt-protoc" % "0.99.34")
+    addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.0-RC4")
 
     libraryDependencies += "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion
 Add the following to your `build.sbt`:
 
-    val grpcVersion = "1.31.1"
+    val grpcVersion = "1.34.0"
     
     PB.targets in Compile := Seq(
         scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,

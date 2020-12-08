@@ -115,7 +115,7 @@ lazy val docs = project
     mdocVariables := Map(
       "sbtProtocVersion" -> "1.0.0-RC4",
       "grpcVersion"      -> "1.34.0",
-      "zioGrpcVersion"   -> "0.4.1",
+      "zioGrpcVersion"   -> "0.4.2",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
     libraryDependencies ++= Seq(
