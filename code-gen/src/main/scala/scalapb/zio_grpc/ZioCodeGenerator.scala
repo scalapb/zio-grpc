@@ -278,7 +278,8 @@ class ZioFilePrinter(
           s"class ${accessorsClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
         )
         .indented(
-          _.print(service.getMethods().asScala.toVector)(printAccessor)
+          _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
+            .print(service.getMethods().asScala.toVector)(printAccessor)
             .add(
               s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsClassName.name}(callOptions.flatMap(f))"
             )
