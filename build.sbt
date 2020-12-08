@@ -113,9 +113,9 @@ lazy val docs = project
     skip in publish := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
-      "sbtProtocVersion" -> "0.99.34",
+      "sbtProtocVersion" -> "1.0.0-RC4",
       "grpcVersion"      -> "1.34.0",
-      "zioGrpcVersion"   -> "0.4.0",
+      "zioGrpcVersion"   -> "0.4.1",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
     libraryDependencies ++= Seq(
