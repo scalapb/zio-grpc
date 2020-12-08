@@ -5,7 +5,7 @@ import examples.greeter._
 import zio.clock
 import zio.clock.Clock
 import zio.console.Console
-import zio.{App, Schedule, IO, ZIO}
+import zio.{App, IO, Schedule, ZIO, Has, ZLayer, Layer}
 import zio.console
 import zio.duration._
 import zio.stream.Stream
@@ -15,11 +15,7 @@ import zio.console._
 import io.grpc.Status
 import zio.Managed
 import zio.stream.ZSink
-import scalapb.zio_grpc.Server
-import zio.Layer
-import zio.ZLayer
-import zio.Has
-import zio.ZManaged
+import scalapb.zio_grpc.{Server, ServerLayer}
 
 object GreeterService {
   type GreeterService = Has[Greeter]
@@ -34,7 +30,7 @@ object GreeterService {
         request: Request
     ): Stream[Status, Point] =
       (Stream(Point(3, 4))
-        .scheduleElements(Schedule.spaced(1000.millis))
+        .schedule(Schedule.spaced(1000.millis))
         .forever
         .take(5) ++
         Stream.fail(
@@ -45,9 +41,8 @@ object GreeterService {
 
     def bidi(
         request: Stream[Status, Point]
-    ): Stream[Status, Response] = {
+    ): Stream[Status, Response] =
       request.grouped(3).map(r => Response(r.toString()))
-    }
   }
 
   val live: ZLayer[Clock, Nothing, GreeterService] =
@@ -61,8 +56,8 @@ object ExampleServer extends App {
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverLive(port: Int): Layer[Nothing, Server] =
-    Clock.live >>> GreeterService.live >>> Server.live[Greeter](
+  def serverLive(port: Int): Layer[Throwable, Server] =
+    Clock.live >>> GreeterService.live >>> ServerLayer.access(
       ServerBuilder.forPort(port)
     )
 
