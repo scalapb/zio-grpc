@@ -14,7 +14,7 @@ import zio.stream.ZStream
 import zio.clock.Clock
 
 object EnvSpec extends DefaultRunnableSpec with MetadataTests {
-  case class User(name: String)
+  case class User(name: String, responseMetadata: SafeMetadata)
 
   val getUser = ZIO.access[Has[User]](_.get)
 
@@ -22,16 +22,18 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
     def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
       for {
         user <- getUser
+        _    <- user.responseMetadata.put(ResponseKey, "OK")
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
     ): ZStream[Console with Has[User], Status, Response] =
       ZStream.accessStream { u: Has[User] =>
-        ZStream(
-          Response(u.get.name),
-          Response(u.get.name)
-        )
+        ZStream.fromEffect(u.get.responseMetadata.put(ResponseKey, "Streaming ${request.in}")).drain ++
+          ZStream(
+            Response(u.get.name),
+            Response(u.get.name)
+          )
       }
 
     def clientStreaming(
@@ -51,13 +53,16 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
+  val ResponseKey =
+    Metadata.Key.of("response-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
+
   def parseUser(rc: RequestContext): IO[Status, User] =
     rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
         IO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
         )
-      case Some(name)    => IO.succeed(User(name))
+      case Some(name)    => IO.succeed(User(name, rc.responseMetadata))
       case None          => IO.fail(Status.UNAUTHENTICATED)
     }
 

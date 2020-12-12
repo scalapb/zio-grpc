@@ -106,6 +106,15 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )(equalTo((List(Response("X1"), Response("X2")), None)))
       },
+      testM("returns successful empty response") {
+        assertM(
+          collectWithError(
+            TestServiceClient.serverStreaming(
+              Request(Request.Scenario.EMPTY_RESPONSE, in = 12)
+            )
+          )
+        )(equalTo((List(), None)))
+      },
       testM("returns correct error response") {
         assertM(
           collectWithError(

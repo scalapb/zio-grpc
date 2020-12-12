@@ -55,22 +55,24 @@ package object server {
           }
           .flatMap { _ =>
             request.scenario match {
-              case Scenario.OK          =>
+              case Scenario.OK             =>
                 ZStream(Response(out = "X1"), Response(out = "X2"))
-              case Scenario.ERROR_NOW   =>
+              case Scenario.EMPTY_RESPONSE =>
+                ZStream()
+              case Scenario.ERROR_NOW      =>
                 ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
-              case Scenario.ERROR_AFTER =>
+              case Scenario.ERROR_AFTER    =>
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
                     Status.INTERNAL.withDescription("FOO!")
                   )
-              case Scenario.DELAY       =>
+              case Scenario.DELAY          =>
                 ZStream(
                   Response(out = "X1"),
                   Response(out = "X2")
                 ) ++ ZStream.never
-              case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
-              case _                    => ZStream.fail(Status.UNKNOWN)
+              case Scenario.DIE            => ZStream.die(new RuntimeException("FOO"))
+              case _                       => ZStream.fail(Status.UNKNOWN)
             }
           }
 
@@ -98,15 +100,17 @@ package object server {
         ((ZStream.fromEffect(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
-              case Scenario.OK        =>
+              case Scenario.OK             =>
                 Stream(Response(r.in.toString))
                   .repeat(Schedule.recurs(r.in - 1))
-              case Scenario.DELAY     => Stream.never
-              case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
-              case Scenario.ERROR_NOW =>
+              case Scenario.EMPTY_RESPONSE =>
+                ZStream()
+              case Scenario.DELAY          => Stream.never
+              case Scenario.DIE            => Stream.die(new RuntimeException("FOO"))
+              case Scenario.ERROR_NOW      =>
                 // Stream.fromEffect(zio.console.putStrLn("*** Got error now!")).drain ++
                 Stream.fail(Status.INTERNAL.withDescription("Intentional error"))
-              case _                  => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
+              case _                       => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
             }
           } ++ Stream(Response("DONE"))))
           .ensuring(exit.succeed(Exit.succeed(Response()))))

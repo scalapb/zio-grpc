@@ -3,10 +3,9 @@ package scalapb.zio_grpc.server
 import zio._
 import io.grpc.ServerCall.Listener
 import io.grpc.Status
-import zio.stream.Stream
+import zio.stream.{Stream, ZSink, ZStream}
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
-import zio.stream.ZStream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 import scalapb.zio_grpc.SafeMetadata
@@ -21,9 +20,9 @@ class ZServerCallHandler[R, Req, Res](
   ): Listener[Req] = {
     val zioCall = new ZServerCall(call)
     val runner  = for {
-      driver <- SafeMetadata.fromMetadata(headers) >>= { md =>
-                  mkDriver(zioCall, RequestContext.fromServerCall(md, call))
-                }
+      md     <- SafeMetadata.fromMetadata(headers)
+      rc     <- RequestContext.fromServerCall(md, call)
+      driver <- mkDriver(zioCall, rc)
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
@@ -61,8 +60,24 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput(
       runtime,
-      (req, requestContext, call) => impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit] { res =>
+          call.sendHeaders(requestContext.responseMetadata) *>
+            call.sendMessage(res)
+        }
     )
+
+  // A sink that sends RequestContext.responseMetadata when the first element
+  // is available. If the stream was empty, it sends the metadata upon
+  // termination.
+  // TODO(): would not send headers after stream ends
+  private def streamSink[Res](rc: RequestContext, call: ZServerCall[Res]) =
+    ZSink
+      .foldLeftM[Any, Status, Res, Int](0) { case (index, res) =>
+        (if (index == 0) call.sendHeaders(rc.responseMetadata) *> call.sendMessage(res)
+         else call.sendMessage(res)).as(index + 1)
+      }
+      .as(())
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
@@ -70,8 +85,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput(
       runtime,
-      (req: Req, metadata: RequestContext, call: ZServerCall[Res]) =>
-        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
+        impl(req).provide(Has(requestContext)).run(streamSink(requestContext, call))
     )
 
   def clientStreamingCallHandler[Req, Res](
@@ -80,7 +95,10 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit] { res =>
+          call.sendHeaders(requestContext.responseMetadata) *> call.sendMessage(res)
+        }
     )
 
   def bidiCallHandler[Req, Res](
@@ -89,6 +107,6 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req, requestContext, call) => impl(req).provide(Has(requestContext)).run(streamSink(requestContext, call))
     )
 }

@@ -5,10 +5,11 @@ package scalapb.zio_grpc;
 message Request {
     enum Scenario {
         OK = 0;
-        ERROR_NOW = 1; // fail with an error
-        ERROR_AFTER = 2; // for server streaming, error after two responses
-        DELAY = 3; // do not return a response. for testing cancellations
-        DIE = 4; // fail
+        EMPTY_RESPONSE = 1; // return empty stream as response
+        ERROR_NOW = 2; // fail with an error
+        ERROR_AFTER = 3; // for server streaming, error after two responses
+        DELAY = 4; // do not return a response. for testing cancellations
+        DIE = 5; // fail
     }
     Scenario scenario = 1;
     int32 in = 2;
