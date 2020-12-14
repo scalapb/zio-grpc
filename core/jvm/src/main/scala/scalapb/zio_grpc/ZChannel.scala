@@ -14,10 +14,11 @@ class ZChannel[-R](
   def newCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       options: CallOptions
-  ): ZClientCall[R, Req, Res] =
+  ): Task[ZClientCall[R, Req, Res]] = Task.effect(
     interceptors.foldLeft[ZClientCall[R, Req, Res]](
       ZClientCall(channel.newCall(methodDescriptor, options))
     )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
+  )
 
   def shutdown(): Task[Unit] = ZIO.effect(channel.shutdown()).unit
 
