@@ -3,9 +3,8 @@ package scalapb.zio_grpc
 import io.grpc.CallOptions
 import io.grpc.MethodDescriptor
 import scalapb.zio_grpc.client.ZClientCall
-import zio.ZIO
+import zio.{Task, UIO, ZIO}
 import io.grpc.ManagedChannel
-import zio.Task
 
 class ZChannel[-R](
     private[zio_grpc] val channel: ManagedChannel,
@@ -14,7 +13,7 @@ class ZChannel[-R](
   def newCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       options: CallOptions
-  ): Task[ZClientCall[R, Req, Res]] = Task.effect(
+  ): UIO[ZClientCall[R, Req, Res]] = ZIO.effectTotal(
     interceptors.foldLeft[ZClientCall[R, Req, Res]](
       ZClientCall(channel.newCall(methodDescriptor, options))
     )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
