@@ -1,25 +1,17 @@
 package scalapb.zio_grpc
 
-import zio.test._
+import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status}
+import scalapb.zio_grpc.TestUtils._
+import scalapb.zio_grpc.server.TestServiceImpl
+import scalapb.zio_grpc.testservice.Request.Scenario
+import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
+import scalapb.zio_grpc.testservice._
+import zio.duration._
+import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
-import zio.Fiber
-import zio.ZIO
-import zio.Queue
-import io.grpc.ServerBuilder
-import io.grpc.ManagedChannelBuilder
-import zio.ZManaged
-import scalapb.zio_grpc.testservice._
-import io.grpc.Status
-import scalapb.zio_grpc.server.TestServiceImpl
-import zio.ZLayer
-import zio.stream.{Stream, ZStream}
-import zio.URIO
-import scalapb.zio_grpc.testservice.Request.Scenario
-import zio.ZQueue
-import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
-import TestUtils._
-import zio.duration._
+import zio.test._
+import zio.{Fiber, Queue, URIO, ZIO, ZLayer, ZManaged, ZQueue}
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
@@ -39,6 +31,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("unary request")(
       testM("returns successful response") {
         assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)))(
+          equalTo(Response("Res12"))
+        )
+      },
+      testM("returns successful response when the program is used repeatedly") {
+        // Must not capture an instance of ZClientCall, so call.start() should not be invoked twice
+        assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)).repeatN(1))(
           equalTo(Response("Res12"))
         )
       },
