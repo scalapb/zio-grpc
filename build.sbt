@@ -70,7 +70,7 @@ lazy val codeGen = project
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb"   %% "compilerplugin"          % scalapb.compiler.Version.scalapbVersion,
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.3.1"
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.3.2"
     )
   )
 
