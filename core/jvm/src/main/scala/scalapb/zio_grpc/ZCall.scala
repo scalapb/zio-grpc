@@ -57,4 +57,4 @@ trait ZCallBackpressure[-R, A] extends ZCall[R, A] {
 }
 
 //TODO merge with ZCall after switching to the backpressure supports calls
-trait ZCallBase[-R, A] extends ZCallNoBackpressure[R, A]
+trait ZCallBase[-R, A] extends ZCallBackpressure[R, A]

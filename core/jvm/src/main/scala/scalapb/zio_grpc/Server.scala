@@ -30,7 +30,7 @@ object Server {
 
     def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
 
-    def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdown.ignore)
+    def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdownNow.ignore)
   }
 
   @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
