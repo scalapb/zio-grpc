@@ -1,6 +1,6 @@
 package scalapb.zio_grpc.client
 
-import zio.IO
+import zio.{Chunk, IO, ZIO}
 import zio.stream.Stream
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.ZChannel
@@ -9,10 +9,7 @@ import io.grpc.CallOptions
 import scalapb.grpcweb.native.ErrorInfo
 import io.grpc.Status
 import zio.stream.ZStream
-import zio.ZIO
-import zio.Queue
 import scalapb.grpcweb.native.StatusInfo
-import zio.Exit
 
 object ClientCalls {
   def unaryCall[R, Req, Res](
@@ -41,50 +38,27 @@ object ClientCalls {
       options: CallOptions,
       headers: SafeMetadata,
       req: Req
-  ): ZStream[R, Status, Res] = {
-    val e = (for {
-      runtime <- ZIO.runtime[R]
-      queue   <- Queue.unbounded[Exit[Option[Status], Res]]
-      rpc     <- ZIO.effectTotal(
-                   channel.channel.client
-                     .rpcCall[Req, Res](
-                       channel.channel.baseUrl + "/" + method.fullName,
-                       req,
-                       scalajs.js.Dictionary[String](),
-                       method.methodInfo
-                     )
-                     .on(
-                       "data",
-                       (res: Res) => runtime.unsafeRun(queue.offer(Exit.succeed(res)).unit)
-                     )
-                     .on(
-                       "status",
-                       { (status: StatusInfo) =>
-                         val exit =
-                           if (status.code != 0)
-                             Exit.fail(Some(Status.fromStatusInfo(status)))
-                           else Exit.fail(None)
-                         runtime.unsafeRun(
-                           queue.offer(exit).unit
-                         )
-                       }
-                     )
-                     .on(
-                       "error",
-                       (ei: ErrorInfo) =>
-                         runtime.unsafeRun(
-                           queue.offer(Exit.fail(Some(Status.fromErrorInfo(ei)))).unit
-                         )
-                     )
-                 )
-    } yield (queue, rpc))
-
-    Stream.fromEffect(e).flatMap { case (queue, rpc @ _) =>
-      Stream
-        .fromQueueWithShutdown(queue)
-        .collectWhileSuccess
+  ): ZStream[R, Status, Res] =
+    Stream.effectAsync[R, Status, Res] { cb =>
+      channel.channel.client.serverStreaming[Req, Res](
+        channel.channel.baseUrl + "/" + method.fullName,
+        req,
+        scalajs.js.Dictionary[String](),
+        method.methodInfo
+      ).on("data",
+        (res: Res) => cb(ZIO.succeed(Chunk.single(res)))
+      ).on("error",
+        (ei: ErrorInfo) =>
+            cb(ZIO.fail(Some(Status.fromErrorInfo(ei))))
+      ).on("end",
+        () => cb(ZIO.fail(None))
+      ).on("status",
+        (status: StatusInfo) =>
+          if (status.code != 0)
+            cb(ZIO.fail(Some(Status.fromStatusInfo(status))))
+      )
     }
-  }
+
 
   def clientStreamingCall[R, R0, Req, Res](
       channel: ZChannel[R],
