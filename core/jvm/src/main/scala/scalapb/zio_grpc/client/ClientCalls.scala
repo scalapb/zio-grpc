@@ -1,14 +1,9 @@
 package scalapb.zio_grpc.client
 
-import io.grpc.CallOptions
-import zio.Exit
-import zio.ZIO
-import io.grpc.Status
-import zio.stream.Stream
-import io.grpc.MethodDescriptor
-import scalapb.zio_grpc.ZChannel
-import zio.stream.ZStream
-import scalapb.zio_grpc.SafeMetadata
+import io.grpc.{CallOptions, MethodDescriptor, Status}
+import scalapb.zio_grpc.{SafeMetadata, ZChannel}
+import zio.stream.{Stream, ZStream}
+import zio.{Exit, ZIO}
 
 object ClientCalls {
   def exitHandler[R, Req, Res](
@@ -32,7 +27,9 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    unaryCall(channel.newCall(method, options), headers, req)
+    channel
+      .newCall(method, options)
+      .flatMap(unaryCall(_, headers, req))
 
   private def unaryCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
@@ -54,11 +51,9 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    serverStreamingCall(
-      channel.newCall(method, options),
-      headers,
-      req
-    )
+    Stream
+      .fromEffect(channel.newCall(method, options))
+      .flatMap(serverStreamingCall(_, headers, req))
 
   private def serverStreamingCall[R, Req, Res](
       call: ZClientCall[R, Req, Res],
@@ -87,11 +82,15 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZIO[R with R0, Status, Res] =
-    clientStreamingCall(
-      channel.newCall(method, options),
-      headers,
-      req
-    )
+    channel
+      .newCall(method, options)
+      .flatMap(
+        clientStreamingCall(
+          _,
+          headers,
+          req
+        )
+      )
 
   private def clientStreamingCall[R, R0, Req, Res](
       call: ZClientCall[R, Req, Res],
@@ -117,7 +116,11 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZStream[R with R0, Status, Res] =
-    bidiCall(channel.newCall(method, options), headers, req)
+    Stream
+      .fromEffect(
+        channel.newCall(method, options)
+      )
+      .flatMap(bidiCall(_, headers, req))
 
   private def bidiCall[R, R0, Req, Res](
       call: ZClientCall[R, Req, Res],
