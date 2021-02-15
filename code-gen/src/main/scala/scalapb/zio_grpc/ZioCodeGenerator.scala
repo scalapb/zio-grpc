@@ -336,10 +336,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def live[R](managedChannel: $ZManagedChannel[R]): zio.ZLayer[R, Throwable, ${clientServiceName.name}] = live(managedChannel, zio.ZIO.succeed($CallOptions.DEFAULT), $SafeMetadata.make)"
-        )
-        .add(
-          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
+          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions]=zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
         )
         .outdent
         .add("}")
