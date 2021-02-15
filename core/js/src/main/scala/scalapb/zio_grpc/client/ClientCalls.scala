@@ -40,25 +40,23 @@ object ClientCalls {
       req: Req
   ): ZStream[R, Status, Res] =
     Stream.effectAsync[R, Status, Res] { cb =>
-      channel.channel.client.serverStreaming[Req, Res](
-        channel.channel.baseUrl + "/" + method.fullName,
-        req,
-        scalajs.js.Dictionary[String](),
-        method.methodInfo
-      ).on("data",
-        (res: Res) => cb(ZIO.succeed(Chunk.single(res)))
-      ).on("error",
-        (ei: ErrorInfo) =>
-            cb(ZIO.fail(Some(Status.fromErrorInfo(ei))))
-      ).on("end",
-        () => cb(ZIO.fail(None))
-      ).on("status",
-        (status: StatusInfo) =>
-          if (status.code != 0)
-            cb(ZIO.fail(Some(Status.fromStatusInfo(status))))
-      )
+      channel.channel.client
+        .serverStreaming[Req, Res](
+          channel.channel.baseUrl + "/" + method.fullName,
+          req,
+          scalajs.js.Dictionary[String](),
+          method.methodInfo
+        )
+        .on("data", (res: Res) => cb(ZIO.succeed(Chunk.single(res))))
+        .on("error", (ei: ErrorInfo) => cb(ZIO.fail(Some(Status.fromErrorInfo(ei)))))
+        .on("end", () => cb(ZIO.fail(None)))
+        .on(
+          "status",
+          (status: StatusInfo) =>
+            if (status.code != 0)
+              cb(ZIO.fail(Some(Status.fromStatusInfo(status))))
+        )
     }
-
 
   def clientStreamingCall[R, R0, Req, Res](
       channel: ZChannel[R],
