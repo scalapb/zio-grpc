@@ -79,7 +79,13 @@ lazy val codeGenJVM212 = codeGen.jvm(Scala212)
 
 lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
   .settings(
-    Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
+    Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator"),
+    assembly / assemblyMergeStrategy := {
+      case PathList("scala", "annotation", "nowarn.class" | "nowarn$.class") =>
+        MergeStrategy.first
+      case x =>
+        (assembly / assemblyMergeStrategy).value.apply(x)
+    },
   )
 
 lazy val e2e = project
