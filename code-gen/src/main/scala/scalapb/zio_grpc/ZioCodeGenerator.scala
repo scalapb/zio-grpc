@@ -1,7 +1,7 @@
 package scalapb.zio_grpc
 
 import com.google.protobuf.ExtensionRegistry
-import scalapb.options.compiler.Scalapb
+import scalapb.options.Scalapb
 import scalapb.compiler.ProtobufGenerator
 import com.google.protobuf.compiler.PluginProtos.CodeGeneratorResponse
 import protocbridge.Artifact
@@ -36,7 +36,7 @@ object ZioCodeGenerator extends CodeGenApp {
     ProtobufGenerator.parseParameters(request.parameter) match {
       case Right(params) =>
         val implicits =
-          new DescriptorImplicits(params, request.allProtos)
+          DescriptorImplicits.fromCodeGenRequest(params, request)
         CodeGenResponse.succeed(
           request.filesToGenerate.collect {
             case file if !file.getServices().isEmpty() =>
