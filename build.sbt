@@ -64,7 +64,7 @@ lazy val codeGen = project
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings)
   .settings(
-    scalaVersion := Scala212,
+    crossScalaVersions := Seq(Scala212, Scala213),
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
