@@ -59,12 +59,12 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     npmDependencies in Compile += "grpc-web" -> "1.2.1"
   )
 
-lazy val codeGen = project
+lazy val codeGen = projectMatrix
   .in(file("code-gen"))
+  .defaultAxes()
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings)
   .settings(
-    scalaVersion := Scala212,
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
@@ -73,8 +73,11 @@ lazy val codeGen = project
       "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
     )
   )
+  .jvmPlatform(scalaVersions = Seq(Scala212, Scala213))
 
-lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGen)
+lazy val codeGenJVM212 = codeGen.jvm(Scala212)
+
+lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
   .settings(
     Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator")
   )
@@ -100,7 +103,7 @@ lazy val e2e = project
       )                        -> (sourceManaged in Compile).value
     ),
     PB.protocVersion := "3.13.0",
-    codeGenClasspath := (codeGen / Compile / fullClasspath).value,
+    codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
 
@@ -128,6 +131,6 @@ lazy val docs = project
         "scalapb.zio_grpc.ZioCodeGenerator$"
       )                        -> (sourceManaged in Compile).value
     ),
-    codeGenClasspath := (codeGen / Compile / fullClasspath).value
+    codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value
   )
   .enablePlugins(MdocPlugin, DocusaurusPlugin)
