@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        scala: [2.12.11, 2.13.3]
+        scala: [2.12.11, 2.13.5]
     runs-on: ubuntu-latest
     
     steps:
