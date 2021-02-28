@@ -83,9 +83,9 @@ lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
     assembly / assemblyMergeStrategy := {
       case PathList("scala", "annotation", "nowarn.class" | "nowarn$.class") =>
         MergeStrategy.first
-      case x =>
+      case x                                                                 =>
         (assembly / assemblyMergeStrategy).value.apply(x)
-    },
+    }
   )
 
 lazy val e2e = project
