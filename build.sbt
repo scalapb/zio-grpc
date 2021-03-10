@@ -53,7 +53,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.5.0",
+      "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.0",
       "io.github.cquiroz"            %%% "scala-java-time" % "2.2.0" % "test"
     ),
     npmDependencies in Compile += "grpc-web" -> "1.2.1"
