@@ -25,7 +25,7 @@ object CallDriver {
   def exitToStatus(ex: Exit[Status, Unit]): Status =
     ex.fold(
       failed = { cause =>
-        if (cause.interrupted) Status.CANCELLED
+        if (cause.interruptedOnly) Status.CANCELLED
         else cause.failureOption.getOrElse(Status.INTERNAL)
       },
       completed = _ => Status.OK
