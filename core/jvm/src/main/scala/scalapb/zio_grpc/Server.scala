@@ -110,7 +110,7 @@ object Server {
   )(implicit
       b0: ZBindableService[R0, S0]
   ): ZLayer[R0 with Has[S0], Throwable, Server] =
-    ZLayer.fromServiceManaged { (s0: S0) => Server.zmanaged(builder, s0) }
+    ZLayer.fromServiceManaged((s0: S0) => Server.zmanaged(builder, s0))
 
   @deprecated("Use ServerLayer.fromServices", "0.4.0")
   def zlive[
