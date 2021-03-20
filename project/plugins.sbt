@@ -2,7 +2,7 @@ ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.2")
 
-libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.11"
+libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.0-M7"
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
 
@@ -21,3 +21,5 @@ addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.1.6")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.18")
 
 addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.7.0")
+
+addSbtPlugin("ch.epfl.lamp" % "sbt-dotty" % "0.5.3")

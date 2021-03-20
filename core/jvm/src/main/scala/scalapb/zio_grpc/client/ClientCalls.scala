@@ -64,7 +64,7 @@ object ClientCalls {
       .bracketExit(
         StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler[R, Req, Res](call))
-      .flatMap { listener: StreamingClientCallListener[R, Res] =>
+      .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
         Stream
           .fromEffect(
             call.start(listener, headers) *>
@@ -131,7 +131,7 @@ object ClientCalls {
       .bracketExit(
         StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler(call))
-      .flatMap { listener: StreamingClientCallListener[R, Res] =>
+      .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
         val init              = Stream
           .fromEffect(
             call.start(listener, headers) *>
