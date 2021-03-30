@@ -72,7 +72,7 @@ lazy val codeGen = projectMatrix
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb"   %% "compilerplugin"          % scalapb.compiler.Version.scalapbVersion,
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.3"
     )
   )
   .jvmPlatform(scalaVersions = Seq(Scala212, Scala213))
