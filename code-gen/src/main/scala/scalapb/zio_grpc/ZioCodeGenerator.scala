@@ -41,7 +41,8 @@ object ZioCodeGenerator extends CodeGenApp {
           request.filesToGenerate.collect {
             case file if !file.getServices().isEmpty() =>
               new ZioFilePrinter(implicits, file).result()
-          }
+          },
+          Set(CodeGeneratorResponse.Feature.FEATURE_PROTO3_OPTIONAL)
         )
       case Left(error)   =>
         CodeGenResponse.fail(error)
