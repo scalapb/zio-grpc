@@ -22,4 +22,4 @@ addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.18")
 
 addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.7.0")
 
-addSbtPlugin("ch.epfl.lamp" % "sbt-dotty" % "0.5.3")
+addSbtPlugin("ch.epfl.lamp" % "sbt-dotty" % "0.5.4")
