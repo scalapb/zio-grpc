@@ -10,7 +10,7 @@ ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
 ThisBuild / scalaVersion := Scala212
 
-skip in publish := true
+publish / skip := true
 
 sonatypeProfileName := "com.thesamet"
 
@@ -58,7 +58,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.1",
       "io.github.cquiroz"            %%% "scala-java-time" % "2.2.1" % "test"
     ),
-    npmDependencies in Compile += "grpc-web" -> "1.2.1"
+    Compile / npmDependencies += "grpc-web" -> "1.2.1"
   )
 
 lazy val codeGen = projectMatrix
@@ -97,18 +97,18 @@ lazy val e2e = project
   .settings(stdSettings)
   .settings(
     crossScalaVersions := Seq(Scala212, Scala213),
-    skip in publish := true,
+    publish / skip := true,
     libraryDependencies ++= Seq(
       "dev.zio"              %% "zio-test"             % Version.zio % "test",
       "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test",
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
       "io.grpc"               % "grpc-netty"           % Version.grpc
     ),
-    PB.targets in Compile := Seq(
-      scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
+    Compile / PB.targets := Seq(
+      scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
       genModule(
         "scalapb.zio_grpc.ZioCodeGenerator$"
-      )                        -> (sourceManaged in Compile).value
+      )                        -> (Compile / sourceManaged).value
     ),
     PB.protocVersion := "3.13.0",
     codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value,
@@ -121,7 +121,7 @@ lazy val docs = project
   .dependsOn(core.jvm)
   .settings(
     crossScalaVersions := Seq(Scala212),
-    skip in publish := true,
+    publish / skip := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
       "sbtProtocVersion" -> "1.0.2",
@@ -133,11 +133,12 @@ lazy val docs = project
       "io.grpc"               % "grpc-netty"           % Version.grpc,
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     ),
-    PB.targets in Compile := Seq(
-      scalapb.gen(grpc = true) -> (sourceManaged in Compile).value,
+    libraryDependencySchemes += "com.thesamet.scalapb" %% "scalapb-runtime" % "always",
+    Compile / PB.targets := Seq(
+      scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
       genModule(
         "scalapb.zio_grpc.ZioCodeGenerator$"
-      )                        -> (sourceManaged in Compile).value
+      )                        -> (Compile / sourceManaged).value
     ),
     codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value
   )
