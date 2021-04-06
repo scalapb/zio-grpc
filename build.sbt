@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val Scala300 = "3.0.0-RC1"
+val Scala300 = "3.0.0-RC2"
 
 val Scala213 = "2.13.5"
 
@@ -124,9 +124,9 @@ lazy val docs = project
     skip in publish := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
-      "sbtProtocVersion" -> "1.0.0-RC4",
+      "sbtProtocVersion" -> "1.0.2",
       "grpcVersion"      -> "1.36.1",
-      "zioGrpcVersion"   -> "0.4.2",
+      "zioGrpcVersion"   -> "0.5.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
     libraryDependencies ++= Seq(
