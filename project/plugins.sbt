@@ -18,6 +18,6 @@ addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.20.0")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.1.7")
 
-addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.19")
+addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.20")
 
 addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.7.0")
