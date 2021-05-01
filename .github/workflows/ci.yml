@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        scala: [2.12.13, 2.13.5]
+        scala: [2_12, 2_13]
     runs-on: ubuntu-latest
     
     steps:
@@ -32,7 +32,8 @@ jobs:
 
     - name: Compile and test
       run: |
-        sbt ++${{matrix.scala}} coreJVM/test e2e/test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test \
+            coreJS${{matrix.scala}}/test
 
     - name: Examples
       run: |
