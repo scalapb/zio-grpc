@@ -27,7 +27,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
     def serverStreaming(
         request: Request
     ): ZStream[Console with Has[User], Status, Response] =
-      ZStream.accessStream { u: Has[User] =>
+      ZStream.accessStream { (u: Has[User]) =>
         ZStream(
           Response(u.get.name),
           Response(u.get.name)
@@ -41,7 +41,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
     ): ZStream[Has[User], Status, Response] =
-      ZStream.accessStream { u: Has[User] =>
+      ZStream.accessStream { (u: Has[User]) =>
         ZStream(
           Response(u.get.name)
         )
@@ -69,8 +69,8 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   override def clientLayer(
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.fromServiceManaged { ss: Server.Service =>
-      ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
+    ZLayer.fromServiceManaged { (ss: Server.Service) =>
+      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(

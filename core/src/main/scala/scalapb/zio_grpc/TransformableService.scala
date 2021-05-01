@@ -12,7 +12,7 @@ trait TransformableService[S[_, _]] {
   ): S[ROut, ContextOut]
 
   def provide[R, Context](s: S[R, Context], r: R)(implicit ev: Has.Union[R, Context]): S[Any, Context] =
-    transform(s, ZTransform.provideEnv(r))
+    transform(s, ZTransform.provideEnv(r)(ev))
 
   def transformContextM[R, FromContext: Tag, R0 <: R, ToContext: Tag](
       s: S[R, Has[FromContext]],

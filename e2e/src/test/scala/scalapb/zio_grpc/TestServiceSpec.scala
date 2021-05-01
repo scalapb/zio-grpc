@@ -18,8 +18,8 @@ object TestServiceSpec extends DefaultRunnableSpec {
     ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.fromServiceManaged { ss: Server.Service =>
-      ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
+    ZLayer.fromServiceManaged { (ss: Server.Service) =>
+      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         )
