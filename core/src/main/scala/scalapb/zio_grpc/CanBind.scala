@@ -9,8 +9,11 @@ trait CanBind[C] {
   def bind(in: Has[RequestContext]): C
 }
 
-object CanBind {
+trait CanBindLowPriority {
   implicit val canBindRC: CanBind[Has[RequestContext]] = identity
   implicit val canBindMD: CanBind[Has[SafeMetadata]]   = t => Has(t.get.metadata)
-  implicit val canBindAny: CanBind[Any]                = identity
+}
+
+object CanBind extends CanBindLowPriority {
+  implicit val canBindAny: CanBind[Any] = identity
 }
