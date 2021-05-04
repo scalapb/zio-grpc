@@ -4,6 +4,16 @@ sidebar_label: Installing
 custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/installation.md
 ---
 
+## Determining the right version
+
+The version of zio-grpc needs to be compatible with the version of ScalaPB in order to
+avoid unintended evictions and ensure binary compatibility:
+
+| ScalaPB   | zio-grgpc       |
+| --------- |-----------------|
+| 0.11.x    | 0.5.x           |
+| 0.10.x    | 0.4.x           |
+
 ## Installation using SBT (Recommended)
 
 If you are building with sbt, add the following to your `project/plugins.sbt`:
