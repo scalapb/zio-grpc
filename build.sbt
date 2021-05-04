@@ -129,9 +129,10 @@ lazy val e2e =
 lazy val docs = project
   .enablePlugins(LocalCodeGenPlugin)
   .in(file("zio-grpc-docs"))
-  .dependsOn(core.jvm(Scala212))
+  .dependsOn(core.jvm(Scala213))
   .settings(
-    crossScalaVersions := Seq(Scala212),
+    crossScalaVersions := Seq(Scala213),
+    scalaVersion := Scala213,
     publish / skip := true,
     moduleName := "zio-grpc-docs",
     mdocVariables := Map(
