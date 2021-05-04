@@ -9,7 +9,7 @@ custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/installati
 The version of zio-grpc needs to be compatible with the version of ScalaPB in order to
 avoid unintended evictions and ensure binary compatibility:
 
-| ScalaPB   | zio-grgpc       |
+| ScalaPB   | ZIO gRPC        |
 | --------- |-----------------|
 | 0.11.x    | 0.5.x           |
 | 0.10.x    | 0.4.x           |
