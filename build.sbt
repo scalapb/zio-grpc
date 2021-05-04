@@ -10,8 +10,6 @@ val ScalaVersions = Seq(Scala212, Scala213, Scala300)
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
-ThisBuild / scalaVersion := Scala212
-
 publish / skip := true
 
 sonatypeProfileName := "com.thesamet"
@@ -90,6 +88,7 @@ lazy val codeGenJVM212 = codeGen.jvm(Scala212)
 lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
   .settings(
     Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator"),
+    scalaVersion := Scala212,
     assembly / assemblyMergeStrategy := {
       case PathList("scala", "annotation", "nowarn.class" | "nowarn$.class") =>
         MergeStrategy.first
