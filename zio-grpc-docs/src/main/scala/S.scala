@@ -10,7 +10,7 @@ package object S {
   def example(name: String, marker: String) = {
     val content   =
       Source
-        .fromFile("examples/src/main/scala/zio_grpc/examples/" + name)
+        .fromFile("examples/routeguide/src/main/scala/zio_grpc/examples/" + name)
         .getLines()
         .dropWhile(!_.contains(s"start: $marker"))
         .drop(1)

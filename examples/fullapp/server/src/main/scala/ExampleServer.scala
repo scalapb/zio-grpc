@@ -20,6 +20,7 @@ import zio.Layer
 import zio.ZLayer
 import zio.Has
 import zio.ZManaged
+import scalapb.zio_grpc.ServerLayer
 
 object GreeterService {
   type GreeterService = Has[Greeter]
@@ -34,7 +35,7 @@ object GreeterService {
         request: Request
     ): Stream[Status, Point] =
       (Stream(Point(3, 4))
-        .scheduleElements(Schedule.spaced(1000.millis))
+        .schedule(Schedule.spaced(1000.millis))
         .forever
         .take(5) ++
         Stream.fail(
@@ -61,8 +62,8 @@ object ExampleServer extends App {
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverLive(port: Int): Layer[Nothing, Server] =
-    Clock.live >>> GreeterService.live >>> Server.live[Greeter](
+  def serverLive(port: Int): Layer[Throwable, Server] =
+    Clock.live >>> GreeterService.live >>> ServerLayer.access[Greeter](
       ServerBuilder.forPort(port)
     )
 

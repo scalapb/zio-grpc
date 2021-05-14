@@ -24,6 +24,7 @@ import zio.ZManaged
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.RequestContext
 import zio.URIO
+import scalapb.zio_grpc.ServerLayer
 
 object GreeterServiceWithMetadata {
   case class User(name: String)
@@ -52,7 +53,7 @@ object GreeterServiceWithMetadata {
       case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
-  val live: ZLayer[Clock, Nothing, Has[Greeter]] =
+  val live: ZLayer[Clock, Nothing, Has[ZGreeter[Any, Has[RequestContext]]]] =
     ZLayer.fromService { c: Clock.Service =>
       new LiveService(c).transformContextM(findUser(_))
     }
@@ -65,11 +66,10 @@ object ExampleServerWithMetadata extends App {
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverLive(port: Int): Layer[Nothing, Server] =
-    Clock.live >>> GreeterServiceWithMetadata.live >>> Server
-      .live[Greeter](
-        ServerBuilder.forPort(port)
-      )
+  def serverLive(port: Int): Layer[Throwable, Server] =
+    ServerLayer.fromServiceLayer(
+      ServerBuilder.forPort(port)
+    )(Clock.live >>> GreeterServiceWithMetadata.live)
 
   def run(args: List[String]) = myAppLogic.exitCode
 

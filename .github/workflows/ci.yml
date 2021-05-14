@@ -37,7 +37,9 @@ jobs:
 
     - name: Examples
       run: |
-        cd examples && sbt compile && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
+        cd examples
+        for d in */ ; do cd "$d" && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck test && cd ../ ; done
+
   # Single final job for mergify.
   ci-passed:
     runs-on: ubuntu-latest
