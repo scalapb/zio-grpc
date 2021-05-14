@@ -41,7 +41,7 @@ $ git clone -b v@zioGrpcVersion@ https://github.com/scalapb/zio-grpc.git
 Then change your current directory to `zio-grpc/examples`:
 
 ```bash
-$ cd zio-grpc/examples
+$ cd zio-grpc/examples/routeguide
 ```
 
 ## Defining the service
