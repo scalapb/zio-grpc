@@ -77,8 +77,7 @@ lazy val codeGen = projectMatrix
     buildInfoPackage := "scalapb.zio_grpc",
     name := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
-      "com.thesamet.scalapb"   %% "compilerplugin"          % scalapb.compiler.Version.scalapbVersion,
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
+      "com.thesamet.scalapb"   %% "compilerplugin"          % scalapb.compiler.Version.scalapbVersion
     )
   )
   .jvmPlatform(scalaVersions = ScalaVersions)
