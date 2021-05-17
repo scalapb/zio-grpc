@@ -2,7 +2,7 @@ import Settings.stdSettings
 
 val Scala300 = "3.0.0-RC3"
 
-val Scala213 = "2.13.5"
+val Scala213 = "2.13.6"
 
 val Scala212 = "2.12.13"
 
