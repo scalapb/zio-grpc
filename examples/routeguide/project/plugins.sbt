@@ -1,6 +1,6 @@
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.2")
 
