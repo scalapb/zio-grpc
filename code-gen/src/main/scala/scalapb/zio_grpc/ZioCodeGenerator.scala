@@ -306,7 +306,6 @@ class ZioFilePrinter(
               "// Returns a copy of the service with new default metadata",
               s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C]",
               s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context]",
-              s"def withMetadata(headers: $SafeMetadata): ZService[R, Any] = withMetadataM(zio.ZIO.succeed(headers))"
             )
         )
         .add("}")

@@ -86,12 +86,6 @@ object HelloWorldClientMetadata extends zio.App {
             .withMetadataM(userToMetadata(User("hello")))
             .sayHello(HelloRequest("World"))
         _ <- putStrLn(r1.message)
-
-        // Pass prebuilt metadata:
-        md <- SafeMetadata.make
-        _ <- md.put(UserKey, "foo")
-        r1 <- client.withMetadata(md).sayHello(HelloRequest("World"))
-        _ <- putStrLn(r1.message)
       } yield ()
     }
 
