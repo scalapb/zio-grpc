@@ -25,7 +25,7 @@ object MyService extends ZSimpleService[Console, Has[User]] {
   def sayHello(req: Request): ZIO[Console with Has[User], Status, Response] =
     for {
       user <- ZIO.service[User]
-      _ <- putStrLn("I am here!")
+      _ <- putStrLn("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```
