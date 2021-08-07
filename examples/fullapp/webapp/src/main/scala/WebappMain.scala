@@ -22,7 +22,7 @@ object WebappMain extends App {
         .foldM(s => putStrLn(s"error: $s"), s => putStrLn(s"success: $s")) *>
       (GreeterClient
         .points(Request("Foo!"))
-        .foreach(s => putStrLn(s"success: $s"))
+        .foreach(s => putStrLn(s"success: $s").orDie)
         .catchAll { (s: Status) =>
           putStrLn(s"Caught: $s")
         })

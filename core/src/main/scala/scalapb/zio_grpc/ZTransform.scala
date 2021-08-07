@@ -11,7 +11,7 @@ import zio.Tag
   * to generate a new "decorated" service. This can be used for pre- or post-processing of
   * requests/responses and also for environment and context transformations.
   */
-trait ZTransform[RIn, E, ROut] { self =>
+trait ZTransform[+RIn, E, -ROut] { self =>
   def effect[A](io: ZIO[RIn, E, A]): ZIO[ROut, E, A]
   def stream[A](io: ZStream[RIn, E, A]): ZStream[ROut, E, A]
 

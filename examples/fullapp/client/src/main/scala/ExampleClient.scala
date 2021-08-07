@@ -28,6 +28,6 @@ object ExampleClient extends zio.App {
       f <- GreeterClient.greet(Request("Bye"))
       _ <- putStrLn(f.resp)
     } yield ())
-      .onError { c => putStrLn(c.prettyPrint) }
+      .onError { c => putStrLn(c.prettyPrint).orDie }
       .provideLayer(Console.live ++ clientLayer)
 }
