@@ -191,7 +191,7 @@ class ZioFilePrinter(
         )
       )
 
-    def printTransform(
+    def printServerTransform(
         fp: FunctionalPrinter,
         method: MethodDescriptor
     ): FunctionalPrinter = {
@@ -210,6 +210,62 @@ class ZioFilePrinter(
         ) + " = " + newImpl
       )
     }
+
+    def printClientTransform(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      val delegate = s"self.${method.name}"
+      val newImpl  = method.streamType match {
+        case StreamType.Unary           =>
+          s"f.effect($delegate(request))"
+        case StreamType.ServerStreaming =>
+          s"f.stream($delegate(request))"
+        case StreamType.ClientStreaming =>
+          s"""zio.ZIO.fail($Status.INTERNAL.withDescription("Transforming client-side client-streaming calls is not supported"))"""
+        case StreamType.Bidirectional   =>
+          s"""zio.stream.ZStream.fail($Status.INTERNAL.withDescription("Transforming client-side bidi calls is not supported"))"""
+      }
+      fp.add(
+        clientMethodSignature(
+          method,
+          inEnvType = "RR",
+          outEnvType = "R1 with Context1"
+        ) + " = " + newImpl
+      )
+    }
+
+    def serverTranformableService(fp: FunctionalPrinter): FunctionalPrinter =
+      fp.add(
+        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[${ztraitName.name}] = new scalapb.zio_grpc.TransformableService[${ztraitName.name}] {"
+      ).indented(
+        _.add(
+          s"def transform[R, Context, R1, Context1](self: ${ztraitName.name}[R, Context], f: scalapb.zio_grpc.ZTransform[R with Context, $Status, R1 with Context1]): ${ztraitName.fullName}[R1, Context1] = new ${ztraitName.fullName}[R1, Context1] {"
+        ).indented(
+          _.print(service.getMethods().asScala.toVector)(
+            printServerTransform
+          )
+        ).add("}")
+      ).add("}")
+
+    def clientTranformableService(fp: FunctionalPrinter): FunctionalPrinter =
+      fp.add(
+        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[ZService] = new scalapb.zio_grpc.TransformableService[ZService] {"
+      ).indented(
+        _.add(
+          s"def transform[R, Context, R1, Context1](self: ZService[R, Context], f: scalapb.zio_grpc.ZTransform[R with Context, $Status, R1 with Context1]): ZService[R1, Context1] = new ZService[R1, Context1] {"
+        ).indented(
+          _.print(service.getMethods().asScala.toVector)(
+            printClientTransform
+          )
+            .add(
+              "// Returns a copy of the service with new default metadata",
+              s"def mapCallOptionsM(cf: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.mapCallOptionsM(cf), f)",
+              s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R1, C] = ??? // transform[R, Context, R1, C](self.withMetadataM(headersEffect), f)",
+              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.withCallOptionsM(callOptions), f)"
+            )
+        ).add("}")
+      ).add("}")
 
     def print(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
@@ -231,17 +287,7 @@ class ZioFilePrinter(
         .add("")
         .add(s"object ${ztraitName.name} {")
         .indented(
-          _.add(
-            s"implicit val transformableService: scalapb.zio_grpc.TransformableService[${ztraitName.name}] = new scalapb.zio_grpc.TransformableService[${ztraitName.name}] {"
-          ).indented(
-            _.add(
-              s"def transform[R, Context, R1, Context1](self: ${ztraitName.name}[R, Context], f: scalapb.zio_grpc.ZTransform[R with Context, $Status, R1 with Context1]): ${ztraitName.fullName}[R1, Context1] = new ${ztraitName.fullName}[R1, Context1] {"
-            ).indented(
-              _.print(service.getMethods().asScala.toVector)(
-                printTransform
-              )
-            ).add("}")
-          ).add("}")
+          _.call(serverTranformableService)
             .add(
               s"implicit def ops[R, C](service: ${ztraitName.fullName}[R, C]): scalapb.zio_grpc.TransformableService.TransformableServiceOps[${ztraitName.fullName}, R, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[${ztraitName.fullName}, R, C](service)",
               s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}] = new scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}] {"
@@ -311,6 +357,10 @@ class ZioFilePrinter(
         .add("}")
         .add(s"type Service = ZService[Any, Any]")
         .add(s"type Accessors[Context] = ${accessorsClassName.fullName}[Context]")
+        .call(clientTranformableService)
+        .add(
+          s"implicit def ops[R, C](service: ZService[R, C]): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, R, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, R, C](service)"
+        )
         .add("")
         .add("")
         .add(
