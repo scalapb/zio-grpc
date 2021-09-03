@@ -1,23 +1,18 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.Request
-import zio.ZIO
+import zio.{Clock, Console, Exit, Promise, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
-import zio.clock.Clock
-import zio.console.Console
-import zio.Has
-import zio.Promise
-import zio.Exit
-import zio.ZLayer
 import zio.stream.{Stream, ZStream}
+import zio.ZEnvironment
 
 package object server {
 
   import zio.Schedule
 
-  type TestServiceImpl = Has[TestServiceImpl.Service]
+  type TestServiceImpl = TestServiceImpl.Service
 
   object TestServiceImpl {
 
@@ -25,7 +20,7 @@ package object server {
         requestReceived: zio.Promise[Nothing, Unit],
         delayReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
-    )(clock: Clock.Service, console: Console.Service)
+    )(clock: Clock, console: Console)
         extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
@@ -44,10 +39,10 @@ package object server {
           request: Request
       ): ZStream[Any, Status, Response] =
         ZStream
-          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
-            ex.foldM(
+          .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
+            ex.foldZIO(
               failed =>
-                if (failed.interrupted)
+                if (failed.isInterrupted || failed.isInterruptedOnly)
                   exit.succeed(Exit.fail(Status.CANCELLED))
                 else exit.succeed(Exit.fail(Status.UNKNOWN)),
               _ => exit.succeed(Exit.succeed(Response()))
@@ -79,7 +74,7 @@ package object server {
       ): ZIO[Any, Status, Response] =
         requestReceived.succeed(()) *>
           request
-            .foldM(0)((state, req) =>
+            .runFoldZIO(0)((state, req) =>
               req.scenario match {
                 case Scenario.OK        => ZIO.succeed(state + req.in)
                 case Scenario.DELAY     => delayReceived.succeed(()) *> ZIO.never
@@ -95,7 +90,7 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        ((ZStream.fromEffect(requestReceived.succeed(())).drain ++
+        ((ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>
@@ -104,13 +99,12 @@ package object server {
               case Scenario.DELAY     => Stream.never
               case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
-                // Stream.fromEffect(zio.console.putStrLn("*** Got error now!")).drain ++
                 Stream.fail(Status.INTERNAL.withDescription("Intentional error"))
               case _                  => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
             }
           } ++ Stream(Response("DONE"))))
           .ensuring(exit.succeed(Exit.succeed(Response()))))
-          .provide(Has(clock) ++ Has(console))
+          .provideEnvironment(ZEnvironment(clock, console))
 
       def awaitReceived = requestReceived.await
 
@@ -120,8 +114,8 @@ package object server {
     }
 
     def make(
-        clock: Clock.Service,
-        console: Console.Service
+        clock: Clock,
+        console: Console
     ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
@@ -129,26 +123,21 @@ package object server {
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
-    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      ZLayer.fromServicesM[
-        Clock.Service,
-        Console.Service,
-        Any,
-        Nothing,
-        TestServiceImpl.Service
-      ] { (clock: Clock.Service, console: Console.Service) =>
-        make(clock, console)
-      }
+    def makeFromEnv: ZIO[Clock with Console, Nothing, Service] =
+      ZIO.environmentWithZIO[Clock with Console](env => make(env.get[Clock], env.get[Console]))
 
-    val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
+    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
+      makeFromEnv.toLayer
+
+    val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.environment
 
     def awaitReceived: ZIO[TestServiceImpl, Nothing, Unit] =
-      ZIO.accessM(_.get.awaitReceived)
+      ZIO.environmentWithZIO(_.get.awaitReceived)
 
     def awaitDelayReceived: ZIO[TestServiceImpl, Nothing, Unit] =
-      ZIO.accessM(_.get.awaitDelayReceived)
+      ZIO.environmentWithZIO(_.get.awaitDelayReceived)
 
     def awaitExit: ZIO[TestServiceImpl, Nothing, Exit[Status, Response]] =
-      ZIO.accessM(_.get.awaitExit)
+      ZIO.environmentWithZIO(_.get.awaitExit)
   }
 }

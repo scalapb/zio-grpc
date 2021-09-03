@@ -9,11 +9,12 @@ depends on an environment of type `R` and a context of type `Context`.
 
 `Context` and `R` can be of any Scala type, however when they are not `Any` they have to be wrapped in an `Has[]`. This allows ZIO gRPC to combine two values (`Context with R`) when providing the values at effect execution time.
 
-For example, we can define a service for which the effects depend on `Console`, and for each request we expect to get a context of type `User`. Note that `Console` is a type-alias to `Has[Console.Service]` so there is no need wrap it once more in an `Has`.
+For example, we can define a service for which the effects depend on `Console`, and for each request we expect to get a context of type `User`.
 
 ```scala mdoc
 import zio.{Has, ZIO}
-import zio.console._
+import zio.Console
+import zio.Console.printLine
 import scalapb.zio_grpc.RequestContext
 import myexample.testservice.ZioTestservice.ZSimpleService
 import myexample.testservice.{Request, Response}
@@ -21,11 +22,11 @@ import io.grpc.Status
 
 case class User(name: String)
 
-object MyService extends ZSimpleService[Console, Has[User]] {
-  def sayHello(req: Request): ZIO[Console with Has[User], Status, Response] =
+object MyService extends ZSimpleService[Has[Console], Has[User]] {
+  def sayHello(req: Request): ZIO[Has[Console] with Has[User], Status, Response] =
     for {
       user <- ZIO.service[User]
-      _ <- putStrLn("I am here!").orDie
+      _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```
@@ -92,7 +93,7 @@ object UserDatabase {
 
   // accessor
   def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-    ZIO.accessM[UserDatabase](_.get.fetchUser(name))
+    ZIO.accessZIO[UserDatabase](_.get.fetchUser(name))
 
   val live = zio.ZLayer.succeed(
     new Service {
@@ -105,8 +106,8 @@ object UserDatabase {
 Now,
 The context transformation effect we apply may introduce an additional environmental dependency to our service. For example:
 ```scala mdoc
-import zio.clock._
-import zio.duration._
+import zio.Clock._
+import zio.Duration._
 
 val myServiceAuthWithDatabase  =
   MyService.transformContextM {
@@ -132,6 +133,7 @@ a `Has[RequestContext]` context. To use this layer in an app, we can wire it lik
 
 ```scala mdoc
 import scalapb.zio_grpc.ServerLayer
+import zio.ZLayer
 
 val serverLayer =
     ServerLayer.fromServiceLayer(
@@ -141,10 +143,10 @@ val serverLayer =
 val ourApp = (UserDatabase.live ++ Console.any) >>>
     serverLayer
 
-object LayeredApp extends zio.App {
-    def run(args: List[String]) = ourApp.build.useForever.exitCode
+object LayeredApp extends zio.ZIOAppDefault {
+    def run = ourApp.build.useForever.exitCode
 }
 ```
 
-`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are directly using a `zio.App` rather than `ServerMain` which does
+`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are directly using a `zio.ZioAppDefault` rather than `ServerMain` which does
 not support this use case yet.

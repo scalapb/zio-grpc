@@ -9,12 +9,12 @@ object ZManagedChannel {
       builder: => ManagedChannelBuilder[_],
       interceptors: Seq[ZClientInterceptor[R]] = Nil
   ): ZManagedChannel[R] =
-    ZManaged.make(ZIO.effect(new ZChannel(builder.build(), interceptors)))(
+    ZManaged.acquireReleaseWith(ZIO.attempt(new ZChannel(builder.build(), interceptors)))(
       _.shutdown().ignore
     )
 
   def apply(builder: ManagedChannelBuilder[_]): ZManagedChannel[Any] =
-    ZManaged.make(ZIO.effect(new ZChannel(builder.build(), Nil)))(
+    ZManaged.acquireReleaseWith(ZIO.attempt(new ZChannel(builder.build(), Nil)))(
       _.shutdown().ignore
     )
 }

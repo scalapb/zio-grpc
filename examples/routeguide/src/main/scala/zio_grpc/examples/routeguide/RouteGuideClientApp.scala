@@ -30,10 +30,10 @@ object RouteGuideClientApp extends App {
   ): ZIO[RouteGuideClient with Console, Status, Unit] =
     (for {
       f <- RouteGuideClient.getFeature(Point(lat, lng))
-      _ <- putStrLn(s"""Found feature called "${f.name}".""")
+      _ <- printLine(s"""Found feature called "${f.name}".""")
     } yield ()).catchSome {
       case status if status == Status.NOT_FOUND =>
-        putStrLn(s"Feature not found: ${status.toString()}")
+        printLine(s"Feature not found: ${status.toString()}")
     }
   // end: getFeature
 
@@ -51,11 +51,11 @@ object RouteGuideClientApp extends App {
           .repeatEffect(
             nextIntBetween(0, features.size).map(features(_).getLocation)
           )
-          .tap(p => putStrLn(s"Visiting (${p.latitude}, ${p.longitude})"))
+          .tap(p => printLine(s"Visiting (${p.latitude}, ${p.longitude})"))
           .schedule(Schedule.spaced(300.millis))
           .take(numPoints)
       )
-      _ <- putStrLn(
+      _ <- printLine(
         s"Finished trip with ${summary.pointCount} points. " +
           s"Passed ${summary.featureCount} features. " +
           s"Travelled ${summary.distance} meters. " +
@@ -88,13 +88,13 @@ object RouteGuideClientApp extends App {
                 message = "Four Message"
               )
             ).tap { note =>
-              putStrLn(
+              printLine(
                 s"""Sending message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
               )
             }
           )
           .foreach { note =>
-            putStrLn(
+            printLine(
               s"""Got message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
             )
           }
@@ -123,7 +123,7 @@ object RouteGuideClientApp extends App {
           .zipWithIndex
           .foreach {
             case (feature, index) =>
-              putStrLn(s"Result #${index + 1}: $feature")
+              printLine(s"Result #${index + 1}: $feature")
           }
       // end: listFeatures
 

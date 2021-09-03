@@ -9,6 +9,7 @@ import zio.Has
 import io.grpc.Channel
 import zio.Layer
 import zio.ZLayer
+import zio.Console.printLine
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =
@@ -24,10 +25,10 @@ object ExampleClient extends zio.App {
   def myAppLogic =
     (for {
       r <- GreeterClient.greet(Request("Hello"))
-      _ <- putStrLn(r.resp)
+      _ <- printLine(r.resp)
       f <- GreeterClient.greet(Request("Bye"))
-      _ <- putStrLn(f.resp)
+      _ <- printLine(f.resp)
     } yield ())
-      .onError { c => putStrLn(c.prettyPrint).orDie }
+      .onError { c => printLine(c.prettyPrint).orDie }
       .provideLayer(Console.live ++ clientLayer)
 }

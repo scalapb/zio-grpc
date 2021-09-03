@@ -19,7 +19,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    IO.effectAsync { callback =>
+    IO.async { callback =>
       channel.channel.client.rpcCall[Req, Res](
         channel.channel.baseUrl + "/" + method.fullName,
         req,
@@ -39,7 +39,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    Stream.effectAsync[R, Status, Res] { cb =>
+    Stream.async[R, Status, Res] { cb =>
       channel.channel.client
         .serverStreaming[Req, Res](
           channel.channel.baseUrl + "/" + method.fullName,
