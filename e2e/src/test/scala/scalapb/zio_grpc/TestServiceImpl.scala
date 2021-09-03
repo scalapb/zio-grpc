@@ -5,8 +5,8 @@ import zio.ZIO
 import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
-import zio.clock.Clock
-import zio.console.Console
+import zio.Clock
+import zio.Console
 import zio.Has
 import zio.Promise
 import zio.Exit
@@ -25,7 +25,7 @@ package object server {
         requestReceived: zio.Promise[Nothing, Unit],
         delayReceived: zio.Promise[Nothing, Unit],
         exit: zio.Promise[Nothing, Exit[Status, Response]]
-    )(clock: Clock.Service, console: Console.Service)
+    )(clock: Clock, console: Console)
         extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
@@ -120,8 +120,8 @@ package object server {
     }
 
     def make(
-        clock: Clock.Service,
-        console: Console.Service
+        clock: Clock,
+        console: Console,
     ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
@@ -129,16 +129,11 @@ package object server {
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
-    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      ZLayer.fromServicesM[
-        Clock.Service,
-        Console.Service,
-        Any,
-        Nothing,
-        TestServiceImpl.Service
-      ] { (clock: Clock.Service, console: Console.Service) =>
-        make(clock, console)
-      }
+    def makeFromEnv: ZIO[Has[Clock] with Has[Console],Nothing,Service] =
+       ZIO.accessZIO[Has[Clock] with Has[Console]](env => make(env.get[Clock], env.get[Console]))
+
+    val live: ZLayer[Has[Clock] with Has[Console], Nothing, TestServiceImpl] =
+      makeFromEnv.toLayer
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
 

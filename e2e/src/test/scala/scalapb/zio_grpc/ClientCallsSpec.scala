@@ -12,7 +12,7 @@ object ClientCallsSpec extends DefaultRunnableSpec {
 
   def unarySuite =
     suite("unaryCall")(
-      testM("should not fail with 'INTERNAL: already started' on retry") {
+      test("should not fail with 'INTERNAL: already started' on retry") {
         for {
           meta <- SafeMetadata.make
           res  <- ClientCalls

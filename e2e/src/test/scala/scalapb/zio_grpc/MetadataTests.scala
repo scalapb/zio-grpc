@@ -1,8 +1,8 @@
 package scalapb.zio_grpc
 
+import zio.ZLayer
 import zio.test._
 import zio.test.Assertion._
-import zio._
 import zio.stream.Stream
 import testservice.ZioTestservice.TestServiceClient
 import testservice._
@@ -29,50 +29,50 @@ trait MetadataTests {
 
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(
-      testM("unary") {
+      test("unary") {
         assertM(unaryEffect.run)(permissionDenied)
       },
-      testM("server streaming") {
+      test("server streaming") {
         assertM(serverStreamingEffect.run)(permissionDenied)
       },
-      testM("client streaming") {
+      test("client streaming") {
         assertM(clientStreamingEffect.run)(permissionDenied)
       },
-      testM("bidi streaming") {
+      test("bidi streaming") {
         assertM(bidiEffect.run)(permissionDenied)
       }
     ).provideLayer(unauthClient)
 
   def unauthenticatedSuite =
     suite("authorized request fail for")(
-      testM("unary") {
+      test("unary") {
         assertM(unaryEffect.run)(unauthenticated)
       },
-      testM("server streaming") {
+      test("server streaming") {
         assertM(serverStreamingEffect.run)(unauthenticated)
       },
-      testM("client streaming") {
+      test("client streaming") {
         assertM(clientStreamingEffect.run)(unauthenticated)
       },
-      testM("bidi streaming") {
+      test("bidi streaming") {
         assertM(bidiEffect.run)(unauthenticated)
       }
     ).provideLayer(unsetClient)
 
   def authenticatedSuite =
     suite("authorized request fail for")(
-      testM("unary") {
+      test("unary") {
         assertM(unaryEffect)(equalTo(Response("bob")))
       },
-      testM("server streaming") {
+      test("server streaming") {
         assertM(serverStreamingEffect)(
           equalTo(Seq(Response("bob"), Response("bob")))
         )
       },
-      testM("client streaming") {
+      test("client streaming") {
         assertM(clientStreamingEffect)(equalTo(Response("bob")))
       },
-      testM("bidi streaming") {
+      test("bidi streaming") {
         assertM(bidiEffect)(equalTo(Seq(Response("bob"))))
       }
     ).provideLayer(authClient)

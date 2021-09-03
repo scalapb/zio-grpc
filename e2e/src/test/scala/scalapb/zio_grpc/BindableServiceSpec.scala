@@ -2,8 +2,8 @@ package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
 import zio.Has
-import zio.clock.Clock
-import zio.console.Console
+import zio.Clock
+import zio.Console
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
 import zio.ZIO
@@ -16,13 +16,13 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   implicitly[ZBindableService[Any, ZTestService[Any, Has[SafeMetadata]]]]
   implicitly[ZBindableService[Any, ZTestService[Any, Any]]]
 
-  implicitly[ZBindableService[Clock, ZTestService[Clock, Has[RequestContext]]]]
-  implicitly[ZBindableService[Clock, ZTestService[Clock, Has[SafeMetadata]]]]
-  implicitly[ZBindableService[Clock, ZTestService[Clock, Any]]]
+  implicitly[ZBindableService[Has[Clock], ZTestService[Has[Clock], Has[RequestContext]]]]
+  implicitly[ZBindableService[Has[Clock], ZTestService[Has[Clock], Has[SafeMetadata]]]]
+  implicitly[ZBindableService[Has[Clock], ZTestService[Has[Clock], Any]]]
 
-  implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Has[RequestContext]]]]
-  implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Has[SafeMetadata]]]]
-  implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Any]]]
+  implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[RequestContext]]]]
+  implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[SafeMetadata]]]]
+  implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Any]]]
 
   class UnimpTestService[P, R, C] extends ZTestService[R, C] {
     def unary(request: Request): ZIO[R with C, Status, Response] = ???
@@ -37,10 +37,10 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   object S1 extends UnimpTestService[Int, Any, Has[RequestContext]]
   object S2 extends UnimpTestService[Int, Any, Has[SafeMetadata]]
   object S3 extends UnimpTestService[Int, Any, Any]
-  object S4 extends UnimpTestService[Int, Clock, Has[SafeMetadata]]
-  object S5 extends UnimpTestService[Int, Clock, Has[RequestContext]]
-  object S6 extends UnimpTestService[Int, Clock, Any]
-  object S7 extends UnimpTestService[Int, Console, Any]
+  object S4 extends UnimpTestService[Int, Has[Clock], Has[SafeMetadata]]
+  object S5 extends UnimpTestService[Int, Has[Clock], Has[RequestContext]]
+  object S6 extends UnimpTestService[Int, Has[Clock], Any]
+  object S7 extends UnimpTestService[Int, Has[Console], Any]
 
   ServerLayer.fromService(ServerBuilder.forPort(9000), S1)
   ServerLayer.fromService(ServerBuilder.forPort(9000), S2)

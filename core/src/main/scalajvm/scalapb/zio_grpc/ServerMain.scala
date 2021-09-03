@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 import zio._
-import zio.console._
+import zio.Console._
 import io.grpc.ServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 

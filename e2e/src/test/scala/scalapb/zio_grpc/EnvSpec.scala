@@ -9,24 +9,24 @@ import io.grpc.ServerBuilder
 import io.grpc.Metadata
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Status
-import zio.console.Console
+import zio.Console
 import zio.stream.ZStream
-import zio.clock.Clock
+import zio.Clock
 
 object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   case class User(name: String)
 
   val getUser = ZIO.access[Has[User]](_.get)
 
-  object ServiceWithConsole extends ZTestService[Console with Clock, Has[User]] {
-    def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
+  object ServiceWithConsole extends ZTestService[Has[Console] with Has[Clock], Has[User]] {
+    def unary(request: Request): ZIO[Has[Console] with Has[User], Status, Response] =
       for {
         user <- getUser
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[Console with Has[User], Status, Response] =
+    ): ZStream[Has[Console] with Has[User], Status, Response] =
       ZStream.accessStream { (u: Has[User]) =>
         ZStream(
           Response(u.get.name),

@@ -6,12 +6,13 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
-import zio.duration._
+import zio.durationInt
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 import zio.{Fiber, Queue, URIO, ZIO, ZLayer, ZManaged, ZQueue}
+import zio.Has
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
@@ -29,18 +30,18 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def unarySuite =
     suite("unary request")(
-      testM("returns successful response") {
+      test("returns successful response") {
         assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)))(
           equalTo(Response("Res12"))
         )
       },
-      testM("returns successful response when the program is used repeatedly") {
+      test("returns successful response when the program is used repeatedly") {
         // Must not capture an instance of ZClientCall, so call.start() should not be invoked twice
         assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)).repeatN(1))(
           equalTo(Response("Res12"))
         )
       },
-      testM("returns correct error response") {
+      test("returns correct error response") {
         assertM(
           TestServiceClient
             .unary(Request(Request.Scenario.ERROR_NOW, in = 12))
@@ -49,7 +50,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           fails(hasStatusCode(Status.INTERNAL))
         )
       },
-      testM("catches client interrupts") {
+      test("catches client interrupts") {
         for {
           fiber <- TestServiceClient
                      .unary(Request(Request.Scenario.DELAY, in = 12))
@@ -59,14 +60,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
           exit  <- TestServiceImpl.awaitExit
         } yield assert(exit.interrupted)(isTrue)
       },
-      testM("returns response on failures") {
+      test("returns response on failures") {
         assertM(
           TestServiceClient.unary(Request(Request.Scenario.DIE, in = 12)).run
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
       },
-      testM("setting deadline interrupts the servers") {
+      test("setting deadline interrupts the servers") {
         for {
           r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).run
           exit <- TestServiceImpl.awaitExit
@@ -95,7 +96,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def serverStreamingSuite =
     suite("server streaming request")(
-      testM("returns successful response") {
+      test("returns successful response") {
         assertM(
           collectWithError(
             TestServiceClient.serverStreaming(
@@ -104,7 +105,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )(equalTo((List(Response("X1"), Response("X2")), None)))
       },
-      testM("returns correct error response") {
+      test("returns correct error response") {
         assertM(
           collectWithError(
             TestServiceClient.serverStreaming(
@@ -115,7 +116,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           tuple(isEmpty, isSome(hasStatusCode(Status.INTERNAL)))
         )
       },
-      testM("returns correct error after two response") {
+      test("returns correct error after two response") {
         assertM(
           collectWithError(
             TestServiceClient.serverStreaming(
@@ -129,7 +130,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )
       },
-      testM("catches client cancellations") {
+      test("catches client cancellations") {
         assertM(for {
           fb   <- TestServiceClient
                     .serverStreaming(
@@ -142,7 +143,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           exit <- TestServiceImpl.awaitExit
         } yield exit)(fails(hasStatusCode(Status.CANCELLED)))
       },
-      testM("returns failure when failure") {
+      test("returns failure when failure") {
         assertM(
           collectWithError(
             TestServiceClient.serverStreaming(
@@ -157,7 +158,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def clientStreamingSuite =
     suite("client streaming request")(
-      testM("returns successful response") {
+      test("returns successful response") {
         assertM(
           TestServiceClient.clientStreaming(
             Stream(
@@ -168,14 +169,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )(equalTo(Response("62")))
       },
-      testM("returns successful response on empty stream") {
+      test("returns successful response on empty stream") {
         assertM(
           TestServiceClient.clientStreaming(
             Stream.empty
           )
         )(equalTo(Response("0")))
       },
-      testM("returns correct error response") {
+      test("returns correct error response") {
         assertM(
           TestServiceClient
             .clientStreaming(
@@ -188,7 +189,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
             .run
         )(fails(hasStatusCode(Status.INTERNAL)))
       },
-      testM("catches client cancellation") {
+      test("catches client cancellation") {
         assertM(for {
           fiber <- TestServiceClient
                      .clientStreaming(
@@ -204,7 +205,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           exit  <- TestServiceImpl.awaitExit
         } yield exit.interrupted)(isTrue)
       },
-      testM("returns response on failures") {
+      test("returns response on failures") {
         assertM(
           TestServiceClient
             .clientStreaming(
@@ -217,7 +218,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
             .run
         )(fails(hasStatusCode(Status.INTERNAL)))
       },
-      testM("returns response on failures for infinite input") {
+      test("returns response on failures for infinite input") {
         assertM(
           TestServiceClient
             .clientStreaming(
@@ -243,7 +244,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
   object BidiFixture {
     def apply[R, Req, Res](
         call: Stream[Status, Req] => ZStream[R, Status, Res]
-    ): zio.URIO[R with zio.console.Console, BidiFixture[Req, Res]] =
+    ): zio.URIO[R with Has[zio.Console], BidiFixture[Req, Res]] =
       for {
         in    <- ZQueue.unbounded[Res]
         out   <- ZQueue.unbounded[Option[Req]]
@@ -253,7 +254,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def bidiStreamingSuite =
     suite("bidi streaming request")(
-      testM("returns successful response") {
+      test("returns successful response") {
         assertM(for {
           bf   <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _    <- bf.send(Request(Scenario.OK, in = 1))
@@ -275,7 +276,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )
       },
-      testM("returns correct error response") {
+      test("returns correct error response") {
         assertM(for {
           bf <- BidiFixture(TestServiceClient.bidiStreaming[Any])
           _  <- bf.send(Request(Scenario.OK, in = 1))
@@ -290,7 +291,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           )
         )
       },
-      testM("catches client interrupts") {
+      test("catches client interrupts") {
         assertM(
           for {
             testServiceImpl <- ZIO.environment[TestServiceImpl]
@@ -309,7 +310,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           tuple(anything, isSome(hasStatusCode(Status.CANCELLED)))
         )
       },
-      testM("returns response on failures") {
+      test("returns response on failures") {
         assertM(
           TestServiceClient
             .bidiStreaming(

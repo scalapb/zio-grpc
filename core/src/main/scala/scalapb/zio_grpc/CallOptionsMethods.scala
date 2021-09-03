@@ -4,7 +4,7 @@ import io.grpc.CallOptions
 import io.grpc.Status
 import java.util.concurrent.TimeUnit
 import zio.ZIO
-import zio.duration.Duration
+import zio.Duration
 import io.grpc.Deadline
 
 trait CallOptionsMethods[Repr] {

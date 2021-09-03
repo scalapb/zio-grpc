@@ -28,7 +28,7 @@ object ZBindableService {
   ): ZBindableService[R, T] =
     new ZBindableService[R, T] {
       def bindService(s: T): zio.URIO[R, ServerServiceDefinition] =
-        ZIO.accessM[R](r => ev3.bind(s, t => ev5.union(r, ev4.bind(t))))
+        ZIO.accessZIO[R](r => ev3.bind(s, t => ev5.union(r, ev4.bind(t))))
     }
 
   implicit def fromZGeneratedService2[C, S[-_, -_], T](implicit
@@ -39,6 +39,6 @@ object ZBindableService {
   ): ZBindableService[Any, T] =
     new ZBindableService[Any, T] {
       def bindService(s: T): zio.URIO[Any, ServerServiceDefinition] =
-        ZIO.accessM[Any](_ => ev3.bind(s, t => ev4.bind(t)))
+        ZIO.accessZIO[Any](_ => ev3.bind(s, t => ev4.bind(t)))
     }
 }
