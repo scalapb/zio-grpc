@@ -1,12 +1,11 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
-import zio.Has
+import zio.{Has, Managed, ZIO}
 import zio.clock.Clock
 import zio.console.Console
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
-import zio.ZIO
 import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
@@ -67,6 +66,7 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   val z6 = ServiceList.addM(ZIO.succeed(S6))
   val z7 = ServiceList.addM(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
+  val z9 = ServiceList.addManaged(Managed.succeed(S4))
 
   def spec = suite("BindableServiceSpec")()
 }

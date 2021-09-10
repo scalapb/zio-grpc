@@ -19,7 +19,7 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
   )(implicit b: ZBindableService[R1, S1]): ServiceList[R1 with R2] =
     addManaged[R1, R2, S1](s1.toManaged_)
 
-  def addManaged[R1 <: RR, R2 <: RR, S1](s1: ZManaged[R1 with R2, Throwable, S1])(implicit
+  def addManaged[R1 <: RR, R2 <: RR, S1](s1: ZManaged[R2, Throwable, S1])(implicit
       bs: ZBindableService[R1, S1]
   ): ServiceList[RR with R1 with R2] =
     new ServiceList(for {
