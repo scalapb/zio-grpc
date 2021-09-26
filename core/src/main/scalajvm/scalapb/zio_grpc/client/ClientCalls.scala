@@ -15,7 +15,7 @@ object ClientCalls {
       call: ZClientCall[R, Req, Res]
   ) =
     (_: Any, ex: Exit[Any, Any]) => {
-      ZIO.when(!ex.succeeded) {
+      ZIO.when(!ex.isSuccess) {
         call.cancel("Interrupted").ignore
       }
     }

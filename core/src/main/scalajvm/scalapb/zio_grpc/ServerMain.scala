@@ -5,7 +5,7 @@ import io.grpc.ServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 
 /** Quick-start server app. */
-trait ServerMain extends zio.App {
+trait ServerMain extends zio.ZIOApp {
   def port: Int = 9000
 
   def welcome: ZIO[ZEnv, Throwable, Unit] =

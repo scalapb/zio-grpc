@@ -38,16 +38,16 @@ package object server {
           case Scenario.DELAY     => ZIO.never
           case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
           case _                  => ZIO.fail(Status.UNKNOWN)
-        })).onExit(exit.succeed)
+        })).onExit(exit.succeed(_))
 
       def serverStreaming(
           request: Request
       ): ZStream[Any, Status, Response] =
         ZStream
-          .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
+          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
             ex.foldZIO(
               failed =>
-                if (failed.interrupted)
+                if (failed.isInterrupted || failed.isInterruptedOnly)
                   exit.succeed(Exit.fail(Status.CANCELLED))
                 else exit.succeed(Exit.fail(Status.UNKNOWN)),
               _ => exit.succeed(Exit.succeed(Response()))
@@ -56,21 +56,27 @@ package object server {
           .zipRight {
             request.scenario match {
               case Scenario.OK          =>
+                println("ServerStreaming Scenario.OK")
                 ZStream(Response(out = "X1"), Response(out = "X2"))
               case Scenario.ERROR_NOW   =>
+                println("ServerStreaming Scenario.ERROR_NOW")
                 ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
               case Scenario.ERROR_AFTER =>
+                println("ServerStreaming Scenario.ERROR_AFTER")
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
                     Status.INTERNAL.withDescription("FOO!")
                   )
               case Scenario.DELAY       =>
+                println("ServerStreaming Scenario.DELAY")
                 ZStream(
                   Response(out = "X1"),
                   Response(out = "X2")
                 ) ++ ZStream.never
               case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
-              case _                    => ZStream.fail(Status.UNKNOWN)
+              case o                    =>
+                println(s"ServerStreaming ??? $o")
+                ZStream.fail(Status.UNKNOWN)
             }
           }
 
@@ -135,7 +141,7 @@ package object server {
     val live: ZLayer[Has[Clock] with Has[Console], Nothing, TestServiceImpl] =
       makeFromEnv.toLayer
 
-    val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
+    val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.environment
 
     def awaitReceived: ZIO[TestServiceImpl, Nothing, Unit] =
       ZIO.accessZIO(_.get.awaitReceived)
