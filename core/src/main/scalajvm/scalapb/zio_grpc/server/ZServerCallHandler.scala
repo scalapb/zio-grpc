@@ -21,7 +21,7 @@ class ZServerCallHandler[R, Req, Res](
   ): Listener[Req] = {
     val zioCall = new ZServerCall(call)
     val runner  = for {
-      driver <- SafeMetadata.fromMetadata(headers) >>= { md =>
+      driver <- SafeMetadata.fromMetadata(headers) flatMap { md =>
                   mkDriver(zioCall, RequestContext.fromServerCall(md, call))
                 }
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener

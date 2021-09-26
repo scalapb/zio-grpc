@@ -350,7 +350,7 @@ S.example("routeguide/RouteGuideClientApp.scala", "getFeature")
 We create and populate a request protocol buffer object (in our case
 `Point`), pass it to the `getFeature()` method on our accessor, and get
 back an effect that needs a `RouteGuideClient` environment. We chain
-the response with a call to `putStrLn` to print the result on the console,
+the response with a call to `printLine` to print the result on the console,
 and we catch the `NOT_FOUND` response and print an error. All other errors
 are not handled at this level and will "bubble up" up to the program's `exitCode` handler.
 

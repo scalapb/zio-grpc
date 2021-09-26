@@ -62,7 +62,7 @@ object GreeterServiceWithMetadata {
 object ExampleServerWithMetadata extends App {
   def serverWait: ZIO[Console with Clock, Throwable, Unit] =
     for {
-      _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
+      _ <- printLine("Server is running. Press Ctrl-C to stop.")
       _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 

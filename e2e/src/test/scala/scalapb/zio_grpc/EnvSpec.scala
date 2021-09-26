@@ -70,7 +70,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.fromServiceManaged { (ss: Server.Service) =>
-      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
+      ZManaged.fromZIO(ss.port).orDie flatMap { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(

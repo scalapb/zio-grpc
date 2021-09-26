@@ -25,7 +25,7 @@ object MyService extends ZSimpleService[Console, Has[User]] {
   def sayHello(req: Request): ZIO[Console with Has[User], Status, Response] =
     for {
       user <- ZIO.service[User]
-      _ <- putStrLn("I am here!").orDie
+      _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```
@@ -92,7 +92,7 @@ object UserDatabase {
 
   // accessor
   def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-    ZIO.accessM[UserDatabase](_.get.fetchUser(name))
+    ZIO.accessZIO[UserDatabase](_.get.fetchUser(name))
 
   val live = zio.ZLayer.succeed(
     new Service {

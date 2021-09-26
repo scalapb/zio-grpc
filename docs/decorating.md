@@ -30,7 +30,7 @@ class LoggingTransform[R] extends ZTransform[R, Status, R with Has[RequestContex
     io.zipLeft(accessLog).tapCause(logCause)
 
   override def stream[A](io: ZStream[R, Status, A]): ZStream[R with Has[RequestContext], Status, A] =
-    (io ++ ZStream.fromEffect(accessLog).drain).onError(logCause)
+    (io ++ ZStream.fromZIO(accessLog).drain).onError(logCause)
 }
 ```
 

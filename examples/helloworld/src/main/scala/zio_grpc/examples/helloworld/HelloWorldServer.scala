@@ -13,7 +13,7 @@ object GreeterImpl extends ZGreeter[ZEnv, Any] {
   def sayHello(
       request: HelloRequest
   ): ZIO[zio.ZEnv, Status, HelloReply] =
-    putStrLn(s"Got request: $request") *>
+    printLine(s"Got request: $request") zipRight
       ZIO.succeed(HelloReply(s"Hello, ${request.name}"))
 }
 

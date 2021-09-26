@@ -53,12 +53,12 @@ object ZTransform {
     new ZTransform[RIn with ContextIn, E, ROut with ContextOut] {
       def effect[A](io: ZIO[RIn with ContextIn, E, A]): ZIO[ROut with ContextOut, E, A] =
         ZIO
-          .accessM(f)
+          .accessZIO(f)
           .flatMap(nc => io.provideSome(ev(_).union[ContextIn](nc)))
 
       def stream[A](io: ZStream[RIn with ContextIn, E, A]): ZStream[ROut with ContextOut, E, A] =
         ZStream
-          .fromEffect(ZIO.accessM(f))
+          .fromZIO(ZIO.accessZIO(f))
           .flatMap(nc => io.provideSome(ev(_).union[ContextIn](nc)))
     }
 }

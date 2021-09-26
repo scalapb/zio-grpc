@@ -13,14 +13,14 @@ object CallDriverSpec extends DefaultRunnableSpec {
   def spec = suite("CallDriverSpec")(
     test("exitToStatus prioritizes failures over interrupts") {
       val effectWithInterruptAndFailure = ZIO
-        .foreachParN_(128)(List.range(0, 16))(i =>
+        .foreachParNDiscard(128)(List.range(0, 16))(i =>
           for {
             delay <- nextIntBetween(100, 200)
             _     <- environment.live(sleep(delay.milliseconds))
             _     <- ZIO.fail(Status.INVALID_ARGUMENT.withDescription(s"i=$i"))
           } yield ()
         )
-      assertM(effectWithInterruptAndFailure.run map CallDriver.exitToStatus)(
+      assertM(effectWithInterruptAndFailure.exit map CallDriver.exitToStatus)(
         hasStatusCode(Status.INVALID_ARGUMENT)
       )
     }

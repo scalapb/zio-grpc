@@ -22,13 +22,13 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
-    def port: Task[Int] = ZIO.effect(underlying.getPort())
+    def port: Task[Int] = ZIO.attempt(underlying.getPort())
 
-    def shutdown: Task[Unit] = ZIO.effect(underlying.shutdown()).unit
+    def shutdown: Task[Unit] = ZIO.attempt(underlying.shutdown()).unit
 
-    def start: Task[Unit] = ZIO.effect(underlying.start()).unit
+    def start: Task[Unit] = ZIO.attempt(underlying.start()).unit
 
-    def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
+    def shutdownNow: Task[Unit] = ZIO.attempt(underlying.shutdownNow()).unit
 
     def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManagedWith(_ => this.shutdown.ignore)
   }
@@ -248,7 +248,7 @@ object ManagedServer {
   def fromServiceList[R](
       builder: => ServerBuilder[_],
       services: URIO[R, List[ServerServiceDefinition]]
-  ): ZManaged[R, Throwable, Server.Service] = fromServiceList(builder, services.toManaged_)
+  ): ZManaged[R, Throwable, Server.Service] = fromServiceList(builder, services.toManaged)
 
   def fromServiceList[R](
       builder: => ServerBuilder[_],

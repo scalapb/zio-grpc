@@ -59,7 +59,7 @@ object ZClientInterceptor {
       ): ZClientCall[R, Req, Res] =
         ZClientCall.headersTransformer(
           clientCall,
-          md => effect(methodDescriptor, call, md) *> ZIO.succeed(md)
+          md => effect(methodDescriptor, call, md).as(md)
         )
     }
 }

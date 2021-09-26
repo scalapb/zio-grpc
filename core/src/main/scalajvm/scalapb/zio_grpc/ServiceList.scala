@@ -17,14 +17,14 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
   def addM[R1 <: RR, R2 <: RR, S1](
       s1: ZIO[R2, Throwable, S1]
   )(implicit b: ZBindableService[R1, S1]): ServiceList[R1 with R2] =
-    addManaged[R1, R2, S1](s1.toManaged_)
+    addManaged[R1, R2, S1](s1.toManaged)
 
   def addManaged[R1 <: RR, R2 <: RR, S1](s1: ZManaged[R1 with R2, Throwable, S1])(implicit
       bs: ZBindableService[R1, S1]
   ): ServiceList[RR with R1 with R2] =
     new ServiceList(for {
       l  <- bindAll
-      sd <- s1.mapM(bs.bindService(_))
+      sd <- s1.mapZIO(bs.bindService(_))
     } yield sd :: l)
 
   /** Adds a dependency on a service that will be provided later from the environment or a Layer * */
@@ -33,7 +33,7 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
 
   def accessEnv[R, B: Tag](implicit bs: ZBindableService[R, B]): ServiceList[R with Has[B] with RR] =
     new ServiceList(ZManaged.accessManaged[R with Has[B] with RR] { r =>
-      bindAll.mapM(ll => bs.bindService(r.get[B]).map(_ :: ll))
+      bindAll.mapZIO(ll => bs.bindService(r.get[B]).map(_ :: ll))
     })
 
   def provide(r: RR): ServiceList[Any] = new ServiceList[Any](bindAll.provide(r))

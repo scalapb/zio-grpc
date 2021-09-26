@@ -403,8 +403,8 @@ class ZioFilePrinter(
         ) + " = "
       val innerCall         = s"_.get.withCallOptionsM(callOptions).${method.name}(request)"
       val clientCall        = method.streamType match {
-        case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
-        case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
+        case StreamType.Unary           => s"_root_.zio.ZIO.accessZIO($innerCall)"
+        case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessZIO($innerCall)"
         case StreamType.ServerStreaming =>
           s"_root_.zio.stream.ZStream.accessStream($innerCall)"
         case StreamType.Bidirectional   =>
@@ -426,9 +426,9 @@ class ZioFilePrinter(
         case StreamType.Unary           => s"headers.zip(options).flatMap"
         case StreamType.ClientStreaming => s"headers.zip(options).flatMap"
         case StreamType.ServerStreaming =>
-          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
+          s"zio.stream.ZStream.fromZIO(headers.zip(options)).flatMap"
         case StreamType.Bidirectional   =>
-          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
+          s"zio.stream.ZStream.fromZIO(headers.zip(options)).flatMap"
       }
       fp.add(
         clientMethodSignature(

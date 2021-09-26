@@ -45,18 +45,18 @@ trait ZClientCall[-R, Req, Res] extends Any {
 
 class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends AnyVal with ZClientCall[Any, Req, Res] {
   def start(responseListener: Listener[Res], headers: SafeMetadata): GIO[Unit] =
-    GIO.effect(call.start(responseListener, headers.metadata))
+    GIO.attempt(call.start(responseListener, headers.metadata))
 
   def request(numMessages: Int): GIO[Unit] =
-    GIO.effect(call.request(numMessages))
+    GIO.attempt(call.request(numMessages))
 
   def cancel(message: String): GIO[Unit] =
-    GIO.effect(call.cancel(message, null))
+    GIO.attempt(call.cancel(message, null))
 
-  def halfClose(): GIO[Unit] = GIO.effect(call.halfClose())
+  def halfClose(): GIO[Unit] = GIO.attempt(call.halfClose())
 
   def sendMessage(message: Req): GIO[Unit] =
-    GIO.effect(call.sendMessage(message))
+    GIO.attempt(call.sendMessage(message))
 }
 
 object ZClientCall {
@@ -92,6 +92,6 @@ object ZClientCall {
           responseListener: Listener[Res],
           headers: SafeMetadata
       ): ZIO[R, Status, Unit] =
-        updateHeaders(headers) >>= { h => delegate.start(responseListener, h) }
+        updateHeaders(headers) flatMap { h => delegate.start(responseListener, h) }
     }
 }

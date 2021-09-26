@@ -20,7 +20,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.fromServiceManaged { (ss: Server.Service) =>
-      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
+      ZManaged.fromZIO(ss.port).orDie flatMap { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         )
@@ -45,7 +45,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
         assertM(
           TestServiceClient
             .unary(Request(Request.Scenario.ERROR_NOW, in = 12))
-            .run
+            .exit
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
@@ -62,14 +62,14 @@ object TestServiceSpec extends DefaultRunnableSpec {
       },
       test("returns response on failures") {
         assertM(
-          TestServiceClient.unary(Request(Request.Scenario.DIE, in = 12)).run
+          TestServiceClient.unary(Request(Request.Scenario.DIE, in = 12)).exit
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
       },
       test("setting deadline interrupts the servers") {
         for {
-          r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).run
+          r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).exit
           exit <- TestServiceImpl.awaitExit
         } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.interrupted)(isTrue)
       }
@@ -186,7 +186,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
                 Request(Scenario.ERROR_NOW, in = 33)
               )
             )
-            .run
+            .exit
         )(fails(hasStatusCode(Status.INTERNAL)))
       },
       test("catches client cancellation") {
@@ -215,7 +215,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
                 Request(Scenario.DIE, in = 33)
               )
             )
-            .run
+            .exit
         )(fails(hasStatusCode(Status.INTERNAL)))
       },
       test("returns response on failures for infinite input") {
@@ -224,7 +224,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
             .clientStreaming(
               Stream.repeat(Request(Scenario.DIE, in = 33))
             )
-            .run
+            .exit
         )(fails(hasStatusCode(Status.INTERNAL)))
       } @@ timeout(5.seconds)
     )
@@ -283,7 +283,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           f1 <- bf.receive(1)
           _  <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
           _  <- bf.halfClose
-          j  <- bf.fiber.join.run
+          j  <- bf.fiber.join.exit
         } yield (f1, j))(
           tuple(
             equalTo(List(Response("1"))),
@@ -299,7 +299,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
                                  TestServiceClient.bidiStreaming[Any](
                                    Stream(
                                      Request(Scenario.OK, in = 17)
-                                   ) ++ Stream.fromEffect(testServiceImpl.get.awaitReceived).drain
+                                   ) ++ Stream.fromZIO(testServiceImpl.get.awaitReceived).drain
                                      ++ Stream.fail(Status.CANCELLED)
                                  )
                                ).fork
@@ -321,7 +321,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
               )
             )
             .runCollect
-            .run
+            .exit
         )(fails(hasStatusCode(Status.INTERNAL)))
       }
     )

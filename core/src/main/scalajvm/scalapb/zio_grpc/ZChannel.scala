@@ -13,13 +13,13 @@ class ZChannel[-R](
   def newCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       options: CallOptions
-  ): UIO[ZClientCall[R, Req, Res]] = ZIO.effectTotal(
+  ): UIO[ZClientCall[R, Req, Res]] = ZIO.succeed(
     interceptors.foldLeft[ZClientCall[R, Req, Res]](
       ZClientCall(channel.newCall(methodDescriptor, options))
     )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
   )
 
-  def shutdown(): Task[Unit] = ZIO.effect(channel.shutdown()).unit
+  def shutdown(): Task[Unit] = ZIO.attempt(channel.shutdown()).unit
 
   def provide(r: R): ZChannel[Any] =
     new ZChannel[Any](channel, interceptors.map(_.provide(r)))

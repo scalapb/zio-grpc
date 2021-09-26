@@ -38,14 +38,14 @@ package object server {
           case Scenario.DELAY     => ZIO.never
           case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
           case _                  => ZIO.fail(Status.UNKNOWN)
-        })).onExit(exit.succeed(_))
+        })).onExit(exit.succeed)
 
       def serverStreaming(
           request: Request
       ): ZStream[Any, Status, Response] =
         ZStream
-          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
-            ex.foldM(
+          .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
+            ex.foldZIO(
               failed =>
                 if (failed.interrupted)
                   exit.succeed(Exit.fail(Status.CANCELLED))
@@ -53,7 +53,7 @@ package object server {
               _ => exit.succeed(Exit.succeed(Response()))
             )
           }
-          .flatMap { _ =>
+          .zipRight {
             request.scenario match {
               case Scenario.OK          =>
                 ZStream(Response(out = "X1"), Response(out = "X2"))
@@ -79,7 +79,7 @@ package object server {
       ): ZIO[Any, Status, Response] =
         requestReceived.succeed(()) *>
           request
-            .foldM(0)((state, req) =>
+            .foldZIO(0)((state, req) =>
               req.scenario match {
                 case Scenario.OK        => ZIO.succeed(state + req.in)
                 case Scenario.DELAY     => delayReceived.succeed(()) *> ZIO.never
@@ -95,7 +95,7 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        ((ZStream.fromEffect(requestReceived.succeed(())).drain ++
+        ((ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>
@@ -104,7 +104,7 @@ package object server {
               case Scenario.DELAY     => Stream.never
               case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
-                // Stream.fromEffect(zio.console.putStrLn("*** Got error now!")).drain ++
+                // Stream.fromZIO(zio.console.printLine("*** Got error now!")).drain ++
                 Stream.fail(Status.INTERNAL.withDescription("Intentional error"))
               case _                  => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
             }
@@ -121,7 +121,7 @@ package object server {
 
     def make(
         clock: Clock,
-        console: Console,
+        console: Console
     ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
@@ -129,8 +129,8 @@ package object server {
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
-    def makeFromEnv: ZIO[Has[Clock] with Has[Console],Nothing,Service] =
-       ZIO.accessZIO[Has[Clock] with Has[Console]](env => make(env.get[Clock], env.get[Console]))
+    def makeFromEnv: ZIO[Has[Clock] with Has[Console], Nothing, Service] =
+      ZIO.accessZIO[Has[Clock] with Has[Console]](env => make(env.get[Clock], env.get[Console]))
 
     val live: ZLayer[Has[Clock] with Has[Console], Nothing, TestServiceImpl] =
       makeFromEnv.toLayer
@@ -138,12 +138,12 @@ package object server {
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.requires
 
     def awaitReceived: ZIO[TestServiceImpl, Nothing, Unit] =
-      ZIO.accessM(_.get.awaitReceived)
+      ZIO.accessZIO(_.get.awaitReceived)
 
     def awaitDelayReceived: ZIO[TestServiceImpl, Nothing, Unit] =
-      ZIO.accessM(_.get.awaitDelayReceived)
+      ZIO.accessZIO(_.get.awaitDelayReceived)
 
     def awaitExit: ZIO[TestServiceImpl, Nothing, Exit[Status, Response]] =
-      ZIO.accessM(_.get.awaitExit)
+      ZIO.accessZIO(_.get.awaitExit)
   }
 }

@@ -51,13 +51,13 @@ object HelloWorldClientMetadata extends zio.App {
         UserClient
           .sayHello(HelloRequest("World"))
           .provideSomeLayer[UserClient](ZLayer.succeed(User("user1")))
-      _ <- putStrLn(r1.message)
+      _ <- printLine(r1.message)
 
       // With provide:
       r2 <- UserClient.sayHello(HelloRequest("World")).provideSome {
         (ct: UserClient) => ct ++ Has(User("user1"))
       }
-      _ <- putStrLn(r2.message)
+      _ <- printLine(r2.message)
     } yield ()
 
   // Option 2: through a managed client
@@ -69,9 +69,9 @@ object HelloWorldClientMetadata extends zio.App {
     userClientManaged.use { client =>
       for {
         r1 <- client.sayHello(HelloRequest("World")).provide(Has(User("user1")))
-        _ <- putStrLn(r1.message)
+        _ <- printLine(r1.message)
         r2 <- client.sayHello(HelloRequest("World")).provide(Has(User("user2")))
-        _ <- putStrLn(r2.message)
+        _ <- printLine(r2.message)
       } yield ()
     }
 
@@ -85,7 +85,7 @@ object HelloWorldClientMetadata extends zio.App {
           client
             .withMetadataM(userToMetadata(User("hello")))
             .sayHello(HelloRequest("World"))
-        _ <- putStrLn(r1.message)
+        _ <- printLine(r1.message)
       } yield ()
     }
 

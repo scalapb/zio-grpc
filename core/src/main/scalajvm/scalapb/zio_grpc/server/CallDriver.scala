@@ -63,7 +63,7 @@ object CallDriver {
         call.request(2) *>
           completed.await *>
           call.sendHeaders(new Metadata) *>
-          request.await >>= writeResponse
+          request.await flatMap writeResponse
       ).onExit(ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore)
         .ignore
         .race(cancelled.await)

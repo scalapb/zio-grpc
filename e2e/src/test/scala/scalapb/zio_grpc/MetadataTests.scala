@@ -30,32 +30,32 @@ trait MetadataTests {
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(
       test("unary") {
-        assertM(unaryEffect.run)(permissionDenied)
+        assertM(unaryEffect.exit)(permissionDenied)
       },
       test("server streaming") {
-        assertM(serverStreamingEffect.run)(permissionDenied)
+        assertM(serverStreamingEffect.exit)(permissionDenied)
       },
       test("client streaming") {
-        assertM(clientStreamingEffect.run)(permissionDenied)
+        assertM(clientStreamingEffect.exit)(permissionDenied)
       },
       test("bidi streaming") {
-        assertM(bidiEffect.run)(permissionDenied)
+        assertM(bidiEffect.exit)(permissionDenied)
       }
     ).provideLayer(unauthClient)
 
   def unauthenticatedSuite =
     suite("authorized request fail for")(
       test("unary") {
-        assertM(unaryEffect.run)(unauthenticated)
+        assertM(unaryEffect.exit)(unauthenticated)
       },
       test("server streaming") {
-        assertM(serverStreamingEffect.run)(unauthenticated)
+        assertM(serverStreamingEffect.exit)(unauthenticated)
       },
       test("client streaming") {
-        assertM(clientStreamingEffect.run)(unauthenticated)
+        assertM(clientStreamingEffect.exit)(unauthenticated)
       },
       test("bidi streaming") {
-        assertM(bidiEffect.run)(unauthenticated)
+        assertM(bidiEffect.exit)(unauthenticated)
       }
     ).provideLayer(unsetClient)
 

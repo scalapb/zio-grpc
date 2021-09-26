@@ -13,6 +13,6 @@ trait CallOptionsMethods[Repr] {
   def withCallOptions(callOptions: CallOptions): Repr = mapCallOptionsM(_ => ZIO.succeed(callOptions))
   def withDeadline(deadline: Deadline): Repr          = mapCallOptionsM(co => ZIO.succeed(co.withDeadline(deadline)))
   def withTimeout(duration: Duration): Repr           =
-    mapCallOptionsM(co => ZIO.effectTotal(co.withDeadlineAfter(duration.toNanos, TimeUnit.NANOSECONDS)))
+    mapCallOptionsM(co => ZIO.succeed(co.withDeadlineAfter(duration.toNanos, TimeUnit.NANOSECONDS)))
   def withTimeoutMillis(millis: Long): Repr           = withTimeout(Duration.fromMillis(millis))
 }

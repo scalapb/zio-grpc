@@ -31,7 +31,7 @@ object ClientCallsSpec extends DefaultRunnableSpec {
                       Request(Request.Scenario.DELAY, in = 12)
                     )
                     .retry(Schedule.recurs(2))
-                    .run
+                    .exit
 
         } yield
         // There was a bug, when call.start was invoked multiple times, so this test was failing
