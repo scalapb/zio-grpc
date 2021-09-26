@@ -125,7 +125,7 @@ object Server {
       b1: ZBindableService[R1, S1]
   ): ZLayer[R0 with R1 with Has[S0] with Has[S1], Throwable, Server] =
     ZLayer.fromServicesManaged[S0, S1, R0 with R1, Throwable, Server.Service] { (s0: S0, s1: S1) =>
-      Server.zmanaged(builder, s0, s1)
+      ManagedServer.fromServices(builder, s0, s1)
     }
 
   @deprecated("Use ServerLayer.fromServices", "0.4.0")

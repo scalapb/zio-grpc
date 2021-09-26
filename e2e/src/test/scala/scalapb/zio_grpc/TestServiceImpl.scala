@@ -44,7 +44,7 @@ package object server {
           request: Request
       ): ZStream[Any, Status, Response] =
         ZStream
-          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
+          .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
             ex.foldZIO(
               failed =>
                 if (failed.isInterrupted || failed.isInterruptedOnly)
@@ -53,7 +53,7 @@ package object server {
               _ => exit.succeed(Exit.succeed(Response()))
             )
           }
-          .zipRight {
+          .flatMap { _ =>
             request.scenario match {
               case Scenario.OK          =>
                 println("ServerStreaming Scenario.OK")

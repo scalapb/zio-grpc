@@ -6,7 +6,7 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
-import zio.{durationInt, Fiber, Has, Queue, UIO, URIO, ZEnv, ZIO, ZLayer, ZQueue}
+import zio.{durationInt, Fiber, Has, Queue, URIO, ZIO, ZLayer, ZQueue}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -15,16 +15,6 @@ import zio.test._
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
-
-//  val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
-//    ZLayer.fromServiceManaged { (ss: Server.Service) =>
-//      ZManaged.fromZIO(ss.port).orDie flatMap { (port: Int) =>
-//        val ch = ZManagedChannel(
-//          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
-//        )
-//        TestServiceClient.managed(ch).orDie
-//      }
-//    }
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] = {
     for {
@@ -85,35 +75,17 @@ object TestServiceSpec extends DefaultRunnableSpec {
   def collectWithError[R, E, A](
       zs: ZStream[R, E, A]
   ): URIO[R, (List[A], Option[E])] =
-    zs
-      .tap(elem => UIO(println(elem)))
-      .tapError(err => UIO(println("err: " + err)))
-      .either
-      .fold((List.empty[A], Option.empty[E])) { (acc, msg) =>
-        println(s"acc: ${acc}")
-        println(s"msg: ${msg}")
-        (acc, msg) match {
-          case ((l, _), Left(e))  => (l, Some(e))
-          case ((l, e), Right(a)) => (a :: l, e)
-        }
+    zs.either
+      .fold((List.empty[A], Option.empty[E])) {
+        case ((l, _), Left(e))  => (l, Some(e))
+        case ((l, e), Right(a)) => (a :: l, e)
       }
-      .map { case (la, oe) =>
-        (la.reverse, oe)
-      }
-      .onExit(exit => UIO(println(s"stream exited: ${exit}")))
-      .onInterrupt(UIO(println("stream interrupted")))
-
-  //    zs.either
-//      .fold((List.empty[A], Option.empty[E])) {
-//        case ((l, _), Left(e))  => (l, Some(e))
-//        case ((l, e), Right(a)) => (a :: l, e)
-//      }
-//      .map { case (la, oe) => (la.reverse, oe) }
+      .map { case (la, oe) => (la.reverse, oe) }
 
   def tuple[A, B](
       assertionA: Assertion[A],
       assertionB: Assertion[B]
-  ): Assertion[(A, B)] =
+  ): Assertion[(A, B)]             =
     Assertion.assertionDirect("tuple")(
       Assertion.Render.param(assertionA),
       Assertion.Render.param(assertionB)
@@ -129,8 +101,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
             )
           )
         )(equalTo((List(Response("X1"), Response("X2")), None)))
-      }
-      /*
+      },
       test("returns correct error response") {
         assertM(
           collectWithError(
@@ -180,8 +151,6 @@ object TestServiceSpec extends DefaultRunnableSpec {
           tuple(isEmpty, isSome(hasStatusCode(Status.INTERNAL)))
         )
       }
-
-       */
     )
 
   def clientStreamingSuite =
