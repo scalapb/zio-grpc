@@ -329,9 +329,9 @@ object TestServiceSpec extends DefaultRunnableSpec {
 
   def spec =
     suite("TestServiceSpec")(
-//      unarySuite,
-      serverStreamingSuite
-//      clientStreamingSuite,
-//      bidiStreamingSuite
+      unarySuite,
+      serverStreamingSuite,
+      clientStreamingSuite,
+      bidiStreamingSuite
     ).provideCustomLayer(layers.orDie)
 }

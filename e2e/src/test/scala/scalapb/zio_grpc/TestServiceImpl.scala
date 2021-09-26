@@ -56,27 +56,21 @@ package object server {
           .flatMap { _ =>
             request.scenario match {
               case Scenario.OK          =>
-                println("ServerStreaming Scenario.OK")
                 ZStream(Response(out = "X1"), Response(out = "X2"))
               case Scenario.ERROR_NOW   =>
-                println("ServerStreaming Scenario.ERROR_NOW")
                 ZStream.fail(Status.INTERNAL.withDescription("FOO!"))
               case Scenario.ERROR_AFTER =>
-                println("ServerStreaming Scenario.ERROR_AFTER")
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
                     Status.INTERNAL.withDescription("FOO!")
                   )
               case Scenario.DELAY       =>
-                println("ServerStreaming Scenario.DELAY")
                 ZStream(
                   Response(out = "X1"),
                   Response(out = "X2")
                 ) ++ ZStream.never
               case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
-              case o                    =>
-                println(s"ServerStreaming ??? $o")
-                ZStream.fail(Status.UNKNOWN)
+              case _                    => ZStream.fail(Status.UNKNOWN)
             }
           }
 
