@@ -20,8 +20,12 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   implicitly[ZBindableService[Has[Clock], ZTestService[Has[Clock], Has[SafeMetadata]]]]
   implicitly[ZBindableService[Has[Clock], ZTestService[Has[Clock], Any]]]
 
-  implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[RequestContext]]]]
-  implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[SafeMetadata]]]]
+  implicitly[
+    ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[RequestContext]]]
+  ]
+  implicitly[
+    ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Has[SafeMetadata]]]
+  ]
   implicitly[ZBindableService[Has[Clock] with Has[Console], ZTestService[Has[Clock] with Has[Console], Any]]]
 
   class UnimpTestService[P, R, C] extends ZTestService[R, C] {
