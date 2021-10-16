@@ -21,6 +21,7 @@ import zio.ZLayer
 import zio.Has
 import zio.ZManaged
 import scalapb.zio_grpc.ServerLayer
+import zio.Console.printLine
 
 object GreeterService {
   type GreeterService = Has[Greeter]

@@ -25,6 +25,7 @@ import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.RequestContext
 import zio.URIO
 import scalapb.zio_grpc.ServerLayer
+import zio.Console.printLine
 
 object GreeterServiceWithMetadata {
   case class User(name: String)

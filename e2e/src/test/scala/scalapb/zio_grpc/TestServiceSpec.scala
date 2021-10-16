@@ -6,11 +6,14 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
+import zio.Console.printLine
 import zio.{durationInt, Fiber, Has, Queue, URIO, ZIO, ZLayer, ZQueue}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
+
+import scala.Console.in
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
@@ -334,4 +337,6 @@ object TestServiceSpec extends DefaultRunnableSpec {
       clientStreamingSuite,
       bidiStreamingSuite
     ).provideCustomLayer(layers.orDie)
+
+  printLine("aser")
 }

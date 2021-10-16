@@ -9,6 +9,7 @@ import zio.Has
 import io.grpc.Channel
 import zio.Layer
 import zio.ZLayer
+import zio.Console.printLine
 
 object ExampleClient extends zio.App {
   final def run(args: List[String]) =

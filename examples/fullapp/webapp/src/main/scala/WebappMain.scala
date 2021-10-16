@@ -9,6 +9,7 @@ import zio.console._
 import examples.greeter.Request
 import scalapb.zio_grpc.ZManagedChannel
 import io.grpc.Status
+import zio.Console.printLine
 
 object WebappMain extends App {
   val clientLayer = GreeterClient.live(
