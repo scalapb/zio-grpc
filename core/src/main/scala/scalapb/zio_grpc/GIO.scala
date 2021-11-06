@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import zio.{Task, ZIO}
+import zio.Task
 import io.grpc.Status
 
 object GIO {
