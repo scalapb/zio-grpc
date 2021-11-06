@@ -58,7 +58,7 @@ class ZioFilePrinter(
   val Channel             = "io.grpc.Channel"
   val CallOptions         = "io.grpc.CallOptions"
   val ClientCalls         = "scalapb.zio_grpc.client.ClientCalls"
-  val Duration            = "zio.duration.Duration"
+  val Duration            = "zio.Duration"
   val SafeMetadata        = "scalapb.zio_grpc.SafeMetadata"
   val Status              = "io.grpc.Status"
   val Deadline            = "io.grpc.Deadline"

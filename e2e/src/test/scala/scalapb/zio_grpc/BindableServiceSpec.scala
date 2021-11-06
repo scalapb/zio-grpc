@@ -72,5 +72,5 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   val z7 = ServiceList.addM(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
 
-  def spec = suite("BindableServiceSpec")()
+  def spec: ZSpec[scalapb.zio_grpc.BindableServiceSpec.Environment, Any] = suite("BindableServiceSpec")()
 }

@@ -13,8 +13,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-import scala.Console.in
-
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
