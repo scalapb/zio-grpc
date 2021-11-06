@@ -1,16 +1,10 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.Request
-import zio.ZIO
+import zio.{Cause, Clock, Console, Exit, FiberId, Has, Promise, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
-import zio.Clock
-import zio.Console
-import zio.Has
-import zio.Promise
-import zio.Exit
-import zio.ZLayer
 import zio.stream.{Stream, ZStream}
 
 package object server {

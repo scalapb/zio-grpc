@@ -27,7 +27,7 @@ class LoggingTransform[R] extends ZTransform[R, Status, R with Has[RequestContex
   def accessLog: URIO[Has[RequestContext], Unit] = ???
 
   override def effect[A](io: ZIO[R, Status, A]): ZIO[R with Has[RequestContext], Status, A] =
-    io.zipLeft(accessLog).tapCause(logCause)
+    io.zipLeft(accessLog).tapErrorCause(logCause)
 
   override def stream[A](io: ZStream[R, Status, A]): ZStream[R with Has[RequestContext], Status, A] =
     (io ++ ZStream.fromZIO(accessLog).drain).onError(logCause)

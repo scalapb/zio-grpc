@@ -140,8 +140,8 @@ val myAppLogicNeedsEnv = for {
 // a self-contained effect (IO) by providing the layer to it:
 val myAppLogic1 = myAppLogicNeedsEnv.provideCustomLayer(clientLayer)
 
-object LayeredApp extends zio.App {
-  def run(args: List[String]): URIO[ZEnv, ExitCode] = myAppLogic1.exitCode
+object LayeredApp extends zio.ZIOAppDefault {
+  def run: URIO[ZEnv, ExitCode] = myAppLogic1.exitCode
 }
 ```
 

@@ -72,5 +72,9 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   val z7 = ServiceList.addM(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
 
-  def spec: ZSpec[scalapb.zio_grpc.BindableServiceSpec.Environment, Any] = suite("BindableServiceSpec")()
+  def spec: ZSpec[ZTestEnv, scalapb.zio_grpc.BindableServiceSpec.Failure] = suite("BindableServiceSpec")(
+    test("empty - required to make the compiler happy") {
+      assertCompletes
+    }
+  )
 }

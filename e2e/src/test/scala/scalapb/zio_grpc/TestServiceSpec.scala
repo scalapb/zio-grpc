@@ -6,8 +6,9 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
+import zio.Cause.Interrupt
 import zio.Console.printLine
-import zio.{durationInt, Fiber, Has, Queue, URIO, ZIO, ZLayer, ZQueue}
+import zio.{durationInt, Fiber, FiberId, Has, Queue, URIO, ZIO, ZLayer, ZQueue}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -201,7 +202,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
           _     <- TestServiceImpl.awaitDelayReceived
           _     <- fiber.interrupt
           exit  <- TestServiceImpl.awaitExit
-        } yield exit.isInterrupted)(isTrue)
+        } yield exit)(isInterrupted)
       },
       test("returns response on failures") {
         assertM(
