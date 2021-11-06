@@ -30,7 +30,7 @@ import io.grpc.ManagedChannelBuilder
 import io.grpc.CallOptions
 import java.util.concurrent.TimeUnit
 import zio._
-import zio.console._
+import zio.Console._
 
 val channel = ZManagedChannel(
   ManagedChannelBuilder

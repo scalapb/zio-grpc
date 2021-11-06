@@ -5,7 +5,7 @@ import io.grpc.ServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 
 /** Quick-start server app. */
-trait ServerMain extends zio.ZIOApp {
+trait ServerMain extends zio.ZIOAppDefault {
   def port: Int = 9000
 
   def welcome: ZIO[ZEnv, Throwable, Unit] =
@@ -22,5 +22,5 @@ trait ServerMain extends zio.ZIOApp {
 
   val myAppLogic = welcome *> serverLive.build.useForever
 
-  def run(args: List[String]) = myAppLogic.exitCode
+  def run = myAppLogic.exitCode
 }

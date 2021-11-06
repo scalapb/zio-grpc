@@ -125,7 +125,7 @@ A single `ZManagedChannel` represent a virtual connection to a conceptual endpoi
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
 import zio._
-import zio.console._
+import zio.Console._
 
 // create layer:
 val clientLayer = ServiceNameClient.live(channel)
@@ -146,7 +146,7 @@ object LayeredApp extends zio.App {
 ```
 
 Here the application is broken to multiple value assignments so you can see the types.
-The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient with Console`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
+The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient with Has[Console]`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
 
 ### Using a Managed Client
 
