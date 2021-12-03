@@ -62,7 +62,6 @@ object CallDriver {
       run = (
         call.request(2) *>
           completed.await *>
-          call.sendHeaders(new Metadata) *>
           request.await >>= writeResponse
       ).onExit(ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore)
         .ignore
