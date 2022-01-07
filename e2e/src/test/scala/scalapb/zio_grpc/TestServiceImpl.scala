@@ -1,17 +1,15 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.Request
-import zio.ZIO
+import zio.{Exit, Has, Promise, UIO, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.clock.Clock
 import zio.console.Console
-import zio.Has
-import zio.Promise
-import zio.Exit
-import zio.ZLayer
 import zio.stream.{Stream, ZStream}
+
+import java.util.concurrent.atomic.AtomicInteger
 
 package object server {
 
@@ -27,24 +25,28 @@ package object server {
         exit: zio.Promise[Nothing, Exit[Status, Response]]
     )(clock: Clock.Service, console: Console.Service)
         extends testservice.ZioTestservice.TestService {
+      val rpcRunsCounter: AtomicInteger = new AtomicInteger(0)
+
       def unary(request: Request): ZIO[Any, Status, Response] =
-        (requestReceived.succeed(()) *> (request.scenario match {
-          case Scenario.OK        =>
+        (requestReceived.succeed(()) *> (UIO(rpcRunsCounter.incrementAndGet())) *> (request.scenario match {
+          case Scenario.OK          =>
             ZIO.succeed(
               Response(out = "Res" + request.in.toString)
             )
-          case Scenario.ERROR_NOW =>
+          case Scenario.ERROR_NOW   =>
             ZIO.fail(Status.INTERNAL.withDescription("FOO!"))
-          case Scenario.DELAY     => ZIO.never
-          case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
-          case _                  => ZIO.fail(Status.UNKNOWN)
+          case Scenario.DELAY       => ZIO.never
+          case Scenario.DIE         => ZIO.die(new RuntimeException("FOO"))
+          case Scenario.UNAVAILABLE =>
+            ZIO.fail(Status.UNAVAILABLE.withDescription(rpcRunsCounter.get().toString))
+          case _                    => ZIO.fail(Status.UNKNOWN)
         })).onExit(exit.succeed(_))
 
       def serverStreaming(
           request: Request
       ): ZStream[Any, Status, Response] =
         ZStream
-          .bracketExit(requestReceived.succeed(())) { (_, ex) =>
+          .bracketExit(requestReceived.succeed(()) *> UIO(rpcRunsCounter.incrementAndGet())) { (_, ex) =>
             ex.foldM(
               failed =>
                 if (failed.interrupted)
@@ -77,7 +79,7 @@ package object server {
       def clientStreaming(
           request: Stream[Status, Request]
       ): ZIO[Any, Status, Response] =
-        requestReceived.succeed(()) *>
+        requestReceived.succeed(()) *> UIO(rpcRunsCounter.incrementAndGet()) *>
           request
             .foldM(0)((state, req) =>
               req.scenario match {
@@ -95,7 +97,7 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        ((ZStream.fromEffect(requestReceived.succeed(())).drain ++
+        ((ZStream.fromEffect(requestReceived.succeed(()) *> UIO(rpcRunsCounter.incrementAndGet())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>

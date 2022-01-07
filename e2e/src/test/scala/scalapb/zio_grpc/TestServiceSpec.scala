@@ -1,5 +1,7 @@
 package scalapb.zio_grpc
 
+import com.google.gson.Gson
+import com.google.gson.stream.JsonReader
 import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status}
 import scalapb.zio_grpc.TestUtils._
 import scalapb.zio_grpc.server.TestServiceImpl
@@ -21,7 +23,15 @@ object TestServiceSpec extends DefaultRunnableSpec {
     ZLayer.fromServiceManaged { (ss: Server.Service) =>
       ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
         val ch = ZManagedChannel(
-          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
+          ManagedChannelBuilder
+            .forAddress("localhost", port)
+            .defaultServiceConfig(
+              new Gson().fromJson(
+                new JsonReader(scala.io.Source.fromResource("service_config.json").reader()),
+                classOf[java.util.Map[String, Any]]
+              )
+            )
+            .usePlaintext()
         )
         TestServiceClient.managed(ch).orDie
       }
@@ -71,6 +81,15 @@ object TestServiceSpec extends DefaultRunnableSpec {
           r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).run
           exit <- TestServiceImpl.awaitExit
         } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.interrupted)(isTrue)
+      },
+      testM("let clients retry") {
+        assertM(
+          TestServiceClient
+            .unary(Request(Request.Scenario.UNAVAILABLE, in = 12))
+            .run
+        )(
+          fails(hasStatusCode(Status.UNAVAILABLE) && hasDescription("5"))
+        )
       }
     )
 

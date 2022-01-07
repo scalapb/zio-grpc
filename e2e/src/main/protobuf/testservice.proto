@@ -9,6 +9,7 @@ message Request {
         ERROR_AFTER = 2; // for server streaming, error after two responses
         DELAY = 3; // do not return a response. for testing cancellations
         DIE = 4; // fail
+        UNAVAILABLE = 5; // fail with UNAVAILABLE, to test client retries
     }
     Scenario scenario = 1;
     int32 in = 2;

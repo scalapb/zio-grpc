@@ -61,7 +61,11 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput(
       runtime,
-      (req, requestContext, call) => impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req)
+          .provide(Has(requestContext))
+          .zipLeft(call.sendHeaders(new Metadata))
+          .flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
@@ -71,7 +75,7 @@ object ZServerCallHandler {
     unaryInput(
       runtime,
       (req: Req, metadata: RequestContext, call: ZServerCall[Res]) =>
-        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+        call.sendHeaders(new Metadata) *> impl(req).provide(Has(metadata)).foreach(call.sendMessage)
     )
 
   def clientStreamingCallHandler[Req, Res](
