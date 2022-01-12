@@ -18,7 +18,7 @@ object HelloWorldClient extends zio.App {
   def myAppLogic =
     for {
       r <- GreeterClient.sayHello(HelloRequest("World"))
-      _ <- putStrLn(r.message)
+      _ <- printLine(r.message)
     } yield ()
 
   final def run(args: List[String]) =

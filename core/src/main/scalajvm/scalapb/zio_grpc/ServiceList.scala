@@ -1,7 +1,9 @@
 package scalapb.zio_grpc
 
-import zio.{Has, Tag, ZIO, ZLayer, ZManaged}
+import zio.{Tag, ZIO, ZLayer, ZManaged}
 import io.grpc.ServerServiceDefinition
+import zio.IsNotIntersection
+import zio.ZEnvironment
 
 /** Represents a managed list of services to be added to the a server.
   *
@@ -17,29 +19,26 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZManaged[RR, Throwa
   def addM[R1 <: RR, R2 <: RR, S1](
       s1: ZIO[R2, Throwable, S1]
   )(implicit b: ZBindableService[R1, S1]): ServiceList[R1 with R2] =
-    addManaged[R1, R2, S1](s1.toManaged_)
+    addManaged[R1, R2, S1](s1.toManaged)
 
   def addManaged[R1 <: RR, R2 <: RR, S1](s1: ZManaged[R2, Throwable, S1])(implicit
       bs: ZBindableService[R1, S1]
   ): ServiceList[RR with R1 with R2] =
     new ServiceList(for {
       l  <- bindAll
-      sd <- s1.mapM(bs.bindService(_))
+      sd <- s1.mapZIO(bs.bindService(_))
     } yield sd :: l)
 
   /** Adds a dependency on a service that will be provided later from the environment or a Layer * */
-  def access[B: Tag](implicit bs: ZBindableService[Any, B]): ServiceList[Has[B] with RR] =
+  def access[B: IsNotIntersection: Tag](implicit bs: ZBindableService[Any, B]): ServiceList[B with RR] =
     accessEnv[Any, B]
 
-  def accessEnv[R, B: Tag](implicit bs: ZBindableService[R, B]): ServiceList[R with Has[B] with RR] =
-    new ServiceList(ZManaged.accessManaged[R with Has[B] with RR] { r =>
-      bindAll.mapM(ll => bs.bindService(r.get[B]).map(_ :: ll))
+  def accessEnv[R, B: IsNotIntersection: Tag](implicit bs: ZBindableService[R, B]): ServiceList[R with B with RR] =
+    new ServiceList(ZManaged.environmentWithManaged[R with B with RR] { r =>
+      bindAll.mapZIO(ll => bs.bindService(r.get[B]).map(_ :: ll))
     })
 
-  def provide(r: RR): ServiceList[Any] = new ServiceList[Any](bindAll.provide(r))
-
-  def provideLayer[R1 <: RR](layer: ZLayer[Any, Throwable, R1]): ServiceList[Any] =
-    new ServiceList[Any](bindAll.provideLayer(layer))
+  def provideEnvironment(r: => ZEnvironment[RR]): ServiceList[Any] = new ServiceList[Any](bindAll.provideEnvironment(r))
 }
 
 object ServiceList extends ServiceList(ZManaged.succeed(Nil)) {

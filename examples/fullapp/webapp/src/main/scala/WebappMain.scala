@@ -9,6 +9,7 @@ import zio.console._
 import examples.greeter.Request
 import scalapb.zio_grpc.ZManagedChannel
 import io.grpc.Status
+import zio.Console.{print, printLine}
 
 object WebappMain extends App {
   val clientLayer = GreeterClient.live(
@@ -16,19 +17,19 @@ object WebappMain extends App {
   )
 
   val appLogic =
-    putStrLn("Hello!") *>
+    printLine("Hello!") *>
       GreeterClient
         .greet(Request("Foo!"))
-        .foldM(s => putStrLn(s"error: $s"), s => putStrLn(s"success: $s")) *>
+        .foldM(s => printLine(s"error: $s"), s => print(s"success: $s")) *>
       (GreeterClient
         .points(Request("Foo!"))
-        .foreach(s => putStrLn(s"success: $s").orDie)
+        .foreach(s => printLine(s"success: $s").orDie)
         .catchAll { (s: Status) =>
-          putStrLn(s"Caught: $s")
+          printLine(s"Caught: $s")
         })
 
   def run(args: List[String]) =
-    (appLogic.provideLayer(Console.live ++ clientLayer).ignore *> putStrLn(
+    (appLogic.provideLayer(Console.live ++ clientLayer).ignore *> printLine(
       "Done"
     )).exitCode
 }

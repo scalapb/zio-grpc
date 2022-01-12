@@ -24,7 +24,7 @@ package object userdatabase {
 
     // accessor
     def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-      ZIO.accessM[UserDatabase](_.get.fetchUser(name))
+      ZIO.accessZIO[UserDatabase](_.get.fetchUser(name))
 
     val live = zio.ZLayer.succeed(new Service {
       def fetchUser(name: String): IO[Status, User] =

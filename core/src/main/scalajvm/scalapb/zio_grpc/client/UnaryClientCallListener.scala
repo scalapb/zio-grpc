@@ -29,27 +29,23 @@ class UnaryClientCallListener[Res](
 
   override def onHeaders(headers: Metadata): Unit =
     runtime.unsafeRun(
-      state
-        .update({
-          case Initial                => HeadersReceived(headers)
-          case HeadersReceived(_)     => Failure("onHeaders already called")
-          case ResponseReceived(_, _) => Failure("onHeaders already called")
-          case f @ Failure(_)         => f
-        })
-        .unit
+      state.update {
+        case Initial                => HeadersReceived(headers)
+        case HeadersReceived(_)     => Failure("onHeaders already called")
+        case ResponseReceived(_, _) => Failure("onHeaders already called")
+        case f @ Failure(_)         => f
+      }.unit
     )
 
   override def onMessage(message: Res): Unit =
     runtime.unsafeRun(
-      state
-        .update({
-          case Initial                  => Failure("onMessage called before onHeaders")
-          case HeadersReceived(headers) => ResponseReceived(headers, message)
-          case ResponseReceived(_, _)   =>
-            Failure("onMessage called more than once for unary call")
-          case f @ Failure(_)           => f
-        })
-        .unit
+      state.update {
+        case Initial                  => Failure("onMessage called before onHeaders")
+        case HeadersReceived(headers) => ResponseReceived(headers, message)
+        case ResponseReceived(_, _)   =>
+          Failure("onMessage called more than once for unary call")
+        case f @ Failure(_)           => f
+      }.unit
     )
 
   override def onClose(status: Status, trailers: Metadata): Unit =

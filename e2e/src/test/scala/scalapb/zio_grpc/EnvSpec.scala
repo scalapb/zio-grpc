@@ -9,25 +9,25 @@ import io.grpc.ServerBuilder
 import io.grpc.Metadata
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Status
-import zio.console.Console
+import zio.Console
 import zio.stream.ZStream
-import zio.clock.Clock
+import zio.Clock
 
 object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   case class User(name: String)
 
-  val getUser = ZIO.access[Has[User]](_.get)
+  val getUser = ZIO.environmentWith[User](_.get)
 
-  object ServiceWithConsole extends ZTestService[Console with Clock, Has[User]] {
-    def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
+  object ServiceWithConsole extends ZTestService[Console with Clock, User] {
+    def unary(request: Request): ZIO[Console with User, Status, Response] =
       for {
         user <- getUser
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[Console with Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
+    ): ZStream[Console with User, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
         ZStream(
           Response(u.get.name),
           Response(u.get.name)
@@ -36,12 +36,12 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
     def clientStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))
+    ): ZIO[User, Status, Response] = getUser.map(n => Response(n.name))
 
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZStream[Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
+    ): ZStream[User, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
         ZStream(
           Response(u.get.name)
         )
@@ -63,14 +63,14 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
   val serviceLayer = ServiceWithConsole.transformContextM(parseUser(_)).toLayer
 
-  val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Throwable, Server] =
-    ServerLayer.access[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
+  val serverLayer: ZLayer[ZTestService[Any, RequestContext], Throwable, Server] =
+    ServerLayer.access[ZTestService[Any, RequestContext]](ServerBuilder.forPort(0))
 
   override def clientLayer(
       userName: Option[String]
-  ): ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.fromServiceManaged { (ss: Server.Service) =>
-      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
+  ): URLayer[Server, TestServiceClient] =
+    ZManaged.environmentWithManaged { (ss: ZEnvironment[Server.Service]) =>
+      ZManaged.fromZIO(ss.get[Server.Service].port).orDie flatMap { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(
@@ -81,7 +81,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
           .managed(ch)
           .orDie
       }
-    }
+    }.toLayer
 
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 

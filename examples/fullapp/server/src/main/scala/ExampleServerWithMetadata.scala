@@ -2,12 +2,11 @@ package examples
 
 import examples.greeter.ZioGreeter.{Greeter, ZGreeter}
 import examples.greeter._
-import zio.clock
-import zio.clock.Clock
-import zio.console.Console
+import zio.Clock
+import zio.Console
 import zio.{App, Schedule, IO, ZIO}
 import zio.console
-import zio.duration._
+import zio.Duration._
 import zio.stream.Stream
 import io.grpc.Metadata
 import io.grpc.ServerBuilder
@@ -25,6 +24,7 @@ import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.RequestContext
 import zio.URIO
 import scalapb.zio_grpc.ServerLayer
+import zio.Console.{print, printLine}
 
 object GreeterServiceWithMetadata {
   case class User(name: String)
@@ -60,10 +60,10 @@ object GreeterServiceWithMetadata {
 }
 
 object ExampleServerWithMetadata extends App {
-  def serverWait: ZIO[Console with Clock, Throwable, Unit] =
+  def serverWait: ZIO[Has[Console] with Has[Clock], Throwable, Unit] =
     for {
-      _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
-      _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
+      _ <- printLine("Server is running. Press Ctrl-C to stop.")
+      _ <- (print(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
   def serverLive(port: Int): Layer[Throwable, Server] =

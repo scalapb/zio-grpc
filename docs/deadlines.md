@@ -30,7 +30,7 @@ import io.grpc.ManagedChannelBuilder
 import io.grpc.CallOptions
 import java.util.concurrent.TimeUnit
 import zio._
-import zio.console._
+import zio.Console._
 
 val channel = ZManagedChannel(
   ManagedChannelBuilder
@@ -41,14 +41,14 @@ val channel = ZManagedChannel(
 // create layer:
 val clientLayer = ServiceNameClient.live(
   channel,
-  options=ZIO.effectTotal(
+  options=ZIO.succeed(
     CallOptions.DEFAULT.withDeadlineAfter(3000, TimeUnit.MILLISECONDS)),
   headers=SafeMetadata.make)
 
 val myAppLogicNeedsEnv = for {
   // use layer through accessor methods:
   res <- ServiceNameClient.unary(Request())
-  _ <- putStrLn(res.toString)
+  _ <- printLine(res.toString)
 } yield ()
 ```
 
