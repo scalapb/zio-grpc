@@ -105,7 +105,6 @@ lazy val e2e =
     .jvmPlatform(ScalaVersions)
     .settings(stdSettings)
     .settings(
-      crossScalaVersions   := Seq(Scala212, Scala213),
       publish / skip       := true,
       libraryDependencies ++= Seq(
         "dev.zio"              %% "zio-test"             % Version.zio % "test",
@@ -129,7 +128,6 @@ lazy val docs = project
   .in(file("zio-grpc-docs"))
   .dependsOn(core.jvm(Scala213))
   .settings(
-    crossScalaVersions                                 := Seq(Scala213),
     scalaVersion                                       := Scala213,
     publish / skip                                     := true,
     moduleName                                         := "zio-grpc-docs",
