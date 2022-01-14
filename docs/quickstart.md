@@ -21,7 +21,7 @@ The example code is part of the [zio-grpc](https://github.com/scalapb/zio-grpc) 
 
 2. Change to the examples directory:
    ```bash
-   cd zio-grpc/examples
+   cd zio-grpc/examples/helloworld
    ```
 
 ## Run the example

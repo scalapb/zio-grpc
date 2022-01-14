@@ -9,7 +9,7 @@ depends on an environment of type `R` and a context of type `Context`.
 
 `Context` and `R` can be of any Scala type, however when they are not `Any` they have to be wrapped in an `Has[]`. This allows ZIO gRPC to combine two values (`Context with R`) when providing the values at effect execution time.
 
-For example, we can define a service for which the effects depend on `Console`, and for each request we except to get context of type `User`. Note that `Console` is a type-alias to `Has[Console.Service]` so there is no need wrap it once more in an `Has`.
+For example, we can define a service for which the effects depend on `Console`, and for each request we expect to get a context of type `User`. Note that `Console` is a type-alias to `Has[Console.Service]` so there is no need wrap it once more in an `Has`.
 
 ```scala mdoc
 import zio.{Has, ZIO}
@@ -25,7 +25,7 @@ object MyService extends ZSimpleService[Console, Has[User]] {
   def sayHello(req: Request): ZIO[Console with Has[User], Status, Response] =
     for {
       user <- ZIO.service[User]
-      _ <- putStrLn("I am here!")
+      _ <- putStrLn("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```

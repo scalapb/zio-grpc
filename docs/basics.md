@@ -30,7 +30,7 @@ With gRPC we can define our service once in a `.proto` file and generate clients
 ## Example code and setup
 
 The example code for our tutorial is in
-[scalapb/zio-grpc/examples/src/main/scala/zio_grpc/examples/routeguide](https://github.com/scalapb/zio-grpc/tree/master/examples/src/main/scala/zio_grpc/examples/routeguide).
+[scalapb/zio-grpc/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide](https://github.com/scalapb/zio-grpc/tree/master/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide).
 To download the example, clone the latest release in `zio-grpc` repository by
 running the following command:
 
@@ -41,7 +41,7 @@ $ git clone -b v@zioGrpcVersion@ https://github.com/scalapb/zio-grpc.git
 Then change your current directory to `zio-grpc/examples`:
 
 ```bash
-$ cd zio-grpc/examples
+$ cd zio-grpc/examples/routeguide
 ```
 
 ## Defining the service
@@ -202,7 +202,7 @@ S.example("routeguide/RouteGuideServer.scala", "findFeature")
 ```
 
 The `getFeature()` method takes the request (of type `Point`), and returns a ZIO
-effect that represents the work of computing the response. The value that is returned represents a
+effect that represents the work of computing the response. The value that is returned represents
 a suspended effect: nothing actually happens until ZIO runtime
 ultimately runs the effect. The type of the effect is `ZIO[ZEnv, Status, Feature]` which means
 it is a computation:
@@ -298,7 +298,7 @@ ZIO gRPC provides a base trait to quickly set up gRPC services with zero boilerp
 
 In this section, we'll look at creating a client for our `RouteGuide`
 service. You can see our complete example client code in
-[RouteGuideClientApp.java](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideClientApp.java).
+[RouteGuideClientApp.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideClientApp.scala).
 
 ### Instantiating a client
 
@@ -365,7 +365,7 @@ S.example("routeguide/RouteGuideClientApp.scala", "listFeatures")
 
 Now `listFeatures` returns a `ZStream`. We use `zipWithIndex` to get a stream
 where each of the original elements are accompanied with a zero-based index. We turn
-this stream into a single effect that processes the entire streasm by calling `foreach`
+this stream into a single effect that processes the entire stream by calling `foreach`
  and providing it with a function that maps each element into an effect. In this case,
  the effect prints the feature.
 

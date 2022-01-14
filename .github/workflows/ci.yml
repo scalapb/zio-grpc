@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        scala: [2.12.11, 2.13.3]
+        scala: [2_12, 2_13]
     runs-on: ubuntu-latest
     
     steps:
@@ -32,8 +32,17 @@ jobs:
 
     - name: Compile and test
       run: |
-        sbt ++${{matrix.scala}} coreJVM/test e2e/test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test \
+            coreJS${{matrix.scala}}/test
 
     - name: Examples
       run: |
-        cd examples && sbt compile && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
+        cd examples
+        for d in */ ; do cd "$d" && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck test && cd ../ ; done
+
+  # Single final job for mergify.
+  ci-passed:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - run: ':'

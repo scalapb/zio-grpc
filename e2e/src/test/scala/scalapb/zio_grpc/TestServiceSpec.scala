@@ -1,31 +1,25 @@
 package scalapb.zio_grpc
 
-import zio.test._
-import zio.test.Assertion._
-import zio.Fiber
-import zio.ZIO
-import zio.Queue
-import io.grpc.ServerBuilder
-import io.grpc.ManagedChannelBuilder
-import zio.ZManaged
-import scalapb.zio_grpc.testservice._
-import io.grpc.Status
+import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status}
+import scalapb.zio_grpc.TestUtils._
 import scalapb.zio_grpc.server.TestServiceImpl
-import zio.ZLayer
-import zio.stream.{Stream, ZStream}
-import zio.URIO
 import scalapb.zio_grpc.testservice.Request.Scenario
-import zio.ZQueue
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
-import TestUtils._
+import scalapb.zio_grpc.testservice._
+import zio.duration._
+import zio.stream.{Stream, ZStream}
+import zio.test.Assertion._
+import zio.test.TestAspect.timeout
+import zio.test._
+import zio.{Fiber, Queue, URIO, ZIO, ZLayer, ZManaged, ZQueue}
 
 object TestServiceSpec extends DefaultRunnableSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.fromServiceManaged { ss: Server.Service =>
-      ZManaged.fromEffect(ss.port).orDie >>= { port: Int =>
+    ZLayer.fromServiceManaged { (ss: Server.Service) =>
+      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         )
@@ -37,6 +31,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
     suite("unary request")(
       testM("returns successful response") {
         assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)))(
+          equalTo(Response("Res12"))
+        )
+      },
+      testM("returns successful response when the program is used repeatedly") {
+        // Must not capture an instance of ZClientCall, so call.start() should not be invoked twice
+        assertM(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)).repeatN(1))(
           equalTo(Response("Res12"))
         )
       },
@@ -65,6 +65,12 @@ object TestServiceSpec extends DefaultRunnableSpec {
         )(
           fails(hasStatusCode(Status.INTERNAL))
         )
+      },
+      testM("setting deadline interrupts the servers") {
+        for {
+          r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).run
+          exit <- TestServiceImpl.awaitExit
+        } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.interrupted)(isTrue)
       }
     )
 
@@ -72,7 +78,7 @@ object TestServiceSpec extends DefaultRunnableSpec {
       zs: ZStream[R, E, A]
   ): URIO[R, (List[A], Option[E])] =
     zs.either
-      .fold[Either[E, A], (List[A], Option[E])]((Nil, None)) {
+      .fold((List.empty[A], Option.empty[E])) {
         case ((l, _), Left(e))  => (l, Some(e))
         case ((l, e), Right(a)) => (a :: l, e)
       }
@@ -210,7 +216,16 @@ object TestServiceSpec extends DefaultRunnableSpec {
             )
             .run
         )(fails(hasStatusCode(Status.INTERNAL)))
-      }
+      },
+      testM("returns response on failures for infinite input") {
+        assertM(
+          TestServiceClient
+            .clientStreaming(
+              Stream.repeat(Request(Scenario.DIE, in = 33))
+            )
+            .run
+        )(fails(hasStatusCode(Status.INTERNAL)))
+      } @@ timeout(5.seconds)
     )
 
   case class BidiFixture[Req, Res](
