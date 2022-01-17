@@ -1,12 +1,12 @@
 import Settings.stdSettings
 
-val Scala3 = "3.0.1"
+val Scala3 = "3.1.0"
 
-val Scala213 = "2.13.6"
+val Scala213 = "2.13.7"
 
 val Scala212 = "2.12.15"
 
-val ScalaVersions = Seq(Scala212, Scala213)
+val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
 
@@ -17,11 +17,11 @@ sonatypeProfileName := "com.thesamet"
 inThisBuild(
   List(
     organization := "com.thesamet.scalapb.zio-grpc",
-    homepage := Some(url("https://github.com/scalapb/zio-grpc")),
-    licenses := List(
+    homepage     := Some(url("https://github.com/scalapb/zio-grpc")),
+    licenses     := List(
       "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
     ),
-    developers := List(
+    developers   := List(
       Developer(
         "thesamet",
         "Nadav Samet",
@@ -73,9 +73,9 @@ lazy val codeGen = projectMatrix
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings)
   .settings(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "scalapb.zio_grpc",
-    name := "zio-grpc-codegen",
+    name             := "zio-grpc-codegen",
     libraryDependencies ++= Seq(
       "com.thesamet.scalapb" %% "compilerplugin" % scalapb.compiler.Version.scalapbVersion
     )
@@ -86,8 +86,8 @@ lazy val codeGenJVM212 = codeGen.jvm(Scala212)
 
 lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
   .settings(
-    Compile / mainClass := Some("scalapb.zio_grpc.ZioCodeGenerator"),
-    scalaVersion := Scala212,
+    Compile / mainClass              := Some("scalapb.zio_grpc.ZioCodeGenerator"),
+    scalaVersion                     := Scala212,
     assembly / assemblyMergeStrategy := {
       case PathList("scala", "annotation", "nowarn.class" | "nowarn$.class") =>
         MergeStrategy.first
@@ -105,8 +105,7 @@ lazy val e2e =
     .jvmPlatform(ScalaVersions)
     .settings(stdSettings)
     .settings(
-      crossScalaVersions := Seq(Scala212, Scala213),
-      publish / skip := true,
+      publish / skip       := true,
       libraryDependencies ++= Seq(
         "dev.zio"              %% "zio-test"             % Version.zio % "test",
         "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test",
@@ -119,8 +118,8 @@ lazy val e2e =
           "scalapb.zio_grpc.ZioCodeGenerator$"
         )                        -> (Compile / sourceManaged).value
       ),
-      PB.protocVersion := "3.13.0",
-      codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value,
+      PB.protocVersion     := "3.13.0",
+      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
     )
 
@@ -129,13 +128,12 @@ lazy val docs = project
   .in(file("zio-grpc-docs"))
   .dependsOn(core.jvm(Scala213))
   .settings(
-    crossScalaVersions := Seq(Scala213),
-    scalaVersion := Scala213,
-    publish / skip := true,
-    moduleName := "zio-grpc-docs",
-    mdocVariables := Map(
+    scalaVersion                                       := Scala213,
+    publish / skip                                     := true,
+    moduleName                                         := "zio-grpc-docs",
+    mdocVariables                                      := Map(
       "sbtProtocVersion" -> "1.0.2",
-      "grpcVersion"      -> "1.41.0",
+      "grpcVersion"      -> "1.41.2",
       "zioGrpcVersion"   -> "0.5.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
@@ -144,12 +142,12 @@ lazy val docs = project
       "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
     ),
     libraryDependencySchemes += "com.thesamet.scalapb" %% "scalapb-runtime" % "always",
-    Compile / PB.targets := Seq(
+    Compile / PB.targets                               := Seq(
       scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
       genModule(
         "scalapb.zio_grpc.ZioCodeGenerator$"
       )                        -> (Compile / sourceManaged).value
     ),
-    codeGenClasspath := (codeGenJVM212 / Compile / fullClasspath).value
+    codeGenClasspath                                   := (codeGenJVM212 / Compile / fullClasspath).value
   )
   .enablePlugins(MdocPlugin, DocusaurusPlugin)

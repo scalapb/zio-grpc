@@ -2,30 +2,18 @@ package examples
 
 import examples.greeter.ZioGreeter.Greeter
 import examples.greeter._
-import zio.clock
-import zio.clock.Clock
-import zio.console.Console
-import zio.{App, Schedule, IO, ZIO}
-import zio.console
-import zio.duration._
+import zio.Duration._
 import zio.stream.Stream
 import io.grpc.ServerBuilder
-import zio.blocking._
-import zio.console._
 import io.grpc.Status
-import zio.Managed
+import zio._
 import zio.stream.ZSink
 import scalapb.zio_grpc.Server
-import zio.Layer
-import zio.ZLayer
-import zio.Has
-import zio.ZManaged
 import scalapb.zio_grpc.ServerLayer
+import zio.Console.{print, printLine}
 
 object GreeterService {
-  type GreeterService = Has[Greeter]
-
-  class LiveService(clock: Clock.Service) extends Greeter {
+  class LiveService(clock: Clock) extends Greeter {
     def greet(req: Request): IO[Status, Response] =
       clock.sleep(300.millis) *> zio.IO.succeed(
         Response(resp = "hello " + req.name)
@@ -42,7 +30,7 @@ object GreeterService {
           Status.INTERNAL
             .withDescription("There was an error!")
             .withCause(new RuntimeException)
-        )).provide(Has(clock))
+        )).provideEnvironment(ZEnvironment(clock))
 
     def bidi(
         request: Stream[Status, Point]
@@ -51,15 +39,15 @@ object GreeterService {
     }
   }
 
-  val live: ZLayer[Clock, Nothing, GreeterService] =
-    ZLayer.fromService(new LiveService(_))
+  val live: ZLayer[Clock, Nothing, Greeter] =
+    (new LiveService(_)).toLayer
 }
 
-object ExampleServer extends App {
+object ExampleServer extends ZIOAppDefault {
   def serverWait: ZIO[Console with Clock, Throwable, Unit] =
     for {
-      _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
-      _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
+      _ <- printLine("Server is running. Press Ctrl-C to stop.")
+      _ <- (print(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
   def serverLive(port: Int): Layer[Throwable, Server] =
@@ -67,7 +55,7 @@ object ExampleServer extends App {
       ServerBuilder.forPort(port)
     )
 
-  def run(args: List[String]) = myAppLogic.exitCode
+  def run = myAppLogic.exitCode
 
   val myAppLogic =
     serverWait.provideLayer(serverLive(9090) ++ Console.live ++ Clock.live)

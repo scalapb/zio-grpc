@@ -109,9 +109,9 @@ Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and u
 def myAppLogic =
   for {
     r <- GreeterClient.sayHello(HelloRequest("World"))
-    _ <- putStrLn(r.message)
+    _ <- printLine(r.message)
     s <- GreeterClient.sayHelloAgain(HelloRequest("World"))
-    _ <- putStrLn(s.message)
+    _ <- printLine(s.message)
   } yield ()
 ```
 

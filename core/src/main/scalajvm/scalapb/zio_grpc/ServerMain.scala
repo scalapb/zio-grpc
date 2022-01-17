@@ -1,15 +1,15 @@
 package scalapb.zio_grpc
 import zio._
-import zio.console._
+import zio.Console._
 import io.grpc.ServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 
 /** Quick-start server app. */
-trait ServerMain extends zio.App {
+trait ServerMain extends zio.ZIOAppDefault {
   def port: Int = 9000
 
   def welcome: ZIO[ZEnv, Throwable, Unit] =
-    putStrLn("Server is running. Press Ctrl-C to stop.")
+    printLine("Server is running. Press Ctrl-C to stop.")
 
   // Override this to add services. For example
   // def serviceList =
@@ -22,5 +22,5 @@ trait ServerMain extends zio.App {
 
   val myAppLogic = welcome *> serverLive.build.useForever
 
-  def run(args: List[String]) = myAppLogic.exitCode
+  def run = myAppLogic.exitCode
 }
