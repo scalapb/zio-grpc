@@ -3,30 +3,25 @@ package zio_grpc.examples.helloworld
 import io.grpc.Status
 import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
-import zio.{ZEnv, ZIO}
-import zio.console._
+import zio._
+import zio.Console._
 
 import io.grpc.examples.helloworld.helloworld.ZioHelloworld.RGreeter
 import io.grpc.examples.helloworld.helloworld.{HelloReply, HelloRequest}
 import zio_grpc.examples.helloworld.userdatabase.UserDatabase
 import scalapb.zio_grpc.ServerLayer
-import zio.ExitCode
-import zio.Has
-import zio.IO
 
 package object userdatabase {
-  type UserDatabase = Has[UserDatabase.Service]
+  trait UserDatabase {
+    def fetchUser(name: String): IO[Status, User]
+  }
 
   object UserDatabase {
-    trait Service {
-      def fetchUser(name: String): IO[Status, User]
-    }
-
     // accessor
     def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-      ZIO.accessZIO[UserDatabase](_.get.fetchUser(name))
+      ZIO.environmentWithZIO[UserDatabase](_.get.fetchUser(name))
 
-    val live = zio.ZLayer.succeed(new Service {
+    val live = zio.ZLayer.succeed(new UserDatabase {
       def fetchUser(name: String): IO[Status, User] =
         IO.succeed(User(name))
     })
@@ -42,13 +37,13 @@ object GreeterWithDatabase extends RGreeter[UserDatabase with Console] {
     }
 }
 
-object GreeterWithDatabaseServer extends zio.App {
+object GreeterWithDatabaseServer extends zio.ZIOAppDefault {
   val serverLayer = ServerLayer.fromServiceLayer(
     io.grpc.ServerBuilder.forPort(9090)
   )(GreeterWithDatabase.toLayer)
 
   val ourApp = (UserDatabase.live ++ Console.any) >>> serverLayer
 
-  def run(args: List[String]): zio.URIO[zio.ZEnv, ExitCode] =
+  def run: zio.URIO[zio.ZEnv, ExitCode] =
     ourApp.build.useForever.exitCode
 }

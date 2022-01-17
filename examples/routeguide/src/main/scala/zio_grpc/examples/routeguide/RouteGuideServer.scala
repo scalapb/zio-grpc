@@ -5,15 +5,15 @@ import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
 import zio.{Ref, ZEnv, ZIO}
 import zio.stream.ZStream
-import zio.console._
+import zio.Console._
 
 import io.grpc.examples.routeguide.route_guide._
 import scala.math._
 import zio.IO
 import scalapb.json4s.JsonFormat
 import scala.io.Source
-import zio.clock.Clock
-import zio.clock._
+import zio.Clock
+import zio.Clock._
 import zio.UIO
 
 class RouteGuideService(
@@ -66,7 +66,7 @@ class RouteGuideService(
   ): ZIO[Clock, Status, RouteSummary] = {
     // Zips each element with the previous element, initially accompanied by None.
     request.zipWithPrevious
-      .fold(RouteSummary()) {
+      .runFold(RouteSummary()) {
         case (summary, (maybePrevPoint, currentPoint)) =>
           // Compute the next status based on the current status.
           summary.copy(
@@ -103,7 +103,7 @@ class RouteGuideService(
           (messages, routeNotes.updated(note.getLocation, note :: messages))
         }
       // We create a stream from the effect.
-      ZStream.fromIterableM(updateMapEffect)
+      ZStream.fromIterableZIO(updateMapEffect)
     }
   // end: routeChat
 
