@@ -3,11 +3,11 @@ package zio_grpc.examples.helloworld
 import io.grpc.examples.helloworld.helloworld.ZioHelloworld.GreeterClient
 import io.grpc.examples.helloworld.helloworld.HelloRequest
 import io.grpc.ManagedChannelBuilder
-import zio.console._
+import zio.Console._
 import scalapb.zio_grpc.ZManagedChannel
-import zio.Layer
+import zio._
 
-object HelloWorldClient extends zio.App {
+object HelloWorldClient extends zio.ZIOAppDefault {
   val clientLayer: Layer[Throwable, GreeterClient] =
     GreeterClient.live(
       ZManagedChannel(
@@ -21,6 +21,6 @@ object HelloWorldClient extends zio.App {
       _ <- printLine(r.message)
     } yield ()
 
-  final def run(args: List[String]) =
+  final def run =
     myAppLogic.provideCustomLayer(clientLayer).exitCode
 }
