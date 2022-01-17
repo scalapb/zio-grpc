@@ -2,27 +2,17 @@ package examples
 
 import examples.greeter.ZioGreeter.Greeter
 import examples.greeter._
-import zio.Clock
-import zio.Console
-import zio.{ZIOAppDefault, Schedule, IO, ZIO}
 import zio.Duration._
 import zio.stream.Stream
 import io.grpc.ServerBuilder
-import zio.Blocking._
 import io.grpc.Status
-import zio.Managed
+import zio._
 import zio.stream.ZSink
 import scalapb.zio_grpc.Server
-import zio.Layer
-import zio.ZLayer
-import zio.Has
-import zio.ZManaged
 import scalapb.zio_grpc.ServerLayer
 import zio.Console.{print, printLine}
 
 object GreeterService {
-  type GreeterService = Has[Greeter]
-
   class LiveService(clock: Clock) extends Greeter {
     def greet(req: Request): IO[Status, Response] =
       clock.sleep(300.millis) *> zio.IO.succeed(
@@ -40,7 +30,7 @@ object GreeterService {
           Status.INTERNAL
             .withDescription("There was an error!")
             .withCause(new RuntimeException)
-        )).provide(Has(clock))
+        )).provideEnvironment(ZEnvironment(clock))
 
     def bidi(
         request: Stream[Status, Point]
@@ -49,12 +39,12 @@ object GreeterService {
     }
   }
 
-  val live: ZLayer[Has[Clock], Nothing, GreeterService] =
-    ZLayer.fromService(new LiveService(_))
+  val live: ZLayer[Clock, Nothing, Greeter] =
+    (new LiveService(_)).toLayer
 }
 
 object ExampleServer extends ZIOAppDefault {
-  def serverWait: ZIO[Has[Console] with Has[Clock], Throwable, Unit] =
+  def serverWait: ZIO[Console with Clock, Throwable, Unit] =
     for {
       _ <- printLine("Server is running. Press Ctrl-C to stop.")
       _ <- (print(".") *> ZIO.sleep(1.second)).forever

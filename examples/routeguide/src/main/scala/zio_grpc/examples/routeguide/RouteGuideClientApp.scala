@@ -3,19 +3,17 @@ package zio_grpc.examples.routeguide
 import io.grpc.examples.routeguide.route_guide.ZioRouteGuide.RouteGuideClient
 import io.grpc.examples.routeguide.route_guide._
 import io.grpc.ManagedChannelBuilder
-import zio.console._
-import zio.random._
+import zio.Console._
+import zio.Random._
 import scalapb.zio_grpc.ZManagedChannel
-import zio.Layer
 import io.grpc.Channel
-import zio.{App, ZIO}
+import zio._
 import io.grpc.Status
 import zio.stream.ZStream
 import scala.io.Source
-import zio.Schedule
-import zio.duration._
+import zio.Duration._
 
-object RouteGuideClientApp extends App {
+object RouteGuideClientApp extends ZIOAppDefault {
   val clientLayer: Layer[Throwable, RouteGuideClient] =
     RouteGuideClient.live(
       ZManagedChannel(
@@ -30,10 +28,10 @@ object RouteGuideClientApp extends App {
   ): ZIO[RouteGuideClient with Console, Status, Unit] =
     (for {
       f <- RouteGuideClient.getFeature(Point(lat, lng))
-      _ <- printLine(s"""Found feature called "${f.name}".""")
+      _ <- printLine(s"""Found feature called "${f.name}".""").orDie
     } yield ()).catchSome {
       case status if status == Status.NOT_FOUND =>
-        printLine(s"Feature not found: ${status.toString()}")
+        printLine(s"Feature not found: ${status.toString()}").orDie
     }
   // end: getFeature
 
@@ -48,10 +46,10 @@ object RouteGuideClientApp extends App {
     for {
       summary <- RouteGuideClient.recordRoute(
         ZStream
-          .repeatEffect(
+          .repeatZIO(
             nextIntBetween(0, features.size).map(features(_).getLocation)
           )
-          .tap(p => printLine(s"Visiting (${p.latitude}, ${p.longitude})"))
+          .tap(p => printLine(s"Visiting (${p.latitude}, ${p.longitude})").orDie)
           .schedule(Schedule.spaced(300.millis))
           .take(numPoints)
       )
@@ -90,7 +88,7 @@ object RouteGuideClientApp extends App {
             ).tap { note =>
               printLine(
                 s"""Sending message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
-              )
+              ).orDie
             }
           )
           .foreach { note =>
@@ -132,7 +130,7 @@ object RouteGuideClientApp extends App {
       _ <- routeChat
     } yield ()
 
-  final def run(args: List[String]) =
+  final def run =
     myAppLogic.provideCustomLayer(clientLayer).exitCode
   // end: appLogic
 }
