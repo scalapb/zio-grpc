@@ -49,7 +49,9 @@ object RouteGuideClientApp extends ZIOAppDefault {
           .repeatZIO(
             nextIntBetween(0, features.size).map(features(_).getLocation)
           )
-          .tap(p => printLine(s"Visiting (${p.latitude}, ${p.longitude})").orDie)
+          .tap(p =>
+            printLine(s"Visiting (${p.latitude}, ${p.longitude})").orDie
+          )
           .schedule(Schedule.spaced(300.millis))
           .take(numPoints)
       )
