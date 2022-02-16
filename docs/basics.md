@@ -171,7 +171,7 @@ There are two parts to making our `RouteGuide` service do its job:
   clients and return the service responses.
 
 You can find our example `RouteGuide` server in
-[scalapb/zio-grpc/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
+[scalapb/zio-grpc/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
 Let's take a closer look at how it works.
 
 ### Implementing ZRouteGuide
