@@ -69,7 +69,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   val userClientManaged: Managed[Throwable, GreeterClient.ZService[Any, User]] =
     GreeterClient.managed(channel, headers = userEnvToMetadata)
 
-  def appLogic2 =
+  def appLogic2: ZIO[Console, Any, Unit] =
     userClientManaged.use { client =>
       for {
         r1 <-
@@ -86,8 +86,9 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
     }
 
   // Option 3: by changing the stub
-  val clientManaged = GreeterClient.managed(channel)
-  def appLogic3 =
+  val clientManaged: Managed[Throwable, GreeterClient.ZService[Any, User]] =
+    GreeterClient.managed(channel)
+  def appLogic3: ZIO[Console, Any, Unit] =
     clientManaged.use { client =>
       for {
         // Pass metadata effectfully
