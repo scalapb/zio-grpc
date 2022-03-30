@@ -138,6 +138,6 @@ object ClientCalls {
           )
         val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
           .fromZIO(call.halfClose())).drain
-        sendRequestStream.merge(listener.stream)
+        sendRequestStream.merge(listener.stream, ZStream.TerminationStrategy.Right)
       }
 }
