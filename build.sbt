@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val Scala3 = "3.1.0"
+val Scala3 = "3.1.1"
 
 val Scala213 = "2.13.7"
 
@@ -105,7 +105,6 @@ lazy val e2e =
     .jvmPlatform(ScalaVersions)
     .settings(stdSettings)
     .settings(
-      crossScalaVersions   := Seq(Scala212, Scala213),
       publish / skip       := true,
       libraryDependencies ++= Seq(
         "dev.zio"              %% "zio-test"             % Version.zio % "test",
@@ -129,13 +128,12 @@ lazy val docs = project
   .in(file("zio-grpc-docs"))
   .dependsOn(core.jvm(Scala213))
   .settings(
-    crossScalaVersions                                 := Seq(Scala213),
     scalaVersion                                       := Scala213,
     publish / skip                                     := true,
     moduleName                                         := "zio-grpc-docs",
     mdocVariables                                      := Map(
       "sbtProtocVersion" -> "1.0.2",
-      "grpcVersion"      -> "1.41.0",
+      "grpcVersion"      -> "1.41.2",
       "zioGrpcVersion"   -> "0.5.0",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
