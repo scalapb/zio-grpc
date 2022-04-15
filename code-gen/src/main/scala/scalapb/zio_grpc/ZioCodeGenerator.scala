@@ -408,8 +408,10 @@ class ZioFilePrinter(
         ) + " = "
       val innerCall         = s"_.withCallOptionsM(callOptions).${method.name}(request)"
       val clientCall        = method.streamType match {
-        case StreamType.Unary           => s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
-        case StreamType.ClientStreaming => s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
+        case StreamType.Unary           =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
+        case StreamType.ClientStreaming =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
         case StreamType.ServerStreaming =>
           s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
         case StreamType.Bidirectional   =>

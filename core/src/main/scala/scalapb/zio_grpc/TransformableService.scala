@@ -57,6 +57,6 @@ object TransformableService {
         TS: TransformableService[S],
         tag: Tag[S[Any, C]],
         tag2: Tag[C]
-      ): ZLayer[R, Nothing, S[Any, C]] = TS.toLayer[R, C](service)
+    ): ZLayer[R, Nothing, S[Any, C]] = TS.toLayer[R, C](service)
   }
 }

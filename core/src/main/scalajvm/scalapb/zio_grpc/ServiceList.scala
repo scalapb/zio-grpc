@@ -8,7 +8,9 @@ import io.grpc.ServerServiceDefinition
   *
   * This is just a wrapper around a list of ServerServiceDefinition.
   */
-sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZIO[RR with Scope, Throwable, List[ServerServiceDefinition]]) {
+sealed class ServiceList[-RR] private[scalapb] (
+    val bindAll: ZIO[RR with Scope, Throwable, List[ServerServiceDefinition]]
+) {
 
   /** Adds a service to the service list */
   def add[R1 <: RR, S1](s1: S1)(implicit b: ZBindableService[R1, S1]): ServiceList[R1] =
@@ -37,7 +39,8 @@ sealed class ServiceList[-RR] private[scalapb] (val bindAll: ZIO[RR with Scope, 
       bindAll.flatMap(ll => bs.bindService(r.get[B]).map(_ :: ll))
     })
 
-  def provideEnvironment(r: => ZEnvironment[RR]): ServiceList[Any] = new ServiceList[Any](bindAll.provideSomeEnvironment[Scope](r.union[Scope](_)))
+  def provideEnvironment(r: => ZEnvironment[RR]): ServiceList[Any] =
+    new ServiceList[Any](bindAll.provideSomeEnvironment[Scope](r.union[Scope](_)))
 }
 
 object ServiceList extends ServiceList(ZIO.succeed(Nil)) {
