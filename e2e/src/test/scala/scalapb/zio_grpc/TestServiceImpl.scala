@@ -123,11 +123,15 @@ package object server {
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
-    def makeFromEnv: ZIO[Clock with Console, Nothing, Service] =
-      ZIO.environmentWithZIO[Clock with Console](env => make(env.get[Clock], env.get[Console]))
+    def makeFromEnv: ZIO[Any, Nothing, Service] =
+      for {
+        clock <- ZIO.clock
+        console <- ZIO.console
+        service <- make(clock, console)
+      } yield service
 
-    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      makeFromEnv.toLayer
+    val live: ZLayer[Any, Nothing, TestServiceImpl] =
+      ZLayer(makeFromEnv)
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.environment
 

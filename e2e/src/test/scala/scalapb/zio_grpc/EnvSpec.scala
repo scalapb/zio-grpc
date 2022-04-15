@@ -13,20 +13,20 @@ import zio.Console
 import zio.stream.ZStream
 import zio.Clock
 
-object EnvSpec extends DefaultRunnableSpec with MetadataTests {
+object EnvSpec extends ZIOSpecDefault with MetadataTests {
   case class User(name: String)
 
   val getUser = ZIO.environmentWith[User](_.get)
 
-  object ServiceWithConsole extends ZTestService[Console with Clock, User] {
-    def unary(request: Request): ZIO[Console with User, Status, Response] =
+  object ServiceWithConsole extends ZTestService[Any, User] {
+    def unary(request: Request): ZIO[User, Status, Response] =
       for {
         user <- getUser
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[Console with User, Status, Response] =
+    ): ZStream[User, Status, Response] =
       ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
         ZStream(
           Response(u.get.name),
@@ -69,8 +69,9 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   override def clientLayer(
       userName: Option[String]
   ): URLayer[Server, TestServiceClient] =
-    ZManaged.environmentWithManaged { (ss: ZEnvironment[Server.Service]) =>
-      ZManaged.fromZIO(ss.get[Server.Service].port).orDie flatMap { (port: Int) =>
+    ZLayer.scoped {
+    ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
+      ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
         val ch = ZManagedChannel(
           ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
           Seq(
@@ -81,7 +82,8 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
           .managed(ch)
           .orDie
       }
-    }.toLayer
+    }
+  }
 
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 

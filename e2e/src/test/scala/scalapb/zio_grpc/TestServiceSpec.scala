@@ -6,24 +6,25 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
-import zio.{durationInt, Fiber, Queue, URIO, ZIO, ZLayer, ZQueue}
+import zio.{durationInt, Fiber, Queue, URIO, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object TestServiceSpec extends DefaultRunnableSpec {
+object TestServiceSpec extends ZIOSpecDefault {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
-  val clientLayer: ZLayer[Server, Nothing, TestServiceClient] = {
-    for {
-      ss     <- ZIO.service[Server.Service].toManaged
-      port   <- ss.port.toManaged.orDie
-      ch      = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
-      client <- TestServiceClient.managed(ZManagedChannel(ch)).orDie
-    } yield client
-  }.toLayer
+  val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
+    ZLayer.scoped {
+      for {
+        ss     <- ZIO.service[Server.Service]
+        port   <- ss.port.orDie
+        ch      = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
+        client <- TestServiceClient.managed(ZManagedChannel(ch)).orDie
+      } yield client
+    }
 
   def unarySuite =
     suite("unary request")(
@@ -241,10 +242,10 @@ object TestServiceSpec extends DefaultRunnableSpec {
   object BidiFixture {
     def apply[R, Req, Res](
         call: Stream[Status, Req] => ZStream[R, Status, Res]
-    ): zio.URIO[R with zio.Console, BidiFixture[Req, Res]] =
+    ): zio.URIO[R, BidiFixture[Req, Res]] =
       for {
-        in    <- ZQueue.unbounded[Res]
-        out   <- ZQueue.unbounded[Option[Req]]
+        in    <- Queue.unbounded[Res]
+        out   <- Queue.unbounded[Option[Req]]
         fiber <- call(Stream.fromQueue(out).collectWhileSome).foreach(in.offer).fork
       } yield BidiFixture(in, out, fiber)
   }

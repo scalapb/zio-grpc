@@ -28,10 +28,10 @@ package object userdatabase {
   }
 }
 
-object GreeterWithDatabase extends RGreeter[UserDatabase with Console] {
+object GreeterWithDatabase extends RGreeter[UserDatabase] {
   def sayHello(
       request: HelloRequest
-  ): ZIO[UserDatabase with Console, Status, HelloReply] =
+  ): ZIO[UserDatabase, Status, HelloReply] =
     UserDatabase.fetchUser(request.name).map { user =>
       HelloReply(s"Hello ${user.name}")
     }
@@ -42,7 +42,7 @@ object GreeterWithDatabaseServer extends zio.ZIOAppDefault {
     io.grpc.ServerBuilder.forPort(9090)
   )(GreeterWithDatabase.toLayer)
 
-  val ourApp = (UserDatabase.live ++ Console.any) >>> serverLayer
+  val ourApp = UserDatabase.live >>> serverLayer
 
   def run: zio.URIO[zio.ZEnv, ExitCode] =
     ourApp.build.useForever.exitCode
