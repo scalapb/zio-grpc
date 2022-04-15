@@ -326,7 +326,7 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor methods")
         .add(
-          s"class ${accessorsClassName.name}[Context: zio.Tag: zio.IsNotIntersection](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
+          s"class ${accessorsClassName.name}[Context: zio.EnvironmentTag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
         )
         .indented(
           _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
@@ -384,13 +384,13 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
+          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
         )
         .add("  channel => new ServiceStub[R, Context](channel, options, headers)")
         .add("}")
         .add("")
         .add(
-          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions]=zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, ${clientServiceName.name}.ZService[Any, Context]] = zio.ZLayer.fromFunctionManaged((r: zio.ZEnvironment[R]) => managed[Any, Context](managedChannel.map(_.provideEnvironment(r)), options, headers))"
+          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions]=zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, ${clientServiceName.name}.ZService[Any, Context]] = zio.ZLayer.scoped[R](zio.ZIO.environmentWithZIO((r: zio.ZEnvironment[R]) => managed[Any, Context](managedChannel.map(_.provideEnvironment(r)), options, headers)))"
         )
         .outdent
         .add("}")
@@ -408,8 +408,8 @@ class ZioFilePrinter(
         ) + " = "
       val innerCall         = s"_.withCallOptionsM(callOptions).${method.name}(request)"
       val clientCall        = method.streamType match {
-        case StreamType.Unary           => s"_root_.zio.ZIO.serviceWithZIO($innerCall)"
-        case StreamType.ClientStreaming => s"_root_.zio.ZIO.serviceWithZIO($innerCall)"
+        case StreamType.Unary           => s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
+        case StreamType.ClientStreaming => s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
         case StreamType.ServerStreaming =>
           s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}.ZService[Any, Context]]($innerCall)"
         case StreamType.Bidirectional   =>

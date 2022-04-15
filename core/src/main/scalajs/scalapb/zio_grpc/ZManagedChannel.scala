@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import zio.ZManaged
+import zio.ZIO
 import io.grpc.ManagedChannel
 
 object ZManagedChannel {
@@ -8,7 +8,7 @@ object ZManagedChannel {
       channel: ManagedChannel,
       interceptors: Seq[ZClientInterceptor[R]] = Nil
   ): ZManagedChannel[R] =
-    ZManaged.succeed(new ZChannel[R](channel, interceptors))
+    ZIO.succeed(new ZChannel[R](channel, interceptors))
 
   def apply(channel: ManagedChannel): ZManagedChannel[Any] = apply(channel, Nil)
 }
