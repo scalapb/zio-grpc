@@ -58,7 +58,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
         UserClient
           .sayHello(HelloRequest("World"))
           .provideSomeEnvironment(
-            (_: ZEnvironment[UserClient]) ++ ZEnvironment(
+            (_: ZEnvironment[UserClient with Console]) ++ ZEnvironment(
               User("user1")
             )
           )

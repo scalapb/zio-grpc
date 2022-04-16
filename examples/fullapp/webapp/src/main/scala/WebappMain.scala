@@ -26,7 +26,7 @@ object WebappMain extends ZIOAppDefault {
         })
 
   def run =
-    (appLogic.provideLayer(clientLayer).ignore *> printLine(
+    (appLogic.provideLayer(zio.Console.live ++ clientLayer).ignore *> printLine(
       "Done"
     )).exitCode
 }
