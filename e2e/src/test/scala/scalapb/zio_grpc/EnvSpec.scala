@@ -70,20 +70,20 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
       userName: Option[String]
   ): URLayer[Server, TestServiceClient] =
     ZLayer.scoped {
-    ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
-      ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
-        val ch = ZManagedChannel(
-          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
-          Seq(
-            ZClientInterceptor.headersUpdater((_, _, md) => ZIO.foreach(userName)(un => md.put(UserKey, un)).unit)
+      ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
+        ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
+          val ch = ZManagedChannel(
+            ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
+            Seq(
+              ZClientInterceptor.headersUpdater((_, _, md) => ZIO.foreach(userName)(un => md.put(UserKey, un)).unit)
+            )
           )
-        )
-        TestServiceClient
-          .managed(ch)
-          .orDie
+          TestServiceClient
+            .managed(ch)
+            .orDie
+        }
       }
     }
-  }
 
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 

@@ -125,7 +125,7 @@ package object server {
 
     def makeFromEnv: ZIO[Any, Nothing, Service] =
       for {
-        clock <- ZIO.clock
+        clock   <- ZIO.clock
         console <- ZIO.console
         service <- make(clock, console)
       } yield service
