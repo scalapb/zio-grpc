@@ -1,9 +1,8 @@
 package scalapb
 
 import io.grpc.Status
-import zio.IO
+import zio.{IO, Scope, ZIO}
 import zio.stream.Stream
-import zio.Managed
 
 package object zio_grpc {
   type GIO[A] = IO[Status, A]
@@ -12,5 +11,5 @@ package object zio_grpc {
 
   type Server = Server.Service
 
-  type ZManagedChannel[R] = Managed[Throwable, ZChannel[R]]
+  type ZManagedChannel[R] = ZIO[Scope, Throwable, ZChannel[R]]
 }

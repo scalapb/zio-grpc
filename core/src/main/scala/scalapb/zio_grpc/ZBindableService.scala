@@ -2,8 +2,7 @@ package scalapb.zio_grpc
 
 import io.grpc.ServerServiceDefinition
 import zio.URIO
-import izumi.reflect.Tag
-import zio.IsNotIntersection
+import zio.Tag
 
 /** Provides a way to bind a ZIO gRPC service implementations to a server. */
 trait ZBindableService[-R, S] {
@@ -26,8 +25,7 @@ object ZBindableService {
       ev3: GenericBindable[S],
       ev4: CanBind[C],
       ev5: TransformableService[S],
-      ev6: Tag[C],
-      ev7: IsNotIntersection[C]
+      ev6: Tag[C]
   ): ZBindableService[R, T] =
     new ZBindableService[R, T] {
       def bindService(s: T): zio.URIO[R, ServerServiceDefinition] =
