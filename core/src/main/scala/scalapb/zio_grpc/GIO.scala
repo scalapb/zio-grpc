@@ -1,6 +1,7 @@
 package scalapb.zio_grpc
 
 import zio.Task
+import zio.ZIO
 import io.grpc.Status
 
 object GIO {
@@ -10,5 +11,5 @@ object GIO {
   @deprecated("use attempt", "0.6.0")
   def effect[A](effect: => A) = attempt(effect)
 
-  def attempt[A](effect: => A) = fromTask(Task.attempt(effect))
+  def attempt[A](effect: => A) = fromTask(ZIO.attempt(effect))
 }

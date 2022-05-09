@@ -44,7 +44,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   // to set up accessors for the User context
   object UserClient extends GreeterClient.Accessors[User]
 
-  def appLogic1: ZIO[UserClient with Console, Status, Unit] =
+  def appLogic1: ZIO[UserClient, Status, Unit] =
     for {
       // With provideSomeLayer:
       r1 <-
@@ -58,7 +58,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
         UserClient
           .sayHello(HelloRequest("World"))
           .provideSomeEnvironment(
-            (_: ZEnvironment[UserClient with Console]) ++ ZEnvironment(
+            (_: ZEnvironment[UserClient]) ++ ZEnvironment(
               User("user1")
             )
           )

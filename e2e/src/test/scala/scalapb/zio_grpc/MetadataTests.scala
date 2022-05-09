@@ -3,11 +3,11 @@ package scalapb.zio_grpc
 import zio.ZLayer
 import zio.test._
 import zio.test.Assertion._
-import zio.stream.Stream
-import testservice.ZioTestservice.TestServiceClient
-import testservice._
+import zio.stream.ZStream
 import io.grpc.Status
 import TestUtils._
+import scalapb.zio_grpc.testservice._
+import scalapb.zio_grpc.testservice.ZioTestservice._
 
 trait MetadataTests {
   def clientLayer(
@@ -24,56 +24,56 @@ trait MetadataTests {
   val unaryEffect           = TestServiceClient.unary(Request())
   val serverStreamingEffect =
     TestServiceClient.serverStreaming(Request()).runCollect
-  val clientStreamingEffect = TestServiceClient.clientStreaming(Stream.empty)
-  val bidiEffect            = TestServiceClient.bidiStreaming(Stream.empty).runCollect
+  val clientStreamingEffect = TestServiceClient.clientStreaming(ZStream.empty)
+  val bidiEffect            = TestServiceClient.bidiStreaming(ZStream.empty).runCollect
 
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(
       test("unary") {
-        assertM(unaryEffect.exit)(permissionDenied)
+        assertZIO(unaryEffect.exit)(permissionDenied)
       },
       test("server streaming") {
-        assertM(serverStreamingEffect.exit)(permissionDenied)
+        assertZIO(serverStreamingEffect.exit)(permissionDenied)
       },
       test("client streaming") {
-        assertM(clientStreamingEffect.exit)(permissionDenied)
+        assertZIO(clientStreamingEffect.exit)(permissionDenied)
       },
       test("bidi streaming") {
-        assertM(bidiEffect.exit)(permissionDenied)
+        assertZIO(bidiEffect.exit)(permissionDenied)
       }
     ).provideLayer(unauthClient)
 
   def unauthenticatedSuite =
     suite("authorized request fail for")(
       test("unary") {
-        assertM(unaryEffect.exit)(unauthenticated)
+        assertZIO(unaryEffect.exit)(unauthenticated)
       },
       test("server streaming") {
-        assertM(serverStreamingEffect.exit)(unauthenticated)
+        assertZIO(serverStreamingEffect.exit)(unauthenticated)
       },
       test("client streaming") {
-        assertM(clientStreamingEffect.exit)(unauthenticated)
+        assertZIO(clientStreamingEffect.exit)(unauthenticated)
       },
       test("bidi streaming") {
-        assertM(bidiEffect.exit)(unauthenticated)
+        assertZIO(bidiEffect.exit)(unauthenticated)
       }
     ).provideLayer(unsetClient)
 
   def authenticatedSuite =
     suite("authorized request fail for")(
       test("unary") {
-        assertM(unaryEffect)(equalTo(Response("bob")))
+        assertZIO(unaryEffect)(equalTo(Response("bob")))
       },
       test("server streaming") {
-        assertM(serverStreamingEffect)(
+        assertZIO(serverStreamingEffect)(
           equalTo(Seq(Response("bob"), Response("bob")))
         )
       },
       test("client streaming") {
-        assertM(clientStreamingEffect)(equalTo(Response("bob")))
+        assertZIO(clientStreamingEffect)(equalTo(Response("bob")))
       },
       test("bidi streaming") {
-        assertM(bidiEffect)(equalTo(Seq(Response("bob"))))
+        assertZIO(bidiEffect)(equalTo(Seq(Response("bob"))))
       }
     ).provideLayer(authClient)
 

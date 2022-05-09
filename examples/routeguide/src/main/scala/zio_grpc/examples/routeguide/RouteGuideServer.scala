@@ -19,7 +19,7 @@ import zio.UIO
 class RouteGuideService(
     features: Seq[Feature],
     routeNotesRef: Ref[Map[Point, List[RouteNote]]]
-) extends ZioRouteGuide.ZRouteGuide[ZEnv, Any] {
+) extends ZioRouteGuide.ZRouteGuide[Any, Any] {
 
   /**
     * Gets the [[io.grpc.examples.routeguide.route_guide.Feature]] at the requested [[Point]]. If no feature at
@@ -28,7 +28,7 @@ class RouteGuideService(
     * @param request the requested location for the feature.
     */
   // start: getFeature
-  def getFeature(request: Point): ZIO[ZEnv, Status, Feature] =
+  def getFeature(request: Point): ZIO[Any, Status, Feature] =
     ZIO.fromOption(findFeature(request)).mapError(_ => Status.NOT_FOUND)
   // end: getFeature
 
@@ -63,7 +63,7 @@ class RouteGuideService(
   // start: recordRoute
   def recordRoute(
       request: zio.stream.Stream[Status, Point]
-  ): ZIO[Clock, Status, RouteSummary] = {
+  ): ZIO[Any, Status, RouteSummary] = {
     // Zips each element with the previous element, initially accompanied by None.
     request.zipWithPrevious
       .runFold(RouteSummary()) {
@@ -90,7 +90,7 @@ class RouteGuideService(
   // start: routeChat
   def routeChat(
       request: zio.stream.Stream[Status, RouteNote]
-  ): ZStream[ZEnv, Status, RouteNote] =
+  ): ZStream[Any, Status, RouteNote] =
     request.flatMap { note =>
       // By using flatMap, we can map each RouteNote we receive to a stream with
       // the existing RouteNotes for that location, and those sub-streams are going
@@ -155,7 +155,7 @@ object RouteGuideServer extends ServerMain {
     routeNotes <- Ref.make(Map.empty[Point, List[RouteNote]])
   } yield new RouteGuideService(featuresDatabase.feature, routeNotes)
 
-  def services: ServiceList[zio.ZEnv] =
+  def services: ServiceList[Any] =
     ServiceList.addM(createRouteGuide)
 }
 // end: serverMain

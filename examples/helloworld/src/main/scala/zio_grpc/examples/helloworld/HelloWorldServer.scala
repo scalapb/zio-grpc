@@ -9,14 +9,14 @@ import zio.Console._
 import io.grpc.examples.helloworld.helloworld.ZioHelloworld.ZGreeter
 import io.grpc.examples.helloworld.helloworld.{HelloReply, HelloRequest}
 
-object GreeterImpl extends ZGreeter[ZEnv, Any] {
+object GreeterImpl extends ZGreeter[Any, Any] {
   def sayHello(
       request: HelloRequest
-  ): ZIO[zio.ZEnv, Status, HelloReply] =
+  ): ZIO[Any, Status, HelloReply] =
     printLine(s"Got request: $request").orDie zipRight
       ZIO.succeed(HelloReply(s"Hello, ${request.name}"))
 }
 
 object HelloWorldServer extends ServerMain {
-  def services: ServiceList[zio.ZEnv] = ServiceList.add(GreeterImpl)
+  def services: ServiceList[Any] = ServiceList.add(GreeterImpl)
 }
