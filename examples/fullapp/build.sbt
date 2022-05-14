@@ -6,13 +6,13 @@ ThisBuild / cancelable := true
 
 ThisBuild / connectInput := true
 
-val grpcVersion = "1.41.2"
+val grpcVersion = "1.46.0"
 
 lazy val protos = crossProject(JSPlatform, JVMPlatform)
   .in(file("protos"))
   .settings(
-    Compile / PB.targets := Seq(
-      scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
+    Compile / PB.targets      := Seq(
+      scalapb.gen(grpc = true)          -> (Compile / sourceManaged).value,
       scalapb.zio_grpc.ZioCodeGenerator -> (Compile / sourceManaged).value
     ),
     Compile / PB.protoSources := Seq(
