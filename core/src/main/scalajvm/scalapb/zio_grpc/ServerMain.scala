@@ -8,19 +8,19 @@ import io.grpc.protobuf.services.ProtoReflectionService
 trait ServerMain extends zio.ZIOAppDefault {
   def port: Int = 9000
 
-  def welcome: ZIO[ZEnv, Throwable, Unit] =
+  def welcome: ZIO[Any, Throwable, Unit] =
     printLine("Server is running. Press Ctrl-C to stop.")
 
   // Override this to add services. For example
   // def serviceList =
   //    ServiceList.add(MyService)
-  def services: ServiceList[ZEnv]
+  def services: ServiceList[Any]
 
   def builder = ServerBuilder.forPort(port).addService(ProtoReflectionService.newInstance())
 
-  def serverLive: ZLayer[ZEnv, Throwable, Server] = ServerLayer.fromServiceList(builder, services)
+  def serverLive: ZLayer[Any, Throwable, Server] = ServerLayer.fromServiceList(builder, services)
 
-  val myAppLogic = welcome *> serverLive.build.useForever
+  val myAppLogic = welcome *> serverLive.build *> ZIO.never
 
   def run = myAppLogic.exitCode
 }

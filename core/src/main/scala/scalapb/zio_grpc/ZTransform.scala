@@ -1,10 +1,7 @@
 package scalapb.zio_grpc
 
-import zio.ZIO
+import zio.{EnvironmentTag, Tag, ZEnvironment, ZIO}
 import zio.stream.ZStream
-import zio.Tag
-import zio.ZEnvironment
-import zio.IsNotIntersection
 
 /** Describes a transformation of an effect or a stream.
   *
@@ -40,7 +37,7 @@ object ZTransform {
     }
 
   /** Provides the entire environment of a service (leaving only the context) */
-  def provideEnvironment[R, E, Context: Tag](
+  def provideEnvironment[R, E, Context: EnvironmentTag](
       env: => ZEnvironment[R]
   ): ZTransform[R with Context, E, Context] =
     provideSomeEnvironment((ctx: ZEnvironment[Context]) => env.union[Context](ctx))
@@ -48,7 +45,7 @@ object ZTransform {
   /** Changes the Context type of the service from Context1 to Context2, by applying an effectful function on the
     * environment
     */
-  def transformContext[RIn, E, ContextIn: Tag: IsNotIntersection, ROut <: RIn, ContextOut: Tag: IsNotIntersection](
+  def transformContext[RIn, E, ContextIn: Tag, ROut <: RIn, ContextOut: Tag](
       f: ContextOut => ZIO[ROut, E, ContextIn]
   ): ZTransform[RIn with ContextIn, E, ROut with ContextOut] =
     new ZTransform[RIn with ContextIn, E, ROut with ContextOut] {

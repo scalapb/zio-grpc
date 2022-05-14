@@ -1,7 +1,6 @@
 package scalapb.zio_grpc.client
 
-import zio.{Chunk, IO, ZIO}
-import zio.stream.Stream
+import zio.{Chunk, ZIO}
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.ZChannel
 import io.grpc.MethodDescriptor
@@ -19,7 +18,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZIO[R, Status, Res] =
-    IO.async { callback =>
+    ZIO.async { callback =>
       channel.channel.client.rpcCall[Req, Res](
         channel.channel.baseUrl + "/" + method.fullName,
         req,
@@ -27,8 +26,8 @@ object ClientCalls {
         method.methodInfo,
         (errorInfo: ErrorInfo, resp: Res) =>
           if (errorInfo != null)
-            callback(IO.fail(Status.fromErrorInfo(errorInfo)))
-          else callback(IO.succeed(resp))
+            callback(ZIO.fail(Status.fromErrorInfo(errorInfo)))
+          else callback(ZIO.succeed(resp))
       )
     }
 
@@ -39,7 +38,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    Stream.async[R, Status, Res] { cb =>
+    ZStream.async[R, Status, Res] { cb =>
       channel.channel.client
         .serverStreaming[Req, Res](
           channel.channel.baseUrl + "/" + method.fullName,
@@ -65,7 +64,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZIO[R with R0, Status, Res] =
-    IO.fail(Status.INTERNAL.withDescription("Not supported"))
+    ZIO.fail(Status.INTERNAL.withDescription("Not supported"))
 
   def bidiCall[R, R0, Req, Res](
       channel: ZChannel[R],
@@ -74,5 +73,5 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZStream[R with R0, Status, Res] =
-    Stream.fail(Status.INTERNAL.withDescription("Not supported"))
+    ZStream.fail(Status.INTERNAL.withDescription("Not supported"))
 }

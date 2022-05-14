@@ -3,7 +3,6 @@ package scalapb.zio_grpc
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
 import zio.Clock
 import zio.Console
-import zio.Managed
 import zio.ZIO
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
@@ -11,7 +10,7 @@ import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
 
-object BindableServiceSpec extends DefaultRunnableSpec {
+object BindableServiceSpec extends ZIOSpecDefault {
   implicitly[ZBindableService[Any, ZTestService[Any, RequestContext]]]
   implicitly[ZBindableService[Any, ZTestService[Any, SafeMetadata]]]
   implicitly[ZBindableService[Any, ZTestService[Any, Any]]]
@@ -71,9 +70,9 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   val z6 = ServiceList.addM(ZIO.succeed(S6))
   val z7 = ServiceList.addM(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
-  val z9 = ServiceList.addManaged(Managed.succeed(S4))
+  val z9 = ServiceList.addManaged(ZIO.succeed(S4))
 
-  def spec: ZSpec[ZTestEnv, scalapb.zio_grpc.BindableServiceSpec.Failure] = suite("BindableServiceSpec")(
+  def spec = suite("BindableServiceSpec")(
     test("empty - required to make the compiler happy") {
       assertCompletes
     }

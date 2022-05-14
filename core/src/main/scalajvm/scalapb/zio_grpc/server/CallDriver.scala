@@ -3,7 +3,7 @@ package scalapb.zio_grpc.server
 import io.grpc.ServerCall.Listener
 import io.grpc.Status
 import zio._
-import zio.stream.Stream
+import zio.stream.{Stream, ZStream}
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 
@@ -117,7 +117,7 @@ object CallDriver {
           )
       },
       run = {
-        val requestStream = Stream
+        val requestStream = ZStream
           .fromQueue(queue)
           .collectWhileSome
 

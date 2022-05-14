@@ -90,20 +90,20 @@ package object server {
       def bidiStreaming(
           request: Stream[Status, Request]
       ): Stream[Status, Response] =
-        ((ZStream.fromZIO(requestReceived.succeed(())).drain ++
+        (ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>
-                Stream(Response(r.in.toString))
+                ZStream(Response(r.in.toString))
                   .repeat(Schedule.recurs(r.in - 1))
-              case Scenario.DELAY     => Stream.never
-              case Scenario.DIE       => Stream.die(new RuntimeException("FOO"))
+              case Scenario.DELAY     => ZStream.never
+              case Scenario.DIE       => ZStream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
-                Stream.fail(Status.INTERNAL.withDescription("Intentional error"))
-              case _                  => Stream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
+                ZStream.fail(Status.INTERNAL.withDescription("Intentional error"))
+              case _                  => ZStream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}"))
             }
-          } ++ Stream(Response("DONE"))))
-          .ensuring(exit.succeed(Exit.succeed(Response()))))
+          } ++ ZStream(Response("DONE")))
+            .ensuring(exit.succeed(Exit.succeed(Response()))))
           .provideEnvironment(ZEnvironment(clock, console))
 
       def awaitReceived = requestReceived.await
@@ -123,11 +123,15 @@ package object server {
         p3 <- Promise.make[Nothing, Exit[Status, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
-    def makeFromEnv: ZIO[Clock with Console, Nothing, Service] =
-      ZIO.environmentWithZIO[Clock with Console](env => make(env.get[Clock], env.get[Console]))
+    def makeFromEnv: ZIO[Any, Nothing, Service] =
+      for {
+        clock   <- ZIO.clock
+        console <- ZIO.console
+        service <- make(clock, console)
+      } yield service
 
-    val live: ZLayer[Clock with Console, Nothing, TestServiceImpl] =
-      makeFromEnv.toLayer
+    val live: ZLayer[Any, Nothing, TestServiceImpl] =
+      ZLayer(makeFromEnv)
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.environment
 
