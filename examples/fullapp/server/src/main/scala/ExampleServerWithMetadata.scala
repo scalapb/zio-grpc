@@ -40,8 +40,9 @@ object GreeterServiceWithMetadata {
       case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
-  val live: ZLayer[Clock, Nothing, ZGreeter[Any, RequestContext]] = { c: Clock =>
-    new LiveService(c).transformContextM(findUser(_))
+  val live: ZLayer[Clock, Nothing, ZGreeter[Any, RequestContext]] = {
+    c: Clock =>
+      new LiveService(c).transformContextM(findUser(_))
   }.toLayer
 }
 
