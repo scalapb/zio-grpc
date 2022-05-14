@@ -1,15 +1,10 @@
 package scalapb.zio_grpc.client
 
-import zio.Runtime
-import zio.Ref
-
+import zio.{Queue, Ref, Runtime, URIO, ZIO}
 import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
-import zio.Queue
-import zio.IO
 import StreamingCallState._
 import zio.stream.ZStream
-import zio.URIO
 
 sealed trait StreamingCallState[+Res]
 
@@ -48,8 +43,8 @@ class StreamingClientCallListener[R, Res](
       .fromQueue(queue)
       .tap {
         case Left((status, trailers @ _)) =>
-          queue.shutdown *> IO.when(!status.isOk)(IO.fail(status))
-        case _                            => IO.unit
+          queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(status))
+        case _                            => ZIO.unit
       }
       .collect { case Right(v) =>
         v

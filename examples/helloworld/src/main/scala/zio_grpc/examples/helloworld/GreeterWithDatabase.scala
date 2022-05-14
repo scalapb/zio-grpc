@@ -19,11 +19,11 @@ package object userdatabase {
   object UserDatabase {
     // accessor
     def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-      ZIO.environmentWithZIO[UserDatabase](_.get.fetchUser(name))
+      ZIO.serviceWithZIO[UserDatabase](_.fetchUser(name))
 
-    val live = zio.ZLayer.succeed(new UserDatabase {
-      def fetchUser(name: String): IO[Status, User] =
-        IO.succeed(User(name))
+    val live = ZLayer.succeed(new UserDatabase {
+      def fetchUser(name: String): ZIO[Status, User] =
+        ZIO.succeed(User(name))
     })
   }
 }
@@ -31,7 +31,7 @@ package object userdatabase {
 object GreeterWithDatabase extends RGreeter[UserDatabase with Console] {
   def sayHello(
       request: HelloRequest
-  ): ZIO[UserDatabase with Console, Status, HelloReply] =
+  ): ZIO[UserDatabase, Status, HelloReply] =
     UserDatabase.fetchUser(request.name).map { user =>
       HelloReply(s"Hello ${user.name}")
     }
@@ -42,7 +42,7 @@ object GreeterWithDatabaseServer extends zio.ZIOAppDefault {
     io.grpc.ServerBuilder.forPort(9090)
   )(GreeterWithDatabase.toLayer)
 
-  val ourApp = (UserDatabase.live ++ Console.any) >>> serverLayer
+  val ourApp = UserDatabase.live >>> serverLayer
 
   def run: zio.URIO[zio.ZEnv, ExitCode] =
     ourApp.build.useForever.exitCode

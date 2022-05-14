@@ -2,7 +2,7 @@ package scalapb.zio_grpc.client
 
 import io.grpc.{CallOptions, MethodDescriptor, Status}
 import scalapb.zio_grpc.{SafeMetadata, ZChannel}
-import zio.stream.{Stream, ZStream}
+import zio.stream.ZStream
 import zio.{Exit, ZIO}
 
 object ClientCalls {
@@ -50,7 +50,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    Stream
+    ZStream
       .fromZIO(channel.newCall(method, options))
       .flatMap(serverStreamingCall(_, headers, req))
 
@@ -59,12 +59,12 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[R, Status, Res] =
-    Stream
+    ZStream
       .acquireReleaseExitWith(
         StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler[R, Req, Res](call))
       .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
-        Stream
+        ZStream
           .fromZIO(
             call.start(listener, headers) *>
               call.request(1) *>
@@ -115,7 +115,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZStream[R with R0, Status, Res] =
-    Stream
+    ZStream
       .fromZIO(
         channel.newCall(method, options)
       )
@@ -126,17 +126,17 @@ object ClientCalls {
       headers: SafeMetadata,
       req: ZStream[R0, Status, Req]
   ): ZStream[R with R0, Status, Res] =
-    Stream
+    ZStream
       .acquireReleaseExitWith(
         StreamingClientCallListener.make[R, Res](call)
       )(anyExitHandler(call))
       .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
-        val init              = Stream
+        val init              = ZStream
           .fromZIO(
             call.start(listener, headers) *>
               call.request(1)
           )
-        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
+        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ ZStream
           .fromZIO(call.halfClose())).drain
         sendRequestStream.merge(listener.stream)
       }

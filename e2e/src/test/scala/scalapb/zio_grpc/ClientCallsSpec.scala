@@ -8,7 +8,7 @@ import zio.Schedule
 import zio.test.Assertion._
 import zio.test._
 
-object ClientCallsSpec extends DefaultRunnableSpec {
+object ClientCallsSpec extends ZIOSpecDefault {
 
   def unarySuite =
     suite("unaryCall")(
