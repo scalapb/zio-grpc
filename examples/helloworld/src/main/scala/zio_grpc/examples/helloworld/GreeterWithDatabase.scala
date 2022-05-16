@@ -22,13 +22,13 @@ package object userdatabase {
       ZIO.serviceWithZIO[UserDatabase](_.fetchUser(name))
 
     val live = ZLayer.succeed(new UserDatabase {
-      def fetchUser(name: String): ZIO[Status, User] =
+      def fetchUser(name: String): IO[Status, User] =
         ZIO.succeed(User(name))
     })
   }
 }
 
-object GreeterWithDatabase extends RGreeter[UserDatabase with Console] {
+object GreeterWithDatabase extends RGreeter[UserDatabase] {
   def sayHello(
       request: HelloRequest
   ): ZIO[UserDatabase, Status, HelloReply] =
@@ -44,6 +44,6 @@ object GreeterWithDatabaseServer extends zio.ZIOAppDefault {
 
   val ourApp = UserDatabase.live >>> serverLayer
 
-  def run: zio.URIO[zio.ZEnv, ExitCode] =
-    ourApp.build.useForever.exitCode
+  def run =
+    (ourApp.build *> ZIO.never).exitCode
 }

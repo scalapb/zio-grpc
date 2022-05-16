@@ -66,42 +66,47 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
     } yield ()
 
   // Option 2: through a managed client
-  val userClientManaged: Managed[Throwable, GreeterClient.ZService[Any, User]] =
+  val userClientManaged
+      : ZIO[Scope, Throwable, GreeterClient.ZService[Any, User]] =
     GreeterClient.managed(channel, headers = userEnvToMetadata)
 
   def appLogic2 =
-    userClientManaged.use { client =>
-      for {
-        r1 <-
-          client
-            .sayHello(HelloRequest("World"))
-            .provideEnvironment(ZEnvironment(User("user1")))
-        _ <- printLine(r1.message)
-        r2 <-
-          client
-            .sayHello(HelloRequest("World"))
-            .provideEnvironment(ZEnvironment(User("user2")))
-        _ <- printLine(r2.message)
-      } yield ()
+    ZIO.scoped {
+      userClientManaged.flatMap { client =>
+        for {
+          r1 <-
+            client
+              .sayHello(HelloRequest("World"))
+              .provideEnvironment(ZEnvironment(User("user1")))
+          _ <- printLine(r1.message)
+          r2 <-
+            client
+              .sayHello(HelloRequest("World"))
+              .provideEnvironment(ZEnvironment(User("user2")))
+          _ <- printLine(r2.message)
+        } yield ()
+      }
     }
 
   // Option 3: by changing the stub
   val clientManaged = GreeterClient.managed(channel)
   def appLogic3 =
-    clientManaged.use { client =>
-      for {
-        // Pass metadata effectfully
-        r1 <-
-          client
-            .withMetadataM(userToMetadata(User("hello")))
-            .sayHello(HelloRequest("World"))
-        _ <- printLine(r1.message)
-      } yield ()
+    ZIO.scoped {
+      clientManaged.flatMap { client =>
+        for {
+          // Pass metadata effectfully
+          r1 <-
+            client
+              .withMetadataM(userToMetadata(User("hello")))
+              .sayHello(HelloRequest("World"))
+          _ <- printLine(r1.message)
+        } yield ()
+      }
     }
 
   final def run =
     (
-      appLogic1.provideCustomLayer(clientLayer) *>
+      appLogic1.provideLayer(clientLayer) *>
         appLogic2 *>
         appLogic3
     ).exitCode

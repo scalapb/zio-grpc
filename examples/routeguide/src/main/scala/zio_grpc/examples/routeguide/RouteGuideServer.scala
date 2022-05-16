@@ -3,7 +3,7 @@ package zio_grpc.examples.routeguide
 import io.grpc.Status
 import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
-import zio.{Ref, ZEnv, ZIO}
+import zio.{Ref, ZIO}
 import zio.stream.ZStream
 import zio.Console._
 
@@ -38,7 +38,7 @@ class RouteGuideService(
     * @param request the bounding rectangle for the requested features.
     */
   // start: listFeatures
-  def listFeatures(request: Rectangle): ZStream[ZEnv, Status, Feature] = {
+  def listFeatures(request: Rectangle): ZStream[Any, Status, Feature] = {
     val left = request.getLo.longitude min request.getHi.longitude
     val right = request.getLo.longitude max request.getHi.longitude
     val top = request.getLo.latitude max request.getHi.latitude

@@ -36,14 +36,14 @@ object GreeterServiceWithMetadata {
   // Imagine this resolves an authenticated User instance from the Metadata.
   def findUser(rc: RequestContext): IO[Status, User] =
     rc.metadata.get(UserKey).flatMap {
-      case Some(name) => IO.succeed(User(name))
-      case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+      case Some(name) => ZIO.succeed(User(name))
+      case _          => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
-  val live: ZLayer[Clock, Nothing, ZGreeter[Any, RequestContext]] = {
-    c: Clock =>
+  val live: ZLayer[Clock, Nothing, ZGreeter[Any, RequestContext]] =
+    ZLayer.fromFunction { c: Clock =>
       new LiveService(c).transformContextM(findUser(_))
-  }.toLayer
+    }
 }
 
 object ExampleServerWithMetadata extends ZIOAppDefault {
