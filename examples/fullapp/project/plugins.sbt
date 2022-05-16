@@ -8,7 +8,7 @@ val zioGrpcVersion = "0.5.1"
 
 libraryDependencies ++= Seq(
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion,
-  "com.thesamet.scalapb"          %% "compilerplugin"   % "0.11.7"
+  "com.thesamet.scalapb" %% "compilerplugin" % "0.11.7"
 )
 
 // For Scala.js:
