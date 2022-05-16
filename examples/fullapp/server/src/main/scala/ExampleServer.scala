@@ -3,7 +3,7 @@ package examples
 import examples.greeter.ZioGreeter.Greeter
 import examples.greeter._
 import zio.Duration._
-import zio.stream.Stream
+import zio.stream.{Stream, ZStream}
 import io.grpc.ServerBuilder
 import io.grpc.Status
 import zio._
@@ -15,18 +15,16 @@ import zio.Console.{print, printLine}
 object GreeterService {
   class LiveService(clock: Clock) extends Greeter {
     def greet(req: Request): IO[Status, Response] =
-      clock.sleep(300.millis) *> zio.IO.succeed(
-        Response(resp = "hello " + req.name)
-      )
+      clock.sleep(300.millis).as(Response(resp = "hello " + req.name))
 
     def points(
         request: Request
     ): Stream[Status, Point] =
-      (Stream(Point(3, 4))
+      (ZStream(Point(3, 4))
         .schedule(Schedule.spaced(1000.millis))
         .forever
         .take(5) ++
-        Stream.fail(
+        ZStream.fail(
           Status.INTERNAL
             .withDescription("There was an error!")
             .withCause(new RuntimeException)
@@ -40,7 +38,7 @@ object GreeterService {
   }
 
   val live: ZLayer[Clock, Nothing, Greeter] =
-    (new LiveService(_)).toLayer
+    ZLayer.fromFunction(new LiveService(_))
 }
 
 object ExampleServer extends ZIOAppDefault {
