@@ -22,5 +22,5 @@ object HelloWorldClient extends zio.ZIOAppDefault {
     } yield ()
 
   final def run =
-    myAppLogic.provideCustomLayer(clientLayer).exitCode
+    myAppLogic.provideLayer(clientLayer).exitCode
 }
