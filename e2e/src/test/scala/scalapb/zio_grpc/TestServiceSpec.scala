@@ -22,7 +22,7 @@ object TestServiceSpec extends ZIOSpecDefault {
         ss     <- ZIO.service[Server.Service]
         port   <- ss.port.orDie
         ch      = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
-        client <- TestServiceClient.managed(ZManagedChannel(ch)).orDie
+        client <- TestServiceClient.scoped(ZManagedChannel(ch)).orDie
       } yield client
     }
 

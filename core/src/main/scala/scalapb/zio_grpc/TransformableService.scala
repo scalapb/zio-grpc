@@ -16,7 +16,7 @@ trait TransformableService[S[_, _]] {
   def provideEnvironment[R, Context: Tag](s: S[R, Context], r: ZEnvironment[R]): S[Any, Context] =
     transform(s, ZTransform.provideEnvironment[R, Status, Context](r))
 
-  def transformContextM[R, FromContext: Tag, R0 <: R, ToContext: Tag](
+  def transformContextZIO[R, FromContext: Tag, R0 <: R, ToContext: Tag](
       s: S[R, FromContext],
       f: ToContext => ZIO[R0, Status, FromContext]
   ): S[R0, ToContext] =
@@ -26,7 +26,7 @@ trait TransformableService[S[_, _]] {
       s: S[R, FromContext],
       f: ToContext => FromContext
   ): S[R, ToContext] =
-    transformContextM[R, FromContext, R, ToContext](s, (hc2: ToContext) => ZIO.succeed(f(hc2)))
+    transformContextZIO[R, FromContext, R, ToContext](s, (hc2: ToContext) => ZIO.succeed(f(hc2)))
 
   def toLayer[R, C: Tag](
       s: S[R, C]
@@ -43,10 +43,10 @@ object TransformableService {
     )(implicit TS: TransformableService[S]): S[ROut, ContextOut] =
       TS.transform[R, C, ROut, ContextOut](service, transform)
 
-    def transformContextM[C2: Tag, R0 <: R](
+    def transformContextZIO[C2: Tag, R0 <: R](
         f: C2 => ZIO[R0, Status, C]
     )(implicit TS: TransformableService[S], cTagged: Tag[C]): S[R0, C2] =
-      TS.transformContextM[R, C, R0, C2](service, f)
+      TS.transformContextZIO[R, C, R0, C2](service, f)
 
     def provideEnvironment(
         r: ZEnvironment[R]
