@@ -59,7 +59,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
       case None          => ZIO.fail(Status.UNAUTHENTICATED)
     }
 
-  val serviceLayer = ServiceWithConsole.transformContextM(parseUser(_)).toLayer
+  val serviceLayer = ServiceWithConsole.transformContextZIO(parseUser(_)).toLayer
 
   val serverLayer: ZLayer[ZTestService[Any, RequestContext], Throwable, Server] =
     ServerLayer.access[ZTestService[Any, RequestContext]](ServerBuilder.forPort(0))
@@ -77,7 +77,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
             )
           )
           TestServiceClient
-            .managed(ch)
+            .scoped(ch)
             .orDie
         }
       }
