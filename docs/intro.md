@@ -1,6 +1,7 @@
 ---
 title: Introduction
 custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/intro.md
+slug: /
 ---
 
 ZIO-gRPC lets you write purely functional gRPC servers and clients. It is built on top of [ZIO](https://zio.dev/), a library for asynchronous and concurrent functional programming in Scala.
