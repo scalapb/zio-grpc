@@ -68,7 +68,8 @@ You can also override `def port: Int` to set a port number (by default port 9000
 The generated client follows [ZIO's module pattern](https://zio.dev/docs/howto/howto_use_layers):
 
 ```scala
-type ServiceNameClient = Has[ServiceNameClient.Service]
+type ServiceNameClient = ServiceNameClient.Service
+
 object ServiceNameClient {
   trait ZService[R] {
     // methods for use as a client
@@ -81,7 +82,7 @@ object ServiceNameClient {
   def sayHello(request: HelloRequest):
     ZIO[ServiceNameClient, Status, HelloReply]
 
-  def managed[R](
+  def scoped[R](
       managedChannel: ZManagedChannel[R],
       options: CallOptions =
           io.grpc.CallOptions.DEFAULT,
@@ -119,7 +120,7 @@ val channel = ZManagedChannel(
 
 ### Using the client as a layer
 
-A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you need to connect to. You can create a `ZLayer` to provide this service using the `live` method on the client companion object. Then simply write your logic using the accessor methods. Finally, inject the layer using `provideCustomLayer` at the top of your app:
+A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you need to connect to. You can create a `ZLayer` to provide this service using the `live` method on the client companion object. Then simply write your logic using the accessor methods. Finally, inject the layer using `provideLayer` at the top of your app:
 
 ```scala mdoc
 import myexample.testservice.ZioTestservice.ServiceNameClient
@@ -138,15 +139,15 @@ val myAppLogicNeedsEnv = for {
 
 // myAppLogicNeedsEnv needs access to a ServiceNameClient. We turn it into
 // a self-contained effect (IO) by providing the layer to it:
-val myAppLogic1 = myAppLogicNeedsEnv.provideCustomLayer(clientLayer)
+val myAppLogic1 = myAppLogicNeedsEnv.provideLayer(clientLayer)
 
 object LayeredApp extends zio.ZIOAppDefault {
-  def run: URIO[ZEnv, ExitCode] = myAppLogic1.exitCode
+  def run: UIO[ExitCode] = myAppLogic1.exitCode
 }
 ```
 
 Here the application is broken to multiple value assignments so you can see the types.
-The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient with Has[Console]`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
+The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
 
 ### Using a Managed Client
 
@@ -156,14 +157,15 @@ As an alternative to using ZLayer, you can use the client through a managed reso
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
 
-val clientManaged = ServiceNameClient.managed(channel)
+val clientManaged = ServiceNameClient.scoped(channel)
 
-val myAppLogic = for {
-  res <- clientManaged.use(
-    client =>
-      client.unary(Request()).mapError(_.asRuntimeException)
-  )
-} yield res
+val myAppLogic = ZIO.scoped {
+  clientManaged.flatMap { client =>
+    for {
+      res <- client.unary(Request()).mapError(_.asRuntimeException)
+    } yield res
+  }
+}
 ```
 
 Since the service acquistion (through the ZManaged) can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.

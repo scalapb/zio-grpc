@@ -86,13 +86,15 @@ client that has a modified `CallOptions` effect. Making the copy of those client
 be safely done for each individual call:
 
 ```scala mdoc
-val clientManaged = ServiceNameClient.managed(channel)
+val clientScoped = ServiceNameClient.scoped(channel)
 
-val myAppLogic = for {
-  res <- clientManaged.use(
-    client =>
-      client.withTimeoutMillis(3000).unary(Request())
-            .mapError(_.asRuntimeException)
-  )
-} yield res
+val myAppLogic = ZIO.scoped {
+  clientScoped.flatMap { client => 
+    for {
+      res <- client
+               .withTimeoutMillis(3000).unary(Request())
+               .mapError(_.asRuntimeException)
+    } yield res
+  }
+}
 ```
