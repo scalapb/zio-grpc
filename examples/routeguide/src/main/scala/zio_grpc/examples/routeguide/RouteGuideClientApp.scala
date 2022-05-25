@@ -133,6 +133,6 @@ object RouteGuideClientApp extends ZIOAppDefault {
     } yield ()
 
   final def run =
-    myAppLogic.provideCustomLayer(clientLayer).exitCode
+    myAppLogic.provideLayer(clientLayer).exitCode
   // end: appLogic
 }

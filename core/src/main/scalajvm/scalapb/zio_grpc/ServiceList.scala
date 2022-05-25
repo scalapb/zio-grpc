@@ -13,15 +13,15 @@ sealed class ServiceList[-RR] private[scalapb] (
 
   /** Adds a service to the service list */
   def add[R1 <: RR, S1](s1: S1)(implicit b: ZBindableService[R1, S1]): ServiceList[R1] =
-    addManaged[R1, RR, S1](ZIO.succeed(s1))
+    addScoped[R1, RR, S1](ZIO.succeed(s1))
 
   /** Adds an effect that returns a service to the service list */
-  def addM[R1 <: RR, R2 <: RR, S1](
+  def addZIO[R1 <: RR, R2 <: RR, S1](
       s1: ZIO[R2, Throwable, S1]
   )(implicit b: ZBindableService[R1, S1]): ServiceList[R1 with R2] =
-    addManaged[R1, R2, S1](s1)
+    addScoped[R1, R2, S1](s1)
 
-  def addManaged[R1 <: RR, R2 <: RR, S1](s1: ZIO[R2 with Scope, Throwable, S1])(implicit
+  def addScoped[R1 <: RR, R2 <: RR, S1](s1: ZIO[R2 with Scope, Throwable, S1])(implicit
       bs: ZBindableService[R1, S1]
   ): ServiceList[RR with R1 with R2] =
     new ServiceList[RR with R1 with R2](for {

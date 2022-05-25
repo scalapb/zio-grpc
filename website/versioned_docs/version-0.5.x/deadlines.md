@@ -22,7 +22,7 @@ To set the same timeout for all requests, it is possible to provide an effect th
 when constructing the client. This effect is invoked before each request, and can determine the deadline
 relative to the system clock at the time the effect is executed.
 
-```scala mdoc
+```scala
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
 import scalapb.zio_grpc.{ZManagedChannel, SafeMetadata}
@@ -30,26 +30,31 @@ import io.grpc.ManagedChannelBuilder
 import io.grpc.CallOptions
 import java.util.concurrent.TimeUnit
 import zio._
-import zio.Console._
+import zio.console._
 
 val channel = ZManagedChannel(
   ManagedChannelBuilder
     .forAddress("localhost", 8980)
     .usePlaintext()
 )
+// channel: ZManagedChannel[Any] = zio.ZManaged$$anon$2@255dfc3d
 
 // create layer:
 val clientLayer = ServiceNameClient.live(
   channel,
-  options=ZIO.succeed(
+  options=ZIO.effectTotal(
     CallOptions.DEFAULT.withDeadlineAfter(3000, TimeUnit.MILLISECONDS)),
   headers=SafeMetadata.make)
+// clientLayer: ZLayer[Any, Throwable, Has[ServiceNameClient.ZService[Any, Any]]] = Managed(
+//   self = zio.ZManaged$$anon$2@318ff46a
+// )
 
 val myAppLogicNeedsEnv = for {
   // use layer through accessor methods:
   res <- ServiceNameClient.unary(Request())
-  _ <- printLine(res.toString)
+  _ <- putStrLn(res.toString)
 } yield ()
+// myAppLogicNeedsEnv: ZIO[Has[ServiceNameClient.ZService[Any, Any]] with Any with Console, Object, Unit] = zio.ZIO$FlatMap@1f020e5d
 ```
 
 ## Setting timeout for each request
@@ -57,8 +62,9 @@ val myAppLogicNeedsEnv = for {
 As in the previous example, assuming there is a client in the environment, we can set the timeout
 for each request like this:
 
-```scala mdoc
+```scala
 ServiceNameClient.withTimeoutMillis(3000).unary(Request())
+// res0: ZIO[Has[ServiceNameClient.ZService[Any, Any]] with Any, io.grpc.Status, Response] = zio.ZIO$Read@32d8914a
 ```
 
 Clients provide (through the `CallOptionsMethods` trait) a number of methods that make it possible
@@ -85,16 +91,16 @@ If you are using a client instance, the above methods are available to provide y
 client that has a modified `CallOptions` effect. Making the copy of those clients is cheap and can
 be safely done for each individual call:
 
-```scala mdoc
-val clientScoped = ServiceNameClient.scoped(channel)
+```scala
+val clientManaged = ServiceNameClient.managed(channel)
+// clientManaged: Managed[Throwable, ServiceNameClient.ZService[Any, Any]] = zio.ZManaged$$anon$2@168ab14e
 
-val myAppLogic = ZIO.scoped {
-  clientScoped.flatMap { client => 
-    for {
-      res <- client
-               .withTimeoutMillis(3000).unary(Request())
-               .mapError(_.asRuntimeException)
-    } yield res
-  }
-}
+val myAppLogic = for {
+  res <- clientManaged.use(
+    client =>
+      client.withTimeoutMillis(3000).unary(Request())
+            .mapError(_.asRuntimeException)
+  )
+} yield res
+// myAppLogic: ZIO[Any with Any, Throwable, Response] = zio.ZIO$FlatMap@2be1bc9f
 ```

@@ -62,15 +62,15 @@ object BindableServiceSpec extends ZIOSpecDefault {
   val y5 = ServiceList.add(S5)
   val y6 = ServiceList.add(S6)
   val y7 = ServiceList.add(S7)
-  val z1 = ServiceList.addM(ZIO.succeed(S1))
-  val z2 = ServiceList.addM(ZIO.succeed(S2))
-  val z3 = ServiceList.addM(ZIO.succeed(S3))
-  val z4 = ServiceList.addM(ZIO.succeed(S4))
-  val z5 = ServiceList.addM(ZIO.succeed(S5))
-  val z6 = ServiceList.addM(ZIO.succeed(S6))
-  val z7 = ServiceList.addM(ZIO.succeed(S7))
+  val z1 = ServiceList.addZIO(ZIO.succeed(S1))
+  val z2 = ServiceList.addZIO(ZIO.succeed(S2))
+  val z3 = ServiceList.addZIO(ZIO.succeed(S3))
+  val z4 = ServiceList.addZIO(ZIO.succeed(S4))
+  val z5 = ServiceList.addZIO(ZIO.succeed(S5))
+  val z6 = ServiceList.addZIO(ZIO.succeed(S6))
+  val z7 = ServiceList.addZIO(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
-  val z9 = ServiceList.addManaged(ZIO.succeed(S4))
+  val z9 = ServiceList.addScoped(ZIO.succeed(S4))
 
   def spec = suite("BindableServiceSpec")(
     test("empty - required to make the compiler happy") {

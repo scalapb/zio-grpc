@@ -20,9 +20,9 @@ final class SafeMetadata private (
 
   /** Creates an effect from a total side-effecting function of metadata */
   def wrap[A](f: Metadata => A): UIO[A] =
-    wrapM(metadata => ZIO.succeed(f(metadata)))
+    wrapZIO(metadata => ZIO.succeed(f(metadata)))
 
-  def wrapM[R, E, A](f: Metadata => ZIO[R, E, A]): ZIO[R, E, A] =
+  def wrapZIO[R, E, A](f: Metadata => ZIO[R, E, A]): ZIO[R, E, A] =
     sem.withPermit(f(metadata))
 }
 
