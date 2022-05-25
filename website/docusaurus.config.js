@@ -23,6 +23,10 @@ module.exports = {
         },
         // {to: 'blog', label: 'Blog', position: 'left'},
         {
+            'type': 'docsVersionDropdown',
+            'position': 'right'
+        },
+        {
           href: 'https://github.com/scalapb/zio-grpc',
           label: 'GitHub',
           position: 'right',
@@ -91,7 +95,16 @@ module.exports = {
           sidebarCollapsible: false,
           // Please change this to your repo.
           // editUrl: 'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
-          path: '../zio-grpc-docs/target/mdoc'
+          path: '../zio-grpc-docs/target/mdoc',
+
+          versions: {
+              current: {
+                  label: '0.6.x (WIP)'
+              },
+              '0.5.x': {
+                  label: '0.5.x'
+              }
+          }
         },
         blog: {
           showReadingTime: true,
