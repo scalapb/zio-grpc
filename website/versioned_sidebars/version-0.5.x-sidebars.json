@@ -1,0 +1,54 @@
+{
+  "version-0.5.x/someSidebar": [
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Getting Started",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.5.x/intro"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/quickstart"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/basics"
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Guides",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.5.x/installation"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/generated-code"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/context"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/decorating"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/deadlines"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/scala.js"
+        }
+      ]
+    }
+  ]
+}
