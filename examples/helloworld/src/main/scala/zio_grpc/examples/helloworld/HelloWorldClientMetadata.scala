@@ -68,7 +68,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   // Option 2: through a managed client
   val userClientManaged
       : ZIO[Scope, Throwable, GreeterClient.ZService[Any, User]] =
-    GreeterClient.managed(channel, headers = userEnvToMetadata)
+    GreeterClient.scoped(channel, headers = userEnvToMetadata)
 
   def appLogic2 =
     ZIO.scoped {
@@ -89,7 +89,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
     }
 
   // Option 3: by changing the stub
-  val clientManaged = GreeterClient.managed(channel)
+  val clientManaged = GreeterClient.scoped(channel)
   def appLogic3 =
     ZIO.scoped {
       clientManaged.flatMap { client =>
@@ -97,7 +97,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
           // Pass metadata effectfully
           r1 <-
             client
-              .withMetadataM(userToMetadata(User("hello")))
+              .withMetadataZIO(userToMetadata(User("hello")))
               .sayHello(HelloRequest("World"))
           _ <- printLine(r1.message)
         } yield ()
