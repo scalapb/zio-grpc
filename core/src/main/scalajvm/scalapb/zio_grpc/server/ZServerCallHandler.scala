@@ -22,7 +22,7 @@ class ZServerCallHandler[R, Req, Res](
     val zioCall = new ZServerCall(call)
     val runner  = for {
       responseMetadata <- SafeMetadata.make
-      driver           <- SafeMetadata.fromMetadata(headers) >>= { md =>
+      driver           <- SafeMetadata.fromMetadata(headers).flatMap { md =>
                             mkDriver(zioCall, RequestContext.fromServerCall(md, responseMetadata, call))
                           }
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
@@ -58,38 +58,41 @@ object ZServerCallHandler {
 
   def unaryCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZIO[Has[RequestContext], Status, Res]
+      impl: Req => ZIO[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput(
       runtime,
-      (req, requestContext, call) => impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZStream[Has[RequestContext], Status, Res]
+      impl: Req => ZStream[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput(
       runtime,
-      (req: Req, metadata: RequestContext, call: ZServerCall[Res]) =>
-        impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
+        impl(req).provideEnvironment(ZEnvironment(requestContext)).foreach(call.sendMessage)
     )
 
   def clientStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZIO[Has[RequestContext], Status, Res]
+      impl: Stream[Status, Req] => ZIO[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZStream[Has[RequestContext], Status, Res]
+      impl: Stream[Status, Req] => ZStream[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req).provideEnvironment(ZEnvironment(requestContext)).foreach(call.sendMessage)
     )
 }

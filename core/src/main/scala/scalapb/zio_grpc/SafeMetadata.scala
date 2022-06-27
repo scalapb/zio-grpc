@@ -20,17 +20,17 @@ final class SafeMetadata private (
 
   /** Creates an effect from a total side-effecting function of metadata */
   def wrap[A](f: Metadata => A): UIO[A] =
-    wrapM(metadata => ZIO.effectTotal(f(metadata)))
+    wrapZIO(metadata => ZIO.succeed(f(metadata)))
 
-  def wrapM[R, E, A](f: Metadata => ZIO[R, E, A]): ZIO[R, E, A] =
+  def wrapZIO[R, E, A](f: Metadata => ZIO[R, E, A]): ZIO[R, E, A] =
     sem.withPermit(f(metadata))
 }
 
 object SafeMetadata {
   def make: UIO[SafeMetadata] = fromMetadata(new Metadata)
 
-  /** Creates a new SafeMetadata by taking ownership of the given metadata.
-    * The provided metadata should not be used after calling this method.
+  /** Creates a new SafeMetadata by taking ownership of the given metadata. The provided metadata should not be used
+    * after calling this method.
     */
   def fromMetadata(metadata: => Metadata): UIO[SafeMetadata] =
     Semaphore.make(1).map(s => new SafeMetadata(s, metadata))

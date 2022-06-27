@@ -1,26 +1,30 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
-import zio.{Has, Managed, ZIO}
-import zio.clock.Clock
-import zio.console.Console
+import zio.Clock
+import zio.Console
+import zio.ZIO
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
 import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
 
-object BindableServiceSpec extends DefaultRunnableSpec {
-  implicitly[ZBindableService[Any, ZTestService[Any, Has[RequestContext]]]]
-  implicitly[ZBindableService[Any, ZTestService[Any, Has[SafeMetadata]]]]
+object BindableServiceSpec extends ZIOSpecDefault {
+  implicitly[ZBindableService[Any, ZTestService[Any, RequestContext]]]
+  implicitly[ZBindableService[Any, ZTestService[Any, SafeMetadata]]]
   implicitly[ZBindableService[Any, ZTestService[Any, Any]]]
 
-  implicitly[ZBindableService[Clock, ZTestService[Clock, Has[RequestContext]]]]
-  implicitly[ZBindableService[Clock, ZTestService[Clock, Has[SafeMetadata]]]]
+  implicitly[ZBindableService[Clock, ZTestService[Clock, RequestContext]]]
+  implicitly[ZBindableService[Clock, ZTestService[Clock, SafeMetadata]]]
   implicitly[ZBindableService[Clock, ZTestService[Clock, Any]]]
 
-  implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Has[RequestContext]]]]
-  implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Has[SafeMetadata]]]]
+  implicitly[
+    ZBindableService[Clock with Console, ZTestService[Clock with Console, RequestContext]]
+  ]
+  implicitly[
+    ZBindableService[Clock with Console, ZTestService[Clock with Console, SafeMetadata]]
+  ]
   implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Any]]]
 
   class UnimpTestService[P, R, C] extends ZTestService[R, C] {
@@ -33,11 +37,11 @@ object BindableServiceSpec extends DefaultRunnableSpec {
     def bidiStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZStream[R with C, Status, Response] = ???
   }
 
-  object S1 extends UnimpTestService[Int, Any, Has[RequestContext]]
-  object S2 extends UnimpTestService[Int, Any, Has[SafeMetadata]]
+  object S1 extends UnimpTestService[Int, Any, RequestContext]
+  object S2 extends UnimpTestService[Int, Any, SafeMetadata]
   object S3 extends UnimpTestService[Int, Any, Any]
-  object S4 extends UnimpTestService[Int, Clock, Has[SafeMetadata]]
-  object S5 extends UnimpTestService[Int, Clock, Has[RequestContext]]
+  object S4 extends UnimpTestService[Int, Clock, SafeMetadata]
+  object S5 extends UnimpTestService[Int, Clock, RequestContext]
   object S6 extends UnimpTestService[Int, Clock, Any]
   object S7 extends UnimpTestService[Int, Console, Any]
 
@@ -58,15 +62,19 @@ object BindableServiceSpec extends DefaultRunnableSpec {
   val y5 = ServiceList.add(S5)
   val y6 = ServiceList.add(S6)
   val y7 = ServiceList.add(S7)
-  val z1 = ServiceList.addM(ZIO.succeed(S1))
-  val z2 = ServiceList.addM(ZIO.succeed(S2))
-  val z3 = ServiceList.addM(ZIO.succeed(S3))
-  val z4 = ServiceList.addM(ZIO.succeed(S4))
-  val z5 = ServiceList.addM(ZIO.succeed(S5))
-  val z6 = ServiceList.addM(ZIO.succeed(S6))
-  val z7 = ServiceList.addM(ZIO.succeed(S7))
+  val z1 = ServiceList.addZIO(ZIO.succeed(S1))
+  val z2 = ServiceList.addZIO(ZIO.succeed(S2))
+  val z3 = ServiceList.addZIO(ZIO.succeed(S3))
+  val z4 = ServiceList.addZIO(ZIO.succeed(S4))
+  val z5 = ServiceList.addZIO(ZIO.succeed(S5))
+  val z6 = ServiceList.addZIO(ZIO.succeed(S6))
+  val z7 = ServiceList.addZIO(ZIO.succeed(S7))
   val z8 = ServiceList.access[S1.type]
-  val z9 = ServiceList.addManaged(Managed.succeed(S4))
+  val z9 = ServiceList.addScoped(ZIO.succeed(S4))
 
-  def spec = suite("BindableServiceSpec")()
+  def spec = suite("BindableServiceSpec")(
+    test("empty - required to make the compiler happy") {
+      assertCompletes
+    }
+  )
 }

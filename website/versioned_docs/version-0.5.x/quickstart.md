@@ -14,7 +14,7 @@ This guide gets you started with ZIO gRPC with a simple working example.
 
 The example code is part of the [zio-grpc](https://github.com/scalapb/zio-grpc) repository.
 
-1. [Download the repo as a zip file](https://github.com/scalapb/zio-grpc/archive/v@zioGrpcVersion@.zip) and unzip it, or clone the repo:
+1. [Download the repo as a zip file](https://github.com/scalapb/zio-grpc/archive/v0.5.0.zip) and unzip it, or clone the repo:
    ```bash
    git clone https://github.com/scalapb/zio-grpc
    ```
@@ -109,9 +109,9 @@ Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and u
 def myAppLogic =
   for {
     r <- GreeterClient.sayHello(HelloRequest("World"))
-    _ <- printLine(r.message)
+    _ <- putStrLn(r.message)
     s <- GreeterClient.sayHelloAgain(HelloRequest("World"))
-    _ <- printLine(s.message)
+    _ <- putStrLn(s.message)
   } yield ()
 ```
 

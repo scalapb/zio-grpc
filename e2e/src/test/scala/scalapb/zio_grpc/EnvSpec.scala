@@ -9,25 +9,23 @@ import io.grpc.ServerBuilder
 import io.grpc.Metadata
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Status
-import zio.console.Console
 import zio.stream.ZStream
-import zio.clock.Clock
 
-object EnvSpec extends DefaultRunnableSpec with MetadataTests {
+object EnvSpec extends ZIOSpecDefault with MetadataTests {
   case class User(name: String)
 
-  val getUser = ZIO.access[Has[User]](_.get)
+  val getUser = ZIO.environmentWith[User](_.get)
 
-  object ServiceWithConsole extends ZTestService[Console with Clock, Has[User]] {
-    def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
+  object ServiceWithConsole extends ZTestService[Any, User] {
+    def unary(request: Request): ZIO[User, Status, Response] =
       for {
         user <- getUser
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[Console with Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
+    ): ZStream[User, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
         ZStream(
           Response(u.get.name),
           Response(u.get.name)
@@ -36,12 +34,12 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
     def clientStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))
+    ): ZIO[User, Status, Response] = getUser.map(n => Response(n.name))
 
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZStream[Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
+    ): ZStream[User, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
         ZStream(
           Response(u.get.name)
         )
@@ -54,32 +52,34 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   def parseUser(rc: RequestContext): IO[Status, User] =
     rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
-        IO.fail(
+        ZIO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
         )
-      case Some(name)    => IO.succeed(User(name))
-      case None          => IO.fail(Status.UNAUTHENTICATED)
+      case Some(name)    => ZIO.succeed(User(name))
+      case None          => ZIO.fail(Status.UNAUTHENTICATED)
     }
 
-  val serviceLayer = ServiceWithConsole.transformContextM(parseUser(_)).toLayer
+  val serviceLayer = ServiceWithConsole.transformContextZIO(parseUser(_)).toLayer
 
-  val serverLayer: ZLayer[Has[ZTestService[Any, Has[RequestContext]]], Throwable, Server] =
-    ServerLayer.access[ZTestService[Any, Has[RequestContext]]](ServerBuilder.forPort(0))
+  val serverLayer: ZLayer[ZTestService[Any, RequestContext], Throwable, Server] =
+    ServerLayer.access[ZTestService[Any, RequestContext]](ServerBuilder.forPort(0))
 
   override def clientLayer(
       userName: Option[String]
-  ): ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.fromServiceManaged { (ss: Server.Service) =>
-      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
-        val ch = ZManagedChannel(
-          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
-          Seq(
-            ZClientInterceptor.headersUpdater((_, _, md) => ZIO.foreach(userName)(un => md.put(UserKey, un)).unit)
+  ): URLayer[Server, TestServiceClient] =
+    ZLayer.scoped {
+      ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
+        ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
+          val ch = ZManagedChannel(
+            ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
+            Seq(
+              ZClientInterceptor.headersUpdater((_, _, md) => ZIO.foreach(userName)(un => md.put(UserKey, un)).unit)
+            )
           )
-        )
-        TestServiceClient
-          .managed(ch)
-          .orDie
+          TestServiceClient
+            .scoped(ch)
+            .orDie
+        }
       }
     }
 

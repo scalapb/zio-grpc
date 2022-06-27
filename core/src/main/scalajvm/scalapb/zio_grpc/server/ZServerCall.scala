@@ -6,14 +6,14 @@ import scalapb.zio_grpc.GIO
 
 /** Wrapper around [[io.grpc.ServerCall]] that lifts its effects into ZIO values */
 class ZServerCall[Res](private val call: ServerCall[_, Res]) extends AnyVal {
-  def request(n: Int): GIO[Unit] = GIO.fromTask(ZIO.effect(call.request(n)))
+  def request(n: Int): GIO[Unit] = GIO.fromTask(ZIO.attempt(call.request(n)))
 
   def sendMessage(message: Res): GIO[Unit] =
-    GIO.fromTask(ZIO.effect(call.sendMessage(message)))
+    GIO.fromTask(ZIO.attempt(call.sendMessage(message)))
 
   def sendHeaders(headers: Metadata): GIO[Unit] =
-    GIO.fromTask(ZIO.effect(call.sendHeaders(headers)))
+    GIO.fromTask(ZIO.attempt(call.sendHeaders(headers)))
 
   def close(status: Status, metadata: Metadata): GIO[Unit] =
-    GIO.fromTask(ZIO.effect(call.close(status, metadata)))
+    GIO.fromTask(ZIO.attempt(call.close(status, metadata)))
 }

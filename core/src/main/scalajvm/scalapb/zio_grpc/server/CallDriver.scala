@@ -3,7 +3,7 @@ package scalapb.zio_grpc.server
 import io.grpc.ServerCall.Listener
 import io.grpc.Status
 import zio._
-import zio.stream.Stream
+import zio.stream.{Stream, ZStream}
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 
@@ -11,10 +11,8 @@ import io.grpc.Metadata
   *
   * The listener is returned to grpc-java to feed input into the request.
   *
-  * The `run` represents an effect of running the request: it reads the
-  * input provided to the listener, and writes the response to an output
-  * channel. It handles interrupts by sending a cancel event through the
-  * channel.
+  * The `run` represents an effect of running the request: it reads the input provided to the listener, and writes the
+  * response to an output channel. It handles interrupts by sending a cancel event through the channel.
   */
 case class CallDriver[R, Req](
     listener: Listener[Req],
@@ -25,7 +23,7 @@ object CallDriver {
   def exitToStatus(ex: Exit[Status, Unit]): Status =
     ex.fold(
       failed = { cause =>
-        if (cause.interruptedOnly) Status.CANCELLED
+        if (cause.isInterruptedOnly) Status.CANCELLED
         else cause.failureOption.getOrElse(Status.INTERNAL)
       },
       completed = _ => Status.OK
@@ -64,7 +62,7 @@ object CallDriver {
         call.request(2) *>
           completed.await *>
           call.sendHeaders(new Metadata) *>
-          request.await >>= writeResponse
+          request.await flatMap writeResponse
       ).onExit(ex => call.close(CallDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
         .ignore
         .race(cancelled.await)
@@ -72,8 +70,8 @@ object CallDriver {
 
   /** Creates a [[CallDriver]] for a request with a unary input.
     *
-    * writeResponse: given a request, returns a effects that computes
-    * the response and writes it through the given ZServerCall.
+    * writeResponse: given a request, returns a effects that computes the response and writes it through the given
+    * ZServerCall.
     */
   def makeUnaryInputCallDriver[R, Req, Res](
       writeResponse: (
@@ -122,7 +120,7 @@ object CallDriver {
           )
       },
       run = {
-        val requestStream = Stream
+        val requestStream = ZStream
           .fromQueue(queue)
           .collectWhileSome
 
@@ -137,8 +135,8 @@ object CallDriver {
 
   /** Creates a [[CallDriver]] for a request with a streaming input.
     *
-    * writeResponse: given a request, returns a effects that computes
-    * the response and writes it through the given ZServerCall.
+    * writeResponse: given a request, returns a effects that computes the response and writes it through the given
+    * ZServerCall.
     */
   def makeStreamingInputCallDriver[R, Req, Res](
       writeResponse: (

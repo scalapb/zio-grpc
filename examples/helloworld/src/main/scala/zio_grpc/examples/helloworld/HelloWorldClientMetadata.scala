@@ -9,13 +9,13 @@ import io.grpc.{
   CallOptions,
   Status
 }
-import zio.console._
+import zio.Console._
 import scalapb.zio_grpc.{SafeMetadata, ZClientInterceptor, ZManagedChannel}
 import zio._
 
 case class User(name: String)
 
-object HelloWorldClientMetadata extends zio.App {
+object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
@@ -27,7 +27,7 @@ object HelloWorldClientMetadata extends zio.App {
 
   // An effect that fetches a User from the environment and transforms it to
   // Metadata
-  def userEnvToMetadata: URIO[Has[User], SafeMetadata] =
+  def userEnvToMetadata: URIO[User, SafeMetadata] =
     ZIO.service[User].flatMap(userToMetadata)
 
   val channel =
@@ -38,60 +38,75 @@ object HelloWorldClientMetadata extends zio.App {
   // Option 1: through layer and accessors
   val clientLayer = GreeterClient.live(channel, headers = userEnvToMetadata)
 
-  type UserClient = Has[GreeterClient.ZService[Any, Has[User]]]
+  type UserClient = GreeterClient.ZService[Any, User]
 
   // The default accessors expect the client type that has no context. We need
   // to set up accessors for the User context
-  object UserClient extends GreeterClient.Accessors[Has[User]]
+  object UserClient extends GreeterClient.Accessors[User]
 
-  def appLogic1: ZIO[UserClient with Console, Status, Unit] =
+  def appLogic1: ZIO[UserClient, Status, Unit] =
     for {
       // With provideSomeLayer:
       r1 <-
         UserClient
           .sayHello(HelloRequest("World"))
           .provideSomeLayer[UserClient](ZLayer.succeed(User("user1")))
-      _ <- putStrLn(r1.message)
+      _ <- printLine(r1.message).orDie
 
-      // With provide:
-      r2 <- UserClient.sayHello(HelloRequest("World")).provideSome {
-        (ct: UserClient) => ct ++ Has(User("user1"))
-      }
-      _ <- putStrLn(r2.message)
+      // With provideSomeEnvironment:
+      r2 <-
+        UserClient
+          .sayHello(HelloRequest("World"))
+          .provideSomeEnvironment(
+            (_: ZEnvironment[UserClient]) ++ ZEnvironment(
+              User("user1")
+            )
+          )
+      _ <- printLine(r2.message).orDie
     } yield ()
 
   // Option 2: through a managed client
   val userClientManaged
-      : Managed[Throwable, GreeterClient.ZService[Any, Has[User]]] =
-    GreeterClient.managed(channel, headers = userEnvToMetadata)
+      : ZIO[Scope, Throwable, GreeterClient.ZService[Any, User]] =
+    GreeterClient.scoped(channel, headers = userEnvToMetadata)
 
   def appLogic2 =
-    userClientManaged.use { client =>
-      for {
-        r1 <- client.sayHello(HelloRequest("World")).provide(Has(User("user1")))
-        _ <- putStrLn(r1.message)
-        r2 <- client.sayHello(HelloRequest("World")).provide(Has(User("user2")))
-        _ <- putStrLn(r2.message)
-      } yield ()
+    ZIO.scoped {
+      userClientManaged.flatMap { client =>
+        for {
+          r1 <-
+            client
+              .sayHello(HelloRequest("World"))
+              .provideEnvironment(ZEnvironment(User("user1")))
+          _ <- printLine(r1.message)
+          r2 <-
+            client
+              .sayHello(HelloRequest("World"))
+              .provideEnvironment(ZEnvironment(User("user2")))
+          _ <- printLine(r2.message)
+        } yield ()
+      }
     }
 
   // Option 3: by changing the stub
-  val clientManaged = GreeterClient.managed(channel)
+  val clientManaged = GreeterClient.scoped(channel)
   def appLogic3 =
-    clientManaged.use { client =>
-      for {
-        // Pass metadata effectfully
-        r1 <-
-          client
-            .withMetadataM(userToMetadata(User("hello")))
-            .sayHello(HelloRequest("World"))
-        _ <- putStrLn(r1.message)
-      } yield ()
+    ZIO.scoped {
+      clientManaged.flatMap { client =>
+        for {
+          // Pass metadata effectfully
+          r1 <-
+            client
+              .withMetadataZIO(userToMetadata(User("hello")))
+              .sayHello(HelloRequest("World"))
+          _ <- printLine(r1.message)
+        } yield ()
+      }
     }
 
-  final def run(args: List[String]) =
+  final def run =
     (
-      appLogic1.provideCustomLayer(clientLayer) *>
+      appLogic1.provideLayer(clientLayer) *>
         appLogic2 *>
         appLogic3
     ).exitCode

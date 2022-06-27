@@ -35,7 +35,7 @@ To download the example, clone the latest release in `zio-grpc` repository by
 running the following command:
 
 ```bash
-$ git clone -b v@zioGrpcVersion@ https://github.com/scalapb/zio-grpc.git
+$ git clone -b v0.5.0 https://github.com/scalapb/zio-grpc.git
 ```
 
 Then change your current directory to `zio-grpc/examples`:
@@ -171,7 +171,7 @@ There are two parts to making our `RouteGuide` service do its job:
   clients and return the service responses.
 
 You can find our example `RouteGuide` server in
-[scalapb/zio-grpc/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
+[scalapb/zio-grpc/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
 Let's take a closer look at how it works.
 
 ### Implementing ZRouteGuide
@@ -196,9 +196,13 @@ The trait `ZRouteGuide[R, Context]` takes two type parameters:
 look at the simplest method first, `GetFeature()`, which just gets a `Point` from
 the client and returns the corresponding feature information from its database
 in a `Feature`.
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideServer.scala", "getFeature")
-S.example("routeguide/RouteGuideServer.scala", "findFeature")
+```scala
+def getFeature(request: Point): ZIO[ZEnv, Status, Feature] =
+  ZIO.fromOption(findFeature(request)).mapError(_ => Status.NOT_FOUND)
+```
+```scala
+def findFeature(point: Point): Option[Feature] =
+  features.find(f => f.getLocation == point && f.name.nonEmpty)
 ```
 
 The `getFeature()` method takes the request (of type `Point`), and returns a ZIO
@@ -222,8 +226,21 @@ then use `mapError` to map the case of an error to gRPC's `NOT_FOUND` status.
 Next let's look at one of our streaming RPCs. `ListFeatures` is a server-side
 streaming RPC, so we need to send back multiple `Feature`s to our client.
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideServer.scala", "listFeatures")
+```scala
+def listFeatures(request: Rectangle): ZStream[ZEnv, Status, Feature] = {
+  val left = request.getLo.longitude min request.getHi.longitude
+  val right = request.getLo.longitude max request.getHi.longitude
+  val top = request.getLo.latitude max request.getHi.latitude
+  val bottom = request.getLo.latitude min request.getHi.latitude
+
+  ZStream.fromIterable(
+    features.filter { feature =>
+      val lat = feature.getLocation.latitude
+      val lon = feature.getLocation.longitude
+      lon >= left && lon <= right && lat >= bottom && lat <= top
+    }
+  )
+}
 ```
 
 Like the simple RPC, this method gets a request object (the `Rectangle` in which
@@ -243,8 +260,31 @@ Now let's look at something a little more complicated: the client-side streaming
 method `RecordRoute()`, where we get a stream of `Point`s from the client and
 return a single `RouteSummary` with information about their trip once the stream finishes.
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideServer.scala", "recordRoute")
+```scala
+def recordRoute(
+    request: zio.stream.Stream[Status, Point]
+): ZIO[Clock, Status, RouteSummary] = {
+  // Zips each element with the previous element, initially accompanied by None.
+  request.zipWithPrevious
+    .fold(RouteSummary()) {
+      case (summary, (maybePrevPoint, currentPoint)) =>
+        // Compute the next status based on the current status.
+        summary.copy(
+          pointCount = summary.pointCount + 1,
+          featureCount =
+            summary.featureCount + (if (findFeature(currentPoint).isDefined) 1
+                                    else 0),
+          distance = summary.distance + maybePrevPoint
+            .map(calcDistance(_, currentPoint))
+            .getOrElse(0)
+        )
+    }
+    .timed // returns a new effect that times the execution
+    .map {
+      case (duration, summary) =>
+        summary.copy(elapsedTime = (duration.toMillis / 1000).toInt)
+    }
+}
 ```
 
 Here, our method gets a stream that is produced by the client. As you can see
@@ -262,8 +302,24 @@ the effect thus far. We then use `map` to turn it back to a `RouteSummary` that 
 
 Finally, let's look at our bidirectional streaming RPC `RouteChat()`.
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideServer.scala", "routeChat")
+```scala
+def routeChat(
+    request: zio.stream.Stream[Status, RouteNote]
+): ZStream[ZEnv, Status, RouteNote] =
+  request.flatMap { note =>
+    // By using flatMap, we can map each RouteNote we receive to a stream with
+    // the existing RouteNotes for that location, and those sub-streams are going
+    // to get concatenated.
+    // We start from an effect that updates the map with the new RouteNote,
+    // and returns the notes associated with the location just before the update.
+    val updateMapEffect: UIO[List[RouteNote]] =
+      routeNotesRef.modify { routeNotes =>
+        val messages = routeNotes.getOrElse(note.getLocation, Nil)
+        (messages, routeNotes.updated(note.getLocation, note :: messages))
+      }
+    // We create a stream from the effect.
+    ZStream.fromIterableM(updateMapEffect)
+  }
 ```
 
 As with our client-side streaming example, we are getting a `Stream` of
@@ -281,8 +337,21 @@ Once we've implemented all our methods, we also need to start up a gRPC server
 so that clients can actually use our service. The following snippet shows how we
 do this for our `RouteGuide` service:
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideServer.scala", "serverMain")
+```scala
+object RouteGuideServer extends ServerMain {
+  override def port: Int = 8980
+
+  val featuresDatabase = JsonFormat.fromJsonString[FeatureDatabase](
+    Source.fromResource("route_guide_db.json").mkString
+  )
+
+  val createRouteGuide = for {
+    routeNotes <- Ref.make(Map.empty[Point, List[RouteNote]])
+  } yield new RouteGuideService(featuresDatabase.feature, routeNotes)
+
+  def services: ServiceList[zio.ZEnv] =
+    ServiceList.addM(createRouteGuide)
+}
 ```
 
 ZIO gRPC provides a base trait to quickly set up gRPC services with zero boilerplate.
@@ -343,14 +412,24 @@ def routeChat[R0](req: ZStream[R0, Status, RouteNote]):
 Calling the simple RPC `GetFeature` on the static accessor stub is as
 straightforward as instantiating a local effect:
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideClientApp.scala", "getFeature")
+```scala
+def getFeature(
+    lat: Int,
+    lng: Int
+): ZIO[RouteGuideClient with Console, Status, Unit] =
+  (for {
+    f <- RouteGuideClient.getFeature(Point(lat, lng))
+    _ <- putStrLn(s"""Found feature called "${f.name}".""")
+  } yield ()).catchSome {
+    case status if status == Status.NOT_FOUND =>
+      putStrLn(s"Feature not found: ${status.toString()}")
+  }
 ```
 
 We create and populate a request protocol buffer object (in our case
 `Point`), pass it to the `getFeature()` method on our accessor, and get
 back an effect that needs a `RouteGuideClient` environment. We chain
-the response with a call to `printLine` to print the result on the console,
+the response with a call to `putStrLn` to print the result on the console,
 and we catch the `NOT_FOUND` response and print an error. All other errors
 are not handled at this level and will "bubble up" up to the program's `exitCode` handler.
 
@@ -359,8 +438,20 @@ are not handled at this level and will "bubble up" up to the program's `exitCode
 Next, let's look at a server-side streaming call to `ListFeatures`, which
 returns a stream of geographical `Feature`s:
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideClientApp.scala", "listFeatures")
+```scala
+_ <-
+  RouteGuideClient
+    .listFeatures(
+      Rectangle(
+        lo = Some(Point(400000000, -750000000)),
+        hi = Some(Point(420000000, -730000000))
+      )
+    )
+    .zipWithIndex
+    .foreach {
+      case (feature, index) =>
+        putStrLn(s"Result #${index + 1}: $feature")
+    }
 ```
 
 Now `listFeatures` returns a `ZStream`. We use `zipWithIndex` to get a stream
@@ -374,8 +465,25 @@ Now for something a little more complicated: the client-side streaming method
 `RecordRoute`, where we send a stream of `Point`s to the server and get back
 a single `RouteSummary`.
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideClientApp.scala", "recordRoute")
+```scala
+def recordRoute(numPoints: Int) =
+  for {
+    summary <- RouteGuideClient.recordRoute(
+      ZStream
+        .repeatEffect(
+          nextIntBetween(0, features.size).map(features(_).getLocation)
+        )
+        .tap(p => putStrLn(s"Visiting (${p.latitude}, ${p.longitude})"))
+        .schedule(Schedule.spaced(300.millis))
+        .take(numPoints)
+    )
+    _ <- putStrLn(
+      s"Finished trip with ${summary.pointCount} points. " +
+        s"Passed ${summary.featureCount} features. " +
+        s"Travelled ${summary.distance} meters. " +
+        s"It took ${summary.elapsedTime} seconds."
+    )
+  } yield ()
 ```
 
 Here, we pass into `recordRoute` an effectful stream that randomly picks an element from the `features` collection (a constant), and insert random delay between elements.
@@ -387,8 +495,41 @@ In this example, we chain to this effect an effect to print the summary to the c
 ### Bidirectional streaming RPC
 Finally, let's look at our bidirectional streaming RPC `RouteChat()`.
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideClientApp.scala", "routeChat")
+```scala
+val routeChat =
+  for {
+    res <-
+      RouteGuideClient
+        .routeChat(
+          ZStream(
+            RouteNote(
+              location = Some(Point(0, 0)),
+              message = "First message"
+            ),
+            RouteNote(
+              location = Some(Point(0, 10_000_000)),
+              message = "Second Message"
+            ),
+            RouteNote(
+              location = Some(Point(10_000_000, 0)),
+              message = "Third Message"
+            ),
+            RouteNote(
+              location = Some(Point(10_000_000, 10_000_000)),
+              message = "Four Message"
+            )
+          ).tap { note =>
+            putStrLn(
+              s"""Sending message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
+            )
+          }
+        )
+        .foreach { note =>
+          putStrLn(
+            s"""Got message "${note.message}" at ${note.getLocation.latitude}, ${note.getLocation.longitude}"""
+          )
+        }
+  } yield ()
 ```
 
 In this method, we both get and return a `Stream` of
@@ -401,8 +542,39 @@ independently.
 
 All the effects we created were dependent on a `RouteGuideClient` available in the environment. We earlier instantiated a `clientLayer`, so we can provide it to our application logic at the top-level (the `run` method):
 
-```scala mdoc:passthrough:silent
-S.example("routeguide/RouteGuideClientApp.scala", "appLogic")
+```scala
+val myAppLogic =
+  for {
+    // Looking for a valid feature
+    _ <- getFeature(409146138, -746188906)
+    // Looking for a missing feature
+    _ <- getFeature(0, 0)
+
+    // Calls listFeatures with a rectangle of interest. Prints
+    // each response feature as it arrives.
+    // start: listFeatures
+    _ <-
+      RouteGuideClient
+        .listFeatures(
+          Rectangle(
+            lo = Some(Point(400000000, -750000000)),
+            hi = Some(Point(420000000, -730000000))
+          )
+        )
+        .zipWithIndex
+        .foreach {
+          case (feature, index) =>
+            putStrLn(s"Result #${index + 1}: $feature")
+        }
+    // end: listFeatures
+
+    _ <- recordRoute(10)
+
+    _ <- routeChat
+  } yield ()
+
+final def run(args: List[String]) =
+  myAppLogic.provideCustomLayer(clientLayer).exitCode
 ```
 
 ## Try it out!

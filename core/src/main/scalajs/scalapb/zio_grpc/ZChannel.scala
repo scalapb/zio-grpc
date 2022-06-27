@@ -3,6 +3,7 @@ package scalapb.zio_grpc
 import zio.ZIO
 import io.grpc.ManagedChannel
 import zio.Task
+import zio.ZEnvironment
 
 class ZChannel[-R](
     private[zio_grpc] val channel: ManagedChannel,
@@ -10,6 +11,6 @@ class ZChannel[-R](
 ) {
   def shutdown(): Task[Unit] = ZIO.unit
 
-  def provide(r: R): ZChannel[Any] =
-    new ZChannel[Any](channel, interceptors.map(_.provide(r)))
+  def provideEnvironment(r: ZEnvironment[R]): ZChannel[Any] =
+    new ZChannel[Any](channel, interceptors.map(_.provideEnvironment(r)))
 }

@@ -68,8 +68,7 @@ You can also override `def port: Int` to set a port number (by default port 9000
 The generated client follows [ZIO's module pattern](https://zio.dev/docs/howto/howto_use_layers):
 
 ```scala
-type ServiceNameClient = ServiceNameClient.Service
-
+type ServiceNameClient = Has[ServiceNameClient.Service]
 object ServiceNameClient {
   trait ZService[R] {
     // methods for use as a client
@@ -82,7 +81,7 @@ object ServiceNameClient {
   def sayHello(request: HelloRequest):
     ZIO[ServiceNameClient, Status, HelloReply]
 
-  def scoped[R](
+  def managed[R](
       managedChannel: ZManagedChannel[R],
       options: CallOptions =
           io.grpc.CallOptions.DEFAULT,
@@ -107,7 +106,7 @@ type ZManagedChannel[R] = Managed[Throwable, ZChannel[R]]
 ```
 
 Creating a channel:
-```scala mdoc
+```scala
 import scalapb.zio_grpc.ZManagedChannel
 import io.grpc.ManagedChannelBuilder
 
@@ -116,56 +115,63 @@ val channel = ZManagedChannel(
     .forAddress("localhost", 8980)
     .usePlaintext()
 )
+// channel: ZManagedChannel[Any] = zio.ZManaged$$anon$2@69497154
 ```
 
 ### Using the client as a layer
 
-A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you need to connect to. You can create a `ZLayer` to provide this service using the `live` method on the client companion object. Then simply write your logic using the accessor methods. Finally, inject the layer using `provideLayer` at the top of your app:
+A single `ZManagedChannel` represent a virtual connection to a conceptual endpoint to perform RPCs. A channel can have many actual connection to the endpoint. Therefore, it is very common to have a single service client for each RPC service you need to connect to. You can create a `ZLayer` to provide this service using the `live` method on the client companion object. Then simply write your logic using the accessor methods. Finally, inject the layer using `provideCustomLayer` at the top of your app:
 
-```scala mdoc
+```scala
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
 import zio._
-import zio.Console._
+import zio.console._
 
 // create layer:
 val clientLayer = ServiceNameClient.live(channel)
+// clientLayer: ZLayer[Any, Throwable, Has[ServiceNameClient.ZService[Any, Any]]] = Managed(
+//   self = zio.ZManaged$$anon$2@25f8138d
+// )
 
 val myAppLogicNeedsEnv = for {
   // use layer through accessor methods:
   res <- ServiceNameClient.unary(Request())
-  _ <- printLine(res.toString)
+  _ <- putStrLn(res.toString)
 } yield ()
+// myAppLogicNeedsEnv: ZIO[Has[ServiceNameClient.ZService[Any, Any]] with Any with Console, Object, Unit] = zio.ZIO$FlatMap@2aacd69
 
 // myAppLogicNeedsEnv needs access to a ServiceNameClient. We turn it into
 // a self-contained effect (IO) by providing the layer to it:
-val myAppLogic1 = myAppLogicNeedsEnv.provideLayer(clientLayer)
+val myAppLogic1 = myAppLogicNeedsEnv.provideCustomLayer(clientLayer)
+// myAppLogic1: ZIO[ZEnv, Object, Unit] = zio.ZIO$CheckInterrupt@71b27fca
 
-object LayeredApp extends zio.ZIOAppDefault {
-  def run: UIO[ExitCode] = myAppLogic1.exitCode
+object LayeredApp extends zio.App {
+  def run(args: List[String]): URIO[ZEnv, ExitCode] = myAppLogic1.exitCode
 }
 ```
 
 Here the application is broken to multiple value assignments so you can see the types.
-The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
+The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient with Console`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's run method.
 
 ### Using a Managed Client
 
 As an alternative to using ZLayer, you can use the client through a managed resource:
 
-```scala mdoc
+```scala
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
 
-val clientManaged = ServiceNameClient.scoped(channel)
+val clientManaged = ServiceNameClient.managed(channel)
+// clientManaged: Managed[Throwable, ServiceNameClient.ZService[Any, Any]] = zio.ZManaged$$anon$2@66c5251c
 
-val myAppLogic = ZIO.scoped {
-  clientManaged.flatMap { client =>
-    for {
-      res <- client.unary(Request()).mapError(_.asRuntimeException)
-    } yield res
-  }
-}
+val myAppLogic = for {
+  res <- clientManaged.use(
+    client =>
+      client.unary(Request()).mapError(_.asRuntimeException)
+  )
+} yield res
+// myAppLogic: ZIO[Any with Any, Throwable, Response] = zio.ZIO$FlatMap@1a4cd330
 ```
 
 Since the service acquistion (through the ZManaged) can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.
