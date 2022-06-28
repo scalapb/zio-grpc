@@ -21,7 +21,7 @@ case class CallDriver[R, Req](
 
 object CallDriver {
   def exitToStatus(ex: Exit[Status, Unit]): Status =
-    ex.fold(
+    ex.foldExit(
       failed = { cause =>
         if (cause.isInterruptedOnly) Status.CANCELLED
         else cause.failureOption.getOrElse(Status.INTERNAL)
@@ -40,21 +40,29 @@ object CallDriver {
     CallDriver(
       listener = new Listener[Req] {
         override def onCancel(): Unit =
-          runtime.unsafeRun(cancelled.succeed(()).unit)
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
+          }
 
         override def onHalfClose(): Unit =
-          runtime.unsafeRun(completed.completeWith(ZIO.unit).unit)
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe.run(completed.completeWith(ZIO.unit).unit).getOrThrowFiberFailure()
+          }
 
         override def onMessage(message: Req): Unit =
-          runtime.unsafeRun {
-            request.succeed(message).flatMap {
-              case false =>
-                completed
-                  .fail(Status.INTERNAL.withDescription("Too many requests"))
-                  .unit
-              case true  =>
-                ZIO.unit
-            }
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe
+              .run {
+                request.succeed(message).flatMap {
+                  case false =>
+                    completed
+                      .fail(Status.INTERNAL.withDescription("Too many requests"))
+                      .unit
+                  case true  =>
+                    ZIO.unit
+                }
+              }
+              .getOrThrowFiberFailure()
           }
       },
       run = (
@@ -106,15 +114,23 @@ object CallDriver {
     CallDriver(
       listener = new Listener[Req] {
         override def onCancel(): Unit =
-          runtime.unsafeRun(cancelled.succeed(()).unit)
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
+          }
 
         override def onHalfClose(): Unit =
-          runtime.unsafeRun(queue.offer(None).unit)
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe.run(queue.offer(None).unit).getOrThrowFiberFailure()
+          }
 
         override def onMessage(message: Req): Unit =
-          runtime.unsafeRun(
-            call.request(1) *> queue.offer(Some(message)).unit
-          )
+          Unsafe.unsafeCompat { implicit u =>
+            runtime.unsafe
+              .run(
+                call.request(1) *> queue.offer(Some(message)).unit
+              )
+              .getOrThrowFiberFailure()
+          }
       },
       run = {
         val requestStream = ZStream

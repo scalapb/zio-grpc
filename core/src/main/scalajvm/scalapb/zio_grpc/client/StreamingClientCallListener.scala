@@ -5,6 +5,7 @@ import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
 import StreamingCallState._
 import zio.stream.ZStream
+import zio._
 
 sealed trait StreamingCallState[+Res]
 
@@ -24,19 +25,27 @@ class StreamingClientCallListener[R, Res](
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
-    runtime.unsafeRun(
-      state.update {
-        case Initial            => HeadersReceived(headers)
-        case HeadersReceived(_) => Failure("onHeaders already called")
-        case f @ Failure(_)     => f
-      }.unit
-    )
+    Unsafe.unsafeCompat { implicit u =>
+      runtime.unsafe
+        .run(
+          state.update {
+            case Initial            => HeadersReceived(headers)
+            case HeadersReceived(_) => Failure("onHeaders already called")
+            case f @ Failure(_)     => f
+          }.unit
+        )
+        .getOrThrowFiberFailure()
+    }
 
   override def onMessage(message: Res): Unit =
-    runtime.unsafeRun(queue.offer(Right(message)) *> call.request(1))
+    Unsafe.unsafeCompat { implicit u =>
+      runtime.unsafe.run(queue.offer(Right(message)) *> call.request(1)).getOrThrowFiberFailure()
+    }
 
   override def onClose(status: Status, trailers: Metadata): Unit =
-    runtime.unsafeRun(queue.offer(Left((status, trailers))).unit)
+    Unsafe.unsafeCompat { implicit u =>
+      runtime.unsafe.run(queue.offer(Left((status, trailers))).unit).getOrThrowFiberFailure()
+    }
 
   def stream: ZStream[Any, Status, Res] =
     ZStream
