@@ -2,9 +2,9 @@ import Settings.stdSettings
 
 val Scala3 = "3.1.3"
 
-val Scala213 = "2.13.7"
+val Scala213 = "2.13.8"
 
-val Scala212 = "2.12.15"
+val Scala212 = "2.12.16"
 
 val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
@@ -132,7 +132,7 @@ lazy val docs = project
     moduleName                                         := "zio-grpc-docs",
     mdocVariables                                      := Map(
       "sbtProtocVersion" -> "1.0.6",
-      "grpcVersion"      -> "1.41.2",
+      "grpcVersion"      -> "1.47.0",
       "zioGrpcVersion"   -> "0.6.0-M1",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
     ),
