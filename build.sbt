@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val Scala3 = "3.1.2"
+val Scala3 = "3.1.3"
 
 val Scala213 = "2.13.8"
 
@@ -61,7 +61,7 @@ lazy val core = projectMatrix
       .settings(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.4",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.3.0" % "test"
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.4.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.2.1"
       )

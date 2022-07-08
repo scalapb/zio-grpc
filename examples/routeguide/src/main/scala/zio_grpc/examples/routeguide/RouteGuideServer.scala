@@ -5,15 +5,11 @@ import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
 import zio.{Ref, ZIO}
 import zio.stream.ZStream
-import zio.Console._
 
 import io.grpc.examples.routeguide.route_guide._
 import scala.math._
-import zio.IO
 import scalapb.json4s.JsonFormat
 import scala.io.Source
-import zio.Clock
-import zio.Clock._
 import zio.UIO
 
 class RouteGuideService(
@@ -29,7 +25,7 @@ class RouteGuideService(
     */
   // start: getFeature
   def getFeature(request: Point): ZIO[Any, Status, Feature] =
-    ZIO.fromOption(findFeature(request)).mapError(_ => Status.NOT_FOUND)
+    ZIO.fromOption(findFeature(request)).orElseFail(Status.NOT_FOUND)
   // end: getFeature
 
   /**
@@ -156,6 +152,6 @@ object RouteGuideServer extends ServerMain {
   } yield new RouteGuideService(featuresDatabase.feature, routeNotes)
 
   def services: ServiceList[Any] =
-    ServiceList.addM(createRouteGuide)
+    ServiceList.addZIO(createRouteGuide)
 }
 // end: serverMain
