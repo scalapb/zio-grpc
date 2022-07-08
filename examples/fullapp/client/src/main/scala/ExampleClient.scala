@@ -26,6 +26,6 @@ object ExampleClient extends zio.ZIOAppDefault {
       f <- GreeterClient.greet(Request("Bye"))
       _ <- printLine(f.resp)
     } yield ())
-      .onError { c => printLine(c.prettyPrint).orDie }
+      .onError(c => printLine(c.prettyPrint).orDie)
       .provideLayer(clientLayer)
 }
