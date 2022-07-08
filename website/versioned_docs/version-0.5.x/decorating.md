@@ -14,29 +14,29 @@ and context transformations.
 
 We define decoration:
 
-```scala mdoc
+```scala
 import io.grpc.Status
 import scalapb.zio_grpc.{ RequestContext, ZTransform }
 import zio._
 import zio.stream.ZStream
 
-class LoggingTransform[R] extends ZTransform[R, Status, R with RequestContext] {
+class LoggingTransform[R] extends ZTransform[R, Status, R with Has[RequestContext]] {
 
-  def logCause(cause: Cause[Status]): URIO[RequestContext, Unit] = ???
+  def logCause(cause: Cause[Status]): URIO[Has[RequestContext], Unit] = ???
 
-  def accessLog: URIO[RequestContext, Unit] = ???
+  def accessLog: URIO[Has[RequestContext], Unit] = ???
 
-  override def effect[A](io: ZIO[R, Status, A]): ZIO[R with RequestContext, Status, A] =
-    io.zipLeft(accessLog).tapErrorCause(logCause)
+  override def effect[A](io: ZIO[R, Status, A]): ZIO[R with Has[RequestContext], Status, A] =
+    io.zipLeft(accessLog).tapCause(logCause)
 
-  override def stream[A](io: ZStream[R, Status, A]): ZStream[R with RequestContext, Status, A] =
-    (io ++ ZStream.fromZIO(accessLog).drain).onError(logCause)
+  override def stream[A](io: ZStream[R, Status, A]): ZStream[R with Has[RequestContext], Status, A] =
+    (io ++ ZStream.fromEffect(accessLog).drain).onError(logCause)
 }
 ```
 
 and then we apply it to our service:
 
-```scala mdoc
+```scala
 import myexample.testservice.ZioTestservice.ZSimpleService
 import myexample.testservice.{Request, Response}
 
@@ -47,4 +47,5 @@ object MyService extends ZSimpleService[Any, Any] {
 
 val decoratedService =
   MyService.transform(new LoggingTransform[Any])
+// decoratedService: ZSimpleService[Has[RequestContext], Any] = myexample.testservice.ZioTestservice$ZSimpleService$$anon$6$$anon$7@67739b99
 ```
