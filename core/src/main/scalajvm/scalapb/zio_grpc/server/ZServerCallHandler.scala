@@ -31,7 +31,9 @@ class ZServerCallHandler[R, Req, Res](
       _      <- driver.run.forkDaemon
     } yield driver.listener
 
-    runtime.unsafeRun(runner)
+    Unsafe.unsafeCompat { implicit u =>
+      runtime.unsafe.run(runner).getOrThrowFiberFailure()
+    }
   }
 }
 

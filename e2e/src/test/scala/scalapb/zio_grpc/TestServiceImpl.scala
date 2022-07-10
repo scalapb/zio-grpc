@@ -40,7 +40,7 @@ package object server {
       ): ZStream[Any, Status, Response] =
         ZStream
           .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
-            ex.foldZIO(
+            ex.foldExit(
               failed =>
                 if (failed.isInterrupted || failed.isInterruptedOnly)
                   exit.succeed(Exit.fail(Status.CANCELLED))
