@@ -21,14 +21,15 @@ class ZServerCallHandler[R, Req, Res](
   ): Listener[Req] = {
     val zioCall = new ZServerCall(call)
     val runner  = for {
-      driver <- SafeMetadata.fromMetadata(headers) flatMap { md =>
-                  mkDriver(zioCall, RequestContext.fromServerCall(md, call))
-                }
+      responseMetadata <- SafeMetadata.make
+      driver           <- SafeMetadata.fromMetadata(headers).flatMap { md =>
+                            mkDriver(zioCall, RequestContext.fromServerCall(md, responseMetadata, call))
+                          }
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
       // service.
-      _      <- driver.run.forkDaemon
+      _                <- driver.run.forkDaemon
     } yield driver.listener
 
     Unsafe.unsafeCompat { implicit u =>

@@ -35,6 +35,7 @@ object CallDriver {
       cancelled: Promise[Nothing, Unit],
       completed: Promise[Status, Unit],
       request: Promise[Nothing, Req],
+      requestContext: RequestContext,
       writeResponse: Req => ZIO[R, Status, Unit]
   ): CallDriver[R, Req] =
     CallDriver(
@@ -70,7 +71,7 @@ object CallDriver {
           completed.await *>
           call.sendHeaders(new Metadata) *>
           request.await flatMap writeResponse
-      ).onExit(ex => call.close(CallDriver.exitToStatus(ex), new Metadata).ignore)
+      ).onExit(ex => call.close(CallDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
         .ignore
         .race(cancelled.await)
     )
@@ -101,6 +102,7 @@ object CallDriver {
       cancelled,
       completed,
       request,
+      requestContext,
       writeResponse(_, requestContext, zioCall)
     )
 
@@ -109,6 +111,7 @@ object CallDriver {
       call: ZServerCall[Res],
       cancelled: Promise[Nothing, Unit],
       queue: Queue[Option[Req]],
+      requestContext: RequestContext,
       writeResponse: Stream[Status, Req] => ZIO[R, Status, Unit]
   ): CallDriver[R, Req] =
     CallDriver(
@@ -140,9 +143,7 @@ object CallDriver {
         (call.request(1) *>
           call.sendHeaders(new Metadata) *>
           writeResponse(requestStream))
-          .onExit { ex =>
-            call.close(CallDriver.exitToStatus(ex), new Metadata).ignore
-          }
+          .onExit(ex => call.close(CallDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
           .ignore
           .race(cancelled.await)
       }
@@ -172,6 +173,7 @@ object CallDriver {
       zioCall,
       cancelled,
       queue,
+      requestContext,
       writeResponse(_, requestContext, zioCall)
     )
 }
