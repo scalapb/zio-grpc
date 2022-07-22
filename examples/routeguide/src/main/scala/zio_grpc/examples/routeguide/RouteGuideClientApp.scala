@@ -37,9 +37,9 @@ object RouteGuideClientApp extends ZIOAppDefault {
 
   val features = RouteGuideServer.featuresDatabase.feature
 
-  /**
-    * Sends numPoints randomly chosen points from [[features]] with a variable delay in between.
-    * Prints the statistics when they are sent from the server.
+  /** Sends numPoints randomly chosen points from [[features]] with a variable
+    * delay in between. Prints the statistics when they are sent from the
+    * server.
     */
   // start: recordRoute
   def recordRoute(numPoints: Int) =
@@ -121,9 +121,8 @@ object RouteGuideClientApp extends ZIOAppDefault {
             )
           )
           .zipWithIndex
-          .foreach {
-            case (feature, index) =>
-              printLine(s"Result #${index + 1}: $feature")
+          .foreach { case (feature, index) =>
+            printLine(s"Result #${index + 1}: $feature")
           }
       // end: listFeatures
 

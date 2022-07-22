@@ -37,7 +37,7 @@ object GreeterServiceWithMetadata {
   def findUser(rc: RequestContext): IO[Status, User] =
     rc.metadata.get(UserKey).flatMap {
       case Some(name) => ZIO.succeed(User(name))
-      case _          => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+      case _ => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
     }
 
   val live: ZLayer[Clock, Nothing, ZGreeter[Any, RequestContext]] =

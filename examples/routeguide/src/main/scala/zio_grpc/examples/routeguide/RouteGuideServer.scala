@@ -17,21 +17,23 @@ class RouteGuideService(
     routeNotesRef: Ref[Map[Point, List[RouteNote]]]
 ) extends ZioRouteGuide.ZRouteGuide[Any, Any] {
 
-  /**
-    * Gets the [[io.grpc.examples.routeguide.route_guide.Feature]] at the requested [[Point]]. If no feature at
-    * that location exists, a NOT FOUND error is returned.
+  /** Gets the [[io.grpc.examples.routeguide.route_guide.Feature]] at the
+    * requested [[Point]]. If no feature at that location exists, a NOT FOUND
+    * error is returned.
     *
-    * @param request the requested location for the feature.
+    * @param request
+    *   the requested location for the feature.
     */
   // start: getFeature
   def getFeature(request: Point): ZIO[Any, Status, Feature] =
     ZIO.fromOption(findFeature(request)).orElseFail(Status.NOT_FOUND)
   // end: getFeature
 
-  /**
-    * Streams all features contained within the given bounding {@link Rectangle}.
+  /** Streams all features contained within the given bounding {@link
+    * Rectangle}.
     *
-    * @param request the bounding rectangle for the requested features.
+    * @param request
+    *   the bounding rectangle for the requested features.
     */
   // start: listFeatures
   def listFeatures(request: Rectangle): ZStream[Any, Status, Feature] = {
@@ -50,11 +52,12 @@ class RouteGuideService(
   }
   // end: listFeatures
 
-  /**
-    * Gets a stream of points, and responds with statistics about the "trip": number of points,
-    * number of known features visited, total distance traveled, and total time spent.
+  /** Gets a stream of points, and responds with statistics about the "trip":
+    * number of points, number of known features visited, total distance
+    * traveled, and total time spent.
     *
-    * @param request a stream of points to process
+    * @param request
+    *   a stream of points to process
     */
   // start: recordRoute
   def recordRoute(
@@ -76,9 +79,8 @@ class RouteGuideService(
           )
       }
       .timed // returns a new effect that times the execution
-      .map {
-        case (duration, summary) =>
-          summary.copy(elapsedTime = (duration.toMillis / 1000).toInt)
+      .map { case (duration, summary) =>
+        summary.copy(elapsedTime = (duration.toMillis / 1000).toInt)
       }
   }
   // end: recordRoute
@@ -105,21 +107,27 @@ class RouteGuideService(
 
   /** Gets the feature with the given point.
     *
-    * @param location the location to check
-    * @return A non-empty option if a feature is defined at that point, None otherwise.
+    * @param location
+    *   the location to check
+    * @return
+    *   A non-empty option if a feature is defined at that point, None
+    *   otherwise.
     */
   // start: findFeature
   def findFeature(point: Point): Option[Feature] =
     features.find(f => f.getLocation == point && f.name.nonEmpty)
   // end: findFeature
 
-  /**
-    * Calculate the distance between two points using the "haversine" formula.
-    * The formula is based on http://mathforum.org/library/drmath/view/51879.html.
+  /** Calculate the distance between two points using the "haversine" formula.
+    * The formula is based on
+    * http://mathforum.org/library/drmath/view/51879.html.
     *
-    * @param start The starting point
-    * @param end The end point
-    * @return The distance between the points in meters
+    * @param start
+    *   The starting point
+    * @param end
+    *   The end point
+    * @return
+    *   The distance between the points in meters
     */
   def calcDistance(start: Point, end: Point): Int = {
     val r = 6371000 // earth radius in meters
