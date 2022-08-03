@@ -16,7 +16,7 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
-    private def awaitTermination(duration: Duration = Duration.Infinity): Task[Unit] =
+    private def awaitTermination(duration: Duration): Task[Unit] =
       ZIO.attempt(underlying.awaitTermination).timeout(duration).unit
 
     def port: Task[Int] = ZIO.attempt(underlying.getPort())
@@ -28,7 +28,10 @@ object Server {
     def shutdownNow: Task[Unit] = ZIO.attempt(underlying.shutdownNow()).unit
 
     def toManaged: ZIO[Scope, Throwable, Service] =
-      start.as(this).withFinalizer(_ => this.shutdown.ignore *> this.awaitTermination().ignore)
+      start.as(this).withFinalizer(_ => this.shutdown.ignore *> this.awaitTermination(Duration.Infinity).ignore)
+
+    def toManaged(awaitTermination: Duration): ZIO[Scope, Throwable, Service] =
+      start.as(this).withFinalizer(_ => this.shutdown.ignore *> this.awaitTermination(awaitTermination).ignore)
   }
 
   @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
