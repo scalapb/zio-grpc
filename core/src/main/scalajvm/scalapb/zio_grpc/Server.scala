@@ -3,6 +3,7 @@ package scalapb.zio_grpc
 import zio.{Scope, Tag, Task, URIO, ZIO, ZLayer}
 import io.grpc.ServerBuilder
 import io.grpc.ServerServiceDefinition
+import zio.Duration
 
 object Server {
   trait Service {
@@ -16,6 +17,9 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
+    private def awaitTermination(duration: Duration = Duration.Infinity): Task[Unit] =
+      ZIO.attempt(underlying.awaitTermination).timeout(duration).unit
+
     def port: Task[Int] = ZIO.attempt(underlying.getPort())
 
     def shutdown: Task[Unit] = ZIO.attempt(underlying.shutdown()).unit
@@ -24,7 +28,8 @@ object Server {
 
     def shutdownNow: Task[Unit] = ZIO.attempt(underlying.shutdownNow()).unit
 
-    def toManaged: ZIO[Scope, Throwable, Service] = start.as(this).withFinalizer(_ => this.shutdown.ignore)
+    def toManaged: ZIO[Scope, Throwable, Service] =
+      start.as(this).withFinalizer(_ => this.shutdown.ignore *> this.awaitTermination().ignore)
   }
 
   @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
