@@ -4,7 +4,6 @@ import zio.{Duration, Scope, Tag, Task, URIO, ZIO, ZLayer}
 import io.grpc.ServerBuilder
 import io.grpc.ServerServiceDefinition
 import java.util.concurrent.TimeUnit
-import java.time.temporal.ChronoUnit
 
 object Server {
   trait Service {
@@ -23,7 +22,8 @@ object Server {
         case None           =>
           underlying.awaitTermination()
         case Some(duration) =>
-          val _ = underlying.awaitTermination(duration.get(ChronoUnit.MILLIS), TimeUnit.MILLISECONDS)
+          val timeout = duration.toMillis()
+          val _       = underlying.awaitTermination(timeout, TimeUnit.MILLISECONDS)
       })
 
     def port: Task[Int] = ZIO.attempt(underlying.getPort())
