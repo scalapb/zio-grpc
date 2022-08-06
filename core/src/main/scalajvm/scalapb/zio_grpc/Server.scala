@@ -16,7 +16,12 @@ import zio.duration.Duration
 import java.util.concurrent.TimeUnit
 
 object Server {
+
   trait Service {
+    def awaitTermination: Task[Unit]
+
+    def awaitTermination(duratio: Duration): Task[Boolean]
+
     def port: Task[Int]
 
     def shutdown: Task[Unit]
@@ -27,14 +32,10 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
-    private def awaitTermination(duration: Option[Duration]): Task[Unit] =
-      ZIO.effect(duration match {
-        case None           =>
-          underlying.awaitTermination()
-        case Some(duration) =>
-          val timeout = duration.toMillis()
-          val _       = underlying.awaitTermination(timeout, TimeUnit.MILLISECONDS)
-      })
+    val awaitTermination: Task[Unit] = ZIO.effect(underlying.awaitTermination())
+
+    def awaitTermination(duration: Duration): Task[Boolean] =
+      ZIO.effect(underlying.awaitTermination(duration.toMillis(), TimeUnit.MILLISECONDS))
 
     def port: Task[Int] = ZIO.effect(underlying.getPort())
 
@@ -44,11 +45,7 @@ object Server {
 
     def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
 
-    def toManaged: ZManaged[Any, Throwable, Service] =
-      start.as(this).toManaged(_ => this.shutdown.ignore *> this.awaitTermination(None).ignore)
-
-    def toManaged(awaitTermination: Duration): ZManaged[Any, Throwable, Service] =
-      start.as(this).toManaged(_ => this.shutdown.ignore *> this.awaitTermination(Some(awaitTermination)).ignore)
+    def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdown.ignore)
   }
 
   @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
