@@ -9,7 +9,7 @@ import java.time.Duration
 object ServerSpec extends ZIOSpecDefault {
   val spec =
     suite("Server")(
-      test("Awaits termination") {
+      test("awaitsTermination delegates to underlying implementation (without timeout)") {
         for {
           waitedRef <- Ref.make(false)
           server     = new io.grpc.Server {
@@ -31,7 +31,7 @@ object ServerSpec extends ZIOSpecDefault {
           waited    <- waitedRef.get
         } yield assert(waited)(isTrue)
       },
-      test("Awaits termination with timeout") {
+      test("awaitsTermination delegates to underlying implementation (with timeout)") {
         for {
           waitedRef <- Ref.make[TestResult](assert(false)(isTrue))
           runtime   <- ZIO.runtime[Any]
