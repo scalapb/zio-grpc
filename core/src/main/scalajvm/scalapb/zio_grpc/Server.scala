@@ -1,14 +1,20 @@
 package scalapb.zio_grpc
 
-import zio.{Task, UIO, URIO, ZIO}
-import zio.Has
-import zio.Managed
-import zio.ZLayer
-import zio.ZManaged
-import zio.Tag
-
 import io.grpc.ServerBuilder
 import io.grpc.ServerServiceDefinition
+import zio.Has
+import zio.Managed
+import zio.Tag
+import zio.Task
+import zio.UIO
+import zio.URIO
+import zio.ZIO
+import zio.ZLayer
+import zio.ZManaged
+import zio.duration.Duration
+
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
 object Server {
   trait Service {
@@ -22,6 +28,15 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
+    private def awaitTermination(duration: Option[Duration]): Task[Unit] =
+      ZIO.effect(duration match {
+        case None           =>
+          underlying.awaitTermination()
+        case Some(duration) =>
+          val timeout = duration.getSeconds() * 1000 + duration.getNano() / 1000000
+          val _       = underlying.awaitTermination(timeout, TimeUnit.MILLISECONDS)
+      })
+
     def port: Task[Int] = ZIO.effect(underlying.getPort())
 
     def shutdown: Task[Unit] = ZIO.effect(underlying.shutdown()).unit
@@ -30,7 +45,11 @@ object Server {
 
     def shutdownNow: Task[Unit] = ZIO.effect(underlying.shutdownNow()).unit
 
-    def toManaged: ZManaged[Any, Throwable, Service] = start.as(this).toManaged(_ => this.shutdown.ignore)
+    def toManaged: ZManaged[Any, Throwable, Service] =
+      start.as(this).toManaged(_ => this.shutdown.ignore *> this.awaitTermination(None).ignore)
+
+    def toManaged(awaitTermination: Duration): ZManaged[Any, Throwable, Service] =
+      start.as(this).toManaged(_ => this.shutdown.ignore *> this.awaitTermination(Some(awaitTermination)).ignore)
   }
 
   @deprecated("Use ManagedServer.fromBuilder", "0.4.0")
