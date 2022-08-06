@@ -13,7 +13,6 @@ import zio.ZLayer
 import zio.ZManaged
 import zio.duration.Duration
 
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 object Server {
@@ -33,7 +32,7 @@ object Server {
         case None           =>
           underlying.awaitTermination()
         case Some(duration) =>
-          val timeout = duration.getSeconds() * 1000 + duration.getNano() / 1000000
+          val timeout = duration.toMillis()
           val _       = underlying.awaitTermination(timeout, TimeUnit.MILLISECONDS)
       })
 
