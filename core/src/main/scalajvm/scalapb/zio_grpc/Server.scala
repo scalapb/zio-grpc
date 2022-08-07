@@ -1,17 +1,27 @@
 package scalapb.zio_grpc
 
-import zio.{Task, UIO, URIO, ZIO}
-import zio.Has
-import zio.Managed
-import zio.ZLayer
-import zio.ZManaged
-import zio.Tag
-
 import io.grpc.ServerBuilder
 import io.grpc.ServerServiceDefinition
+import zio.Has
+import zio.Managed
+import zio.Tag
+import zio.Task
+import zio.UIO
+import zio.URIO
+import zio.ZIO
+import zio.ZLayer
+import zio.ZManaged
+import zio.duration.Duration
+
+import java.util.concurrent.TimeUnit
 
 object Server {
+
   trait Service {
+    def awaitTermination: Task[Unit]
+
+    def awaitTermination(duratio: Duration): Task[Boolean]
+
     def port: Task[Int]
 
     def shutdown: Task[Unit]
@@ -22,6 +32,11 @@ object Server {
   }
 
   private[zio_grpc] class ServiceImpl(underlying: io.grpc.Server) extends Service {
+    val awaitTermination: Task[Unit] = ZIO.effect(underlying.awaitTermination())
+
+    def awaitTermination(duration: Duration): Task[Boolean] =
+      ZIO.effect(underlying.awaitTermination(duration.toMillis(), TimeUnit.MILLISECONDS))
+
     def port: Task[Int] = ZIO.effect(underlying.getPort())
 
     def shutdown: Task[Unit] = ZIO.effect(underlying.shutdown()).unit
