@@ -9,7 +9,7 @@ import java.time.Duration
 object ServerSpec extends DefaultRunnableSpec {
   val spec =
     suite("Server")(
-      testM("Awaits termination") {
+      testM("awaitsTermination delegates to underlying implementation (without timeout)") {
         for {
           waitedRef <- Ref.make(false)
           runtime   <- ZIO.runtime[Any]
@@ -28,7 +28,7 @@ object ServerSpec extends DefaultRunnableSpec {
           waited    <- waitedRef.get
         } yield assert(waited)(isTrue)
       },
-      testM("Awaits termination with timeout") {
+      testM("awaitsTermination delegates to underlying implementation (with timeout)") {
         for {
           waitedRef <- Ref.make[BoolAlgebra[AssertionResult]](assert(false)(isTrue))
           runtime   <- ZIO.runtime[Any]
