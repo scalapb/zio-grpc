@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        scala: [2_12, 2_13]
+        scala: [2_12, 2_13, 3]
     runs-on: ubuntu-latest
     
     steps:
