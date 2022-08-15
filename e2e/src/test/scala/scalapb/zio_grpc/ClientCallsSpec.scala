@@ -25,7 +25,7 @@ object ClientCallsSpec extends ZIOSpecDefault {
                              Nil
                            )
                          )
-                       )(channel => channel.shutdown.ignore *> Live.live(channel.awaitTermination(1.second)).ignore)
+                       )(channel => channel.shutdown().ignore *> Live.live(channel.awaitTermination(1.second)).ignore)
           meta    <- SafeMetadata.make
           res     <- ClientCalls
                        .unaryCall(
