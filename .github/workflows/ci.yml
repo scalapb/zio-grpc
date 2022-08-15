@@ -35,7 +35,7 @@ jobs:
         sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test
 
     - name: Compile and test (JS)
-      if: ${{ matrix.scala }} != 3
+      if: ${{ matrix.scala != 3 }}
       run: |
         sbt coreJS${{matrix.scala}}/test
 
