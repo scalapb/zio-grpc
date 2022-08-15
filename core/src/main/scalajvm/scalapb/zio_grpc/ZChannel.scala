@@ -6,6 +6,8 @@ import scalapb.zio_grpc.client.ZClientCall
 import zio.{Task, UIO, ZIO}
 import io.grpc.ManagedChannel
 import zio.ZEnvironment
+import zio.Duration
+import java.util.concurrent.TimeUnit
 
 class ZChannel[-R](
     private[zio_grpc] val channel: ManagedChannel,
@@ -19,6 +21,9 @@ class ZChannel[-R](
       ZClientCall(channel.newCall(methodDescriptor, options))
     )((call, interceptor) => interceptor.interceptCall(methodDescriptor, options, call))
   )
+
+  def awaitTermination(duration: Duration): Task[Boolean] =
+    ZIO.attempt(channel.awaitTermination(duration.toMillis(), TimeUnit.MILLISECONDS))
 
   def shutdown(): Task[Unit] = ZIO.attempt(channel.shutdown()).unit
 
