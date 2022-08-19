@@ -14,18 +14,11 @@ object ClientCallsSpec extends ZIOSpecDefault {
     suite("unaryCall")(
       test("should not fail with 'INTERNAL: already started' on retry") {
         for {
-          channel <- ZIO
-                       .acquireRelease(
-                         ZIO.attempt(
-                           new ZChannel(
-                             ManagedChannelBuilder
-                               .forAddress("localhost", 0)
-                               .usePlaintext()
-                               .build(),
-                             Nil
-                           )
-                         )
-                       )(channel => channel.shutdown().ignore *> Live.live(channel.awaitTermination(1.second)).ignore)
+          channel <- ZChannel.managed[Any](
+                       ManagedChannelBuilder.forAddress("localhost", 0).usePlaintext(),
+                       Nil,
+                       1.second
+                     )
           meta    <- SafeMetadata.make
           res     <- ClientCalls
                        .unaryCall(

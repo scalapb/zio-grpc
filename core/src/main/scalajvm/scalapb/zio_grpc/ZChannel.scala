@@ -1,13 +1,12 @@
 package scalapb.zio_grpc
 
+import java.util.concurrent.TimeUnit
 import io.grpc.CallOptions
+import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
 import io.grpc.MethodDescriptor
 import scalapb.zio_grpc.client.ZClientCall
-import zio.{Task, UIO, ZIO}
-import io.grpc.ManagedChannel
-import zio.ZEnvironment
-import zio.Duration
-import java.util.concurrent.TimeUnit
+import zio._
 
 class ZChannel[-R](
     private[zio_grpc] val channel: ManagedChannel,
@@ -29,4 +28,27 @@ class ZChannel[-R](
 
   def provideEnvironment(r: ZEnvironment[R]): ZChannel[Any] =
     new ZChannel[Any](channel, interceptors.map(_.provideEnvironment(r)))
+}
+
+object ZChannel {
+
+  /** Create a scoped channel that will be shutdown when the scope closes.
+    *
+    * @param builder
+    *   The channel builder to use to create the channel.
+    * @param interceptors
+    *   The client call interceptors to use.
+    * @param timeout
+    *   The maximum amount of time to wait for the channel to shutdown.
+    * @return
+    */
+  def managed[R](
+      builder: => ManagedChannelBuilder[_],
+      interceptors: Seq[ZClientInterceptor[R]],
+      timeout: Duration
+  ): RIO[Scope, ZChannel[R]] =
+    ZIO
+      .acquireRelease(
+        ZIO.attempt(new ZChannel[R](builder.build(), interceptors))
+      )(channel => channel.shutdown().ignore *> channel.awaitTermination(timeout).ignore)
 }
