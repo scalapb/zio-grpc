@@ -8,7 +8,7 @@ val Scala212 = "2.12.16"
 
 val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
-ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 publish / skip := true
 
@@ -55,7 +55,7 @@ lazy val core = projectMatrix
   )
   .customRow(
     true,
-    Seq(Scala212, Scala213),
+    Seq(Scala212, Scala213, Scala3),
     Seq(VirtualAxis.js),
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
       .settings(

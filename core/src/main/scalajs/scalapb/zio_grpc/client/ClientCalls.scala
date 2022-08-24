@@ -46,9 +46,24 @@ object ClientCalls {
           scalajs.js.Dictionary[String](),
           method.methodInfo
         )
-        .on("data", (res: Res) => cb(ZIO.succeed(Chunk.single(res))))
-        .on("error", (ei: ErrorInfo) => cb(ZIO.fail(Some(Status.fromErrorInfo(ei)))))
-        .on("end", () => cb(ZIO.fail(None)))
+        .on(
+          "data",
+          { (res: Res) =>
+            val _ = cb(ZIO.succeed(Chunk.single(res)))
+          }
+        )
+        .on(
+          "error",
+          { (ei: ErrorInfo) =>
+            val _ = cb(ZIO.fail(Some(Status.fromErrorInfo(ei))))
+          }
+        )
+        .on(
+          "end",
+          { () =>
+            val _ = cb(ZIO.fail(None))
+          }
+        )
         .on(
           "status",
           (status: StatusInfo) =>

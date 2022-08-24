@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        scala: [2_12, 2_13]
+        scala: [2_12, 2_13, 3]
     runs-on: ubuntu-latest
     
     steps:
@@ -30,10 +30,14 @@ jobs:
       run: |
         sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck
 
-    - name: Compile and test
+    - name: Compile and test (JVM)
       run: |
-        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test \
-            coreJS${{matrix.scala}}/test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test
+
+    - name: Compile and test (JS)
+      if: ${{ matrix.scala != 3 }}
+      run: |
+        sbt coreJS${{matrix.scala}}/test
 
     - name: Examples
       run: |
