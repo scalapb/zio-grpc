@@ -14,7 +14,7 @@ object ClientCallsSpec extends ZIOSpecDefault {
     suite("unaryCall")(
       test("should not fail with 'INTERNAL: already started' on retry") {
         for {
-          channel <- ZChannel.managed[Any](
+          channel <- ZChannel.scoepd[Any](
                        ManagedChannelBuilder.forAddress("localhost", 0).usePlaintext(),
                        Nil,
                        1.second
