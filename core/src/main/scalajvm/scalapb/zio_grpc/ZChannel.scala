@@ -42,7 +42,7 @@ object ZChannel {
     *   The maximum amount of time to wait for the channel to shutdown.
     * @return
     */
-  def managed[R](
+  def scoped[R](
       builder: => ManagedChannelBuilder[_],
       interceptors: Seq[ZClientInterceptor[R]],
       timeout: Duration
