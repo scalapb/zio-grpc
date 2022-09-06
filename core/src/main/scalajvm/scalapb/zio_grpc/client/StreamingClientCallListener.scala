@@ -45,7 +45,7 @@ class StreamingClientCallListener[R, Res](
   override def onClose(status: Status, trailers: Metadata): Unit =
     runtime.unsafeRun(queue.offer(Left((status, trailers))).unit)
 
-  def stream: ZStream[Any, Status, Res] =
+  def stream: ZStream[Any, Status, Either[Metadata, Res]] =
     ZStream
       .fromQueue(queue)
       .tap {
@@ -53,8 +53,9 @@ class StreamingClientCallListener[R, Res](
           queue.shutdown *> IO.when(!status.isOk)(IO.fail(status))
         case _                            => IO.unit
       }
-      .collect { case Right(v) =>
-        v
+      .map {
+        case Left((_, metadata)) => Left(metadata)
+        case otherwise           => otherwise.asInstanceOf[Either[Metadata, Res]]
       }
 }
 
