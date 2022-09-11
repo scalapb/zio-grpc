@@ -341,6 +341,10 @@ class ZioFilePrinter(
             printClientTransform
           )
             .add(
+              "// Returns a client that gives access to headers and trailers",
+              s"def withMetadata: ${clientWithMetadataServiceName.name}.ZService[R1, Context1] = self.withMetadata.transform[R1, Context1](f)"
+            )
+            .add(
               "// Returns a copy of the service with new default metadata",
               s"def mapCallOptionsM(cf: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.mapCallOptionsM(cf), f)",
               s"def withMetadataM(headersEffect: zio.IO[$Status, $SafeMetadata]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.withMetadataM(headersEffect), f)",
@@ -500,6 +504,10 @@ class ZioFilePrinter(
           )
             .add("")
             .add(
+              "// Returns a client that gives access to headers and trailers",
+              s"def withMetadata: ${clientWithMetadataServiceName.name}.ZService[R, Context]"
+            )
+            .add(
               "// Returns a copy of the service with new default metadata",
               s"def withMetadataM(headersEffect: zio.IO[$Status, $SafeMetadata]): ZService[R, Context]",
               s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context]"
@@ -522,6 +530,10 @@ class ZioFilePrinter(
           _.print(service.getMethods().asScala.toVector)(
             printClientImpl(envType = "R with Context")
           )
+            .add(
+              "// Returns a client that gives access to headers and trailers",
+              s"def withMetadata: ${clientWithMetadataServiceName.name}.ZService[R, Context] = underlying"
+            )
             .add(
               s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R, Context] = new ServiceStub(underlying.mapCallOptionsM(f))",
               s"override def withMetadataM(headersEffect: zio.IO[$Status, $SafeMetadata]): ZService[R, Context] = new ServiceStub(underlying.withMetadataM(headersEffect))",
