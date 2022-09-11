@@ -53,10 +53,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
   def parseUser(rc: RequestContext): IO[Status, User] =
     rc.metadata.get(UserKey).flatMap {
-      case Some("alice") =>
-        IO.fail(
-          Status.PERMISSION_DENIED.withDescription("You are not allowed!")
-        )
+      case Some("alice") => IO.fail(Status.PERMISSION_DENIED.withDescription("You are not allowed!"))
       case Some(name)    => IO.succeed(User(name))
       case None          => IO.fail(Status.UNAUTHENTICATED)
     }
@@ -87,6 +84,6 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
 
   def spec =
     suite("EnvSpec")(
-      specs: _*
-    ).provideLayer(layers.orDie)
+      specs
+    ).provideCustomLayer(layers.orDie)
 }

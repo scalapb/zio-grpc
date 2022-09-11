@@ -2,6 +2,8 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio.test.Assertion._
+import zio.test.TestAspect._
+import zio.duration._
 import zio._
 import zio.stream.Stream
 import testservice.ZioTestservice.TestServiceClient
@@ -77,9 +79,9 @@ trait MetadataTests {
       }
     ).provideLayer(authClient)
 
-  val specs = Seq(
+  val specs = suite("Metadata")(
     permissionDeniedSuite,
     unauthenticatedSuite,
     authenticatedSuite
-  )
+  ) @@ timeout(10.seconds)
 }
