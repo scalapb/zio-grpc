@@ -104,9 +104,10 @@ class ZioFilePrinter(
     private val traitName  = OuterObject / service.name
     private val ztraitName = OuterObject / ("Z" + service.name)
 
-    private val clientServiceName             = OuterObject / (service.name + "Client")
-    private val clientWithMetadataServiceName = OuterObject / (service.name + "ClientWithMetadata")
-    private val accessorsClassName            = OuterObject / (service.name + "Accessors")
+    private val clientServiceName              = OuterObject / (service.name + "Client")
+    private val clientWithMetadataServiceName  = OuterObject / (service.name + "ClientWithMetadata")
+    private val accessorsClassName             = OuterObject / (service.name + "Accessors")
+    private val accessorsWithMetadataClassName = OuterObject / (service.name + "WithMetadataAccessors")
 
     def methodInType(method: MethodDescriptor, inEnvType: String): String = {
       val scalaInType = method.inputType.scalaType
@@ -402,30 +403,30 @@ class ZioFilePrinter(
         )
         .add("}")
         .add("")
-        .add("// accessor methods")
-        .add(
-          s"class ${accessorsClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
-        )
-        .indented(
-          _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
-            .print(service.getMethods().asScala.toVector)(printAccessor)
-            .add(
-              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsClassName.name}(callOptions.flatMap(f))"
-            )
-        )
-        .add("}")
-        .add("")
         .pipe(genClient)
         .pipe(genClientWithMetadata)
 
     def genClientWithMetadata(fp: FunctionalPrinter): FunctionalPrinter =
       fp
+        .add("// accessor with metadata methods")
+        .add(
+          s"class ${accessorsWithMetadataClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsWithMetadataClassName.name}[Context]] {"
+        )
+        .indented(
+          _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
+            .print(service.getMethods().asScala.toVector)(printAccessorWithMetadata)
+            .add(
+              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsWithMetadataClassName.name}(callOptions.flatMap(f))"
+            )
+        )
+        .add("}")
+        .add("")
         .add(
           s"type ${clientWithMetadataServiceName.name} = _root_.zio.Has[${clientWithMetadataServiceName.name}.Service]"
         )
         .add("")
         .add(
-          s"object ${clientWithMetadataServiceName.name} extends ${accessorsClassName.name}[Any](zio.ZIO.succeed($CallOptions.DEFAULT)) {"
+          s"object ${clientWithMetadataServiceName.name} extends ${accessorsWithMetadataClassName.name}[Any](zio.ZIO.succeed($CallOptions.DEFAULT)) {"
         )
         .indent
         .add(
@@ -484,6 +485,18 @@ class ZioFilePrinter(
 
     def genClient(fp: FunctionalPrinter): FunctionalPrinter =
       fp
+        .add("// accessor methods")
+        .add(
+          s"class ${accessorsClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
+        )
+        .indented(
+          _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
+            .print(service.getMethods().asScala.toVector)(printAccessor)
+            .add(
+              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsClassName.name}(callOptions.flatMap(f))"
+            )
+        )
+        .add("}")
         .add(
           s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
         )
@@ -566,6 +579,30 @@ class ZioFilePrinter(
       val clientCall        = method.streamType match {
         case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
         case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
+        case StreamType.ServerStreaming =>
+          s"_root_.zio.stream.ZStream.accessStream($innerCall)"
+        case StreamType.Bidirectional   =>
+          s"_root_.zio.stream.ZStream.accessStream($innerCall)"
+      }
+      fp.add(sigWithoutContext + clientCall)
+    }
+
+    def printAccessorWithMetadata(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      val sigWithoutContext =
+        clientWithMetadataMethodSignature(
+          method,
+          inEnvType = "R0",
+          outEnvType = s"zio.Has[${clientWithMetadataServiceName.name}.ZService[Any, Context]] with Context"
+        ) + " = "
+      val innerCall         = s"_.get.withCallOptionsM(callOptions).${method.name}(request)"
+      val clientCall        = method.streamType match {
+        case StreamType.Unary           =>
+          s"_root_.zio.ZIO.accessM($innerCall)"
+        case StreamType.ClientStreaming =>
+          s"_root_.zio.ZIO.accessM($innerCall)"
         case StreamType.ServerStreaming =>
           s"_root_.zio.stream.ZStream.accessStream($innerCall)"
         case StreamType.Bidirectional   =>
