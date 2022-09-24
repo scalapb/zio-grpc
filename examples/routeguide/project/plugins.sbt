@@ -1,4 +1,4 @@
-resolvers ++= Resolver.sonatypeOssRepo("snapshots")
+resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")
 
