@@ -1,4 +1,4 @@
-ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots")
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.6")
 
