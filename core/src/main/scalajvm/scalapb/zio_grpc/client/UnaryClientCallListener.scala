@@ -24,7 +24,7 @@ class UnaryClientCallListener[Res](
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run(
           state.update {
@@ -38,7 +38,7 @@ class UnaryClientCallListener[Res](
     }
 
   override def onMessage(message: Res): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run(
           state.update {
@@ -53,7 +53,7 @@ class UnaryClientCallListener[Res](
     }
 
   override def onClose(status: Status, trailers: Metadata): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run {
           for {

@@ -25,7 +25,7 @@ class StreamingClientCallListener[R, Res](
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run(
           state.update {
@@ -38,12 +38,12 @@ class StreamingClientCallListener[R, Res](
     }
 
   override def onMessage(message: Res): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe.run(queue.offer(Right(message)) *> call.request(1)).getOrThrowFiberFailure()
     }
 
   override def onClose(status: Status, trailers: Metadata): Unit =
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit u =>
       runtime.unsafe.run(queue.offer(Left((status, trailers))).unit).getOrThrowFiberFailure()
     }
 
