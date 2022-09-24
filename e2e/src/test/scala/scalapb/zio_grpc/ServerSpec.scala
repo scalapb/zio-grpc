@@ -14,7 +14,7 @@ object ServerSpec extends ZIOSpecDefault {
           waitedRef <- Ref.make(false)
           server     = new io.grpc.Server {
                          def awaitTermination(): Unit = {
-                           val _ = Unsafe.unsafeCompat { implicit unsafe =>
+                           val _ = Unsafe.unsafe { implicit unsafe =>
                              Runtime.default.unsafe.run(waitedRef.set(true)).getOrThrowFiberFailure()
                            }
                          }
@@ -39,7 +39,7 @@ object ServerSpec extends ZIOSpecDefault {
                          def awaitTermination(timeout: Long, unit: TimeUnit): Boolean = {
                            val assertion1 = assert(timeout)(equalTo(2500L))
                            val assertion2 = assert(unit)(equalTo(TimeUnit.MILLISECONDS))
-                           Unsafe.unsafeCompat { implicit unsafe =>
+                           Unsafe.unsafe { implicit unsafe =>
                              Runtime.default.unsafe.run(waitedRef.set(assertion1 && assertion2)).getOrThrowFiberFailure()
                            }
                            true

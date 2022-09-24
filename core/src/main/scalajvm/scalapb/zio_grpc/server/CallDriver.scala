@@ -41,17 +41,17 @@ object CallDriver {
     CallDriver(
       listener = new Listener[Req] {
         override def onCancel(): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
           }
 
         override def onHalfClose(): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe.run(completed.completeWith(ZIO.unit).unit).getOrThrowFiberFailure()
           }
 
         override def onMessage(message: Req): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe
               .run {
                 request.succeed(message).flatMap {
@@ -117,17 +117,17 @@ object CallDriver {
     CallDriver(
       listener = new Listener[Req] {
         override def onCancel(): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
           }
 
         override def onHalfClose(): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe.run(queue.offer(None).unit).getOrThrowFiberFailure()
           }
 
         override def onMessage(message: Req): Unit =
-          Unsafe.unsafeCompat { implicit u =>
+          Unsafe.unsafe { implicit u =>
             runtime.unsafe
               .run(
                 call.request(1) *> queue.offer(Some(message)).unit
