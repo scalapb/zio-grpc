@@ -1,18 +1,24 @@
 package scalapb.zio_grpc
 
-import zio.ZLayer
-import zio.test._
+import zio.test.{test, _}
 import zio.test.Assertion._
 import zio.stream.ZStream
+import io.grpc.Metadata
 import io.grpc.Status
 import TestUtils._
 import scalapb.zio_grpc.testservice._
 import scalapb.zio_grpc.testservice.ZioTestservice._
+import zio._
 
 trait MetadataTests {
   def clientLayer(
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient]
+
+  def clientMetadataLayer: ZLayer[Server, Nothing, TestServiceClientWithMetadata]
+
+  val RequestIdKey =
+    Metadata.Key.of("request-id", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
   val authClient   = clientLayer(Some("bob"))
   val unauthClient = clientLayer(Some("alice"))
@@ -26,6 +32,36 @@ trait MetadataTests {
     TestServiceClient.serverStreaming(Request()).runCollect
   val clientStreamingEffect = TestServiceClient.clientStreaming(ZStream.empty)
   val bidiEffect            = TestServiceClient.bidiStreaming(ZStream.empty).runCollect
+
+  val unaryEffectWithMd           =
+    ZioTestservice.TestServiceClientWithMetadata.unary(Request())
+  val serverStreamingEffectWithMd =
+    ZioTestservice.TestServiceClientWithMetadata.serverStreaming(Request()).runCollect
+  val clientStreamingEffectWithMd =
+    ZioTestservice.TestServiceClientWithMetadata.clientStreaming(ZStream.empty)
+  val bidiEffectWithMd            =
+    ZioTestservice.TestServiceClientWithMetadata.bidiStreaming(ZStream.empty).runCollect
+
+  val properTrailer = Assertion.assertion[Metadata]("trailers") { md =>
+    md.containsKey(RequestIdKey) && md.get(RequestIdKey) == "1"
+  }
+
+  val properHeader = Assertion.assertion[Metadata]("headers") { md =>
+    val keys = md.keys()
+    keys.contains("content-type") && keys.contains("grpc-encoding") && keys.contains("grpc-accept-encoding")
+  }
+
+  def checkHeaderFrame(r: ResponseFrame[Response]) =
+    assert(r.isInstanceOf[ResponseFrame.Headers])(isTrue) &&
+      assert(r.asInstanceOf[ResponseFrame.Headers].headers)(properHeader)
+
+  def checkTrailerFrame(r: ResponseFrame[Response]) =
+    assert(r.isInstanceOf[ResponseFrame.Trailers])(isTrue) &&
+      assert(r.asInstanceOf[ResponseFrame.Trailers].trailers)(properTrailer)
+
+  def checkMessageFrame(r: ResponseFrame[Response]) =
+    assert(r.isInstanceOf[ResponseFrame.Message[Response]])(isTrue) &&
+      assert(r.asInstanceOf[ResponseFrame.Message[Response]].message)(equalTo(Response("bob")))
 
   def permissionDeniedSuite =
     suite("unauthorized request fail for")(
@@ -60,7 +96,7 @@ trait MetadataTests {
     ).provideLayer(unsetClient)
 
   def authenticatedSuite =
-    suite("authorized request fail for")(
+    suite("authorized request")(
       test("unary") {
         assertZIO(unaryEffect)(equalTo(Response("bob")))
       },
@@ -77,9 +113,47 @@ trait MetadataTests {
       }
     ).provideLayer(authClient)
 
-  val specs = Seq(
+  def metadataSuite =
+    suite("response metadata")(
+      test("unary") {
+        for {
+          result                                      <- unaryEffectWithMd
+          ResponseContext(headers, response, trailers) = result
+        } yield assert(response)(equalTo(Response("bob"))) &&
+          assert(headers)(properHeader) &&
+          assert(trailers)(properTrailer)
+      },
+      test("server streaming") {
+        for {
+          result <- serverStreamingEffectWithMd
+        } yield assert(result.size)(equalTo(4)) &&
+          checkHeaderFrame(result(0)) &&
+          checkMessageFrame(result(1)) &&
+          checkMessageFrame(result(2)) &&
+          checkTrailerFrame(result(3))
+      },
+      test("client streaming") {
+        for {
+          result                                      <- unaryEffectWithMd
+          ResponseContext(headers, response, trailers) = result
+        } yield assert(response)(equalTo(Response("bob"))) &&
+          assert(headers)(properHeader) &&
+          assert(trailers)(properTrailer)
+      },
+      test("bidi streaming") {
+        for {
+          result                           <- bidiEffectWithMd
+          Chunk(headers, message, trailers) = result
+        } yield checkHeaderFrame(headers) &&
+          checkMessageFrame(message) &&
+          checkTrailerFrame(trailers)
+      }
+    ).provideLayer(clientMetadataLayer)
+
+  val specs = suite("Metadata")(
     permissionDeniedSuite,
     unauthenticatedSuite,
-    authenticatedSuite
-  )
+    authenticatedSuite,
+    metadataSuite
+  ) @@ TestAspect.timeout(10.seconds)
 }

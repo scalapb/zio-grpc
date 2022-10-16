@@ -2,7 +2,7 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio._
-import testservice.ZioTestservice.TestServiceClient
+import testservice.ZioTestservice.{TestServiceClient, TestServiceClientWithMetadata}
 import testservice.ZioTestservice.ZTestService
 import testservice._
 import io.grpc.ServerBuilder
@@ -14,48 +14,62 @@ import zio.stream.ZStream
 object EnvSpec extends ZIOSpecDefault with MetadataTests {
   case class User(name: String)
 
-  val getUser = ZIO.environmentWith[User](_.get)
+  case class Context(user: User, response: SafeMetadata)
 
-  object ServiceWithConsole extends ZTestService[Any, User] {
-    def unary(request: Request): ZIO[User, Status, Response] =
+  val getUser             = ZIO.serviceWith[Context](_.user)
+  val getResponseMetadata = ZIO.serviceWith[Context](_.response)
+
+  object ServiceWithConsole extends ZTestService[Any, Context] {
+    def unary(request: Request): ZIO[Context, Status, Response] =
       for {
         user <- getUser
+        md   <- getResponseMetadata
+        _    <- md.put(RequestIdKey, "1")
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[User, Status, Response] =
-      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
-        ZStream(
-          Response(u.get.name),
-          Response(u.get.name)
-        )
+    ): ZStream[Context, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[Context]) =>
+        ZStream
+          .fromZIO(
+            u.get.response.put(RequestIdKey, "1")
+          )
+          .drain ++
+          ZStream(
+            Response(u.get.user.name),
+            Response(u.get.user.name)
+          )
       }
 
     def clientStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZIO[User, Status, Response] = getUser.map(n => Response(n.name))
+    ): ZIO[Context, Status, Response] =
+      for {
+        n  <- getUser
+        md <- getResponseMetadata
+        _  <- md.put(RequestIdKey, "1")
+      } yield Response(n.name)
 
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZStream[User, Status, Response] =
-      ZStream.environmentWithStream { (u: ZEnvironment[User]) =>
-        ZStream(
-          Response(u.get.name)
-        )
+    ): ZStream[Context, Status, Response] =
+      ZStream.environmentWithStream { (u: ZEnvironment[Context]) =>
+        ZStream.fromZIO(u.get.response.put(RequestIdKey, "1")).drain ++ ZStream(Response(u.get.user.name))
+
       }
   }
 
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  def parseUser(rc: RequestContext): IO[Status, User] =
+  def parseUser(rc: RequestContext): IO[Status, Context] =
     rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
         ZIO.fail(
           Status.PERMISSION_DENIED.withDescription("You are not allowed!")
         )
-      case Some(name)    => ZIO.succeed(User(name))
+      case Some(name)    => ZIO.succeed(Context(User(name), rc.responseMetadata))
       case None          => ZIO.fail(Status.UNAUTHENTICATED)
     }
 
@@ -83,10 +97,27 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
       }
     }
 
+  override def clientMetadataLayer: URLayer[Server, TestServiceClientWithMetadata] =
+    ZLayer.scoped {
+      ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
+        ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
+          val ch = ZManagedChannel(
+            ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
+            Seq(
+              ZClientInterceptor.headersUpdater((_, _, md) => md.put(UserKey, "bob").unit)
+            )
+          )
+          TestServiceClientWithMetadata
+            .scoped(ch)
+            .orDie
+        }
+      }
+    }
+
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 
   def spec =
     suite("EnvSpec")(
-      specs: _*
+      specs
     ).provideLayer(layers.orDie)
 }
