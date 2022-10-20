@@ -1,62 +1,45 @@
 package scalapb.zio_grpc.client
 
-import zio.{Queue, Ref, Runtime, URIO, ZIO}
+import zio.{Queue, Runtime, URIO, ZIO}
+import scalapb.zio_grpc.ResponseFrame
 import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
-import StreamingCallState._
 import zio.stream.ZStream
 import zio._
-
-sealed trait StreamingCallState[+Res]
-
-object StreamingCallState {
-  case object Initial extends StreamingCallState[Nothing]
-
-  case class HeadersReceived[Res](headers: Metadata) extends StreamingCallState[Res]
-
-  case class Failure[Res](s: String) extends StreamingCallState[Res]
-}
 
 class StreamingClientCallListener[R, Res](
     runtime: Runtime[R],
     call: ZClientCall[R, _, Res],
-    state: Ref[StreamingCallState[Res]],
-    queue: Queue[Either[(Status, Metadata), Res]]
+    queue: Queue[ResponseFrame[Res]]
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
     Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run(
-          state.update {
-            case Initial            => HeadersReceived(headers)
-            case HeadersReceived(_) => Failure("onHeaders already called")
-            case f @ Failure(_)     => f
-          }.unit
+          queue
+            .offer(ResponseFrame.Headers(headers))
+            .unit
         )
         .getOrThrowFiberFailure()
     }
 
   override def onMessage(message: Res): Unit =
     Unsafe.unsafe { implicit u =>
-      runtime.unsafe.run(queue.offer(Right(message)) *> call.request(1)).getOrThrowFiberFailure()
+      runtime.unsafe.run(queue.offer(ResponseFrame.Message(message)) *> call.request(1)).getOrThrowFiberFailure()
     }
 
   override def onClose(status: Status, trailers: Metadata): Unit =
     Unsafe.unsafe { implicit u =>
-      runtime.unsafe.run(queue.offer(Left((status, trailers))).unit).getOrThrowFiberFailure()
+      runtime.unsafe.run(queue.offer(ResponseFrame.Trailers(status, trailers)).unit).getOrThrowFiberFailure()
     }
 
-  def stream: ZStream[Any, Status, Res] =
+  def stream: ZStream[Any, Status, ResponseFrame[Res]] =
     ZStream
       .fromQueue(queue)
       .tap {
-        case Left((status, trailers @ _)) =>
-          queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(status))
-        case _                            => ZIO.unit
-      }
-      .collect { case Right(v) =>
-        v
+        case ResponseFrame.Trailers(status, _) => queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(status))
+        case _                                 => ZIO.unit
       }
 }
 
@@ -66,7 +49,6 @@ object StreamingClientCallListener {
   ): URIO[R, StreamingClientCallListener[R, Res]] =
     for {
       runtime <- zio.ZIO.runtime[R]
-      state   <- Ref.make[StreamingCallState[Res]](Initial)
-      queue   <- Queue.unbounded[Either[(Status, Metadata), Res]]
-    } yield new StreamingClientCallListener(runtime, call, state, queue)
+      queue   <- Queue.unbounded[ResponseFrame[Res]]
+    } yield new StreamingClientCallListener(runtime, call, queue)
 }
