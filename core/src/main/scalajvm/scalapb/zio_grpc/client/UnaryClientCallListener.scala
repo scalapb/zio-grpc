@@ -5,6 +5,7 @@ import zio.Ref
 
 import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
+import scalapb.zio_grpc.ResponseContext
 import zio.Promise
 import zio.IO
 import UnaryCallState._
@@ -24,7 +25,7 @@ object UnaryCallState {
 class UnaryClientCallListener[Res](
     runtime: Runtime[Any],
     state: Ref[UnaryCallState[Res]],
-    promise: Promise[Status, (Metadata, Res)]
+    promise: Promise[Status, ResponseContext[Res]]
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
@@ -60,7 +61,7 @@ class UnaryClientCallListener[Res](
              else
                s match {
                  case ResponseReceived(headers, message) =>
-                   promise.succeed((headers, message))
+                   promise.succeed(ResponseContext(headers, message, trailers))
                  case Failure(errorMessage)              =>
                    promise.fail(Status.INTERNAL.withDescription(errorMessage))
                  case _                                  =>
@@ -71,7 +72,7 @@ class UnaryClientCallListener[Res](
       } yield ()
     }
 
-  def getValue: IO[Status, (Metadata, Res)] = promise.await
+  def getValue: IO[Status, ResponseContext[Res]] = promise.await
 }
 
 object UnaryClientCallListener {
@@ -79,6 +80,6 @@ object UnaryClientCallListener {
     for {
       runtime <- zio.ZIO.runtime[Any]
       state   <- Ref.make[UnaryCallState[Res]](Initial)
-      promise <- Promise.make[Status, (Metadata, Res)]
+      promise <- Promise.make[Status, ResponseContext[Res]]
     } yield new UnaryClientCallListener[Res](runtime, state, promise)
 }

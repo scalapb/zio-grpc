@@ -2,7 +2,7 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio._
-import testservice.ZioTestservice.TestServiceClient
+import testservice.ZioTestservice.{TestServiceClient, TestServiceClientWithMetadata}
 import testservice.ZioTestservice.ZTestService
 import testservice._
 import io.grpc.ServerBuilder
@@ -16,48 +16,58 @@ import zio.clock.Clock
 object EnvSpec extends DefaultRunnableSpec with MetadataTests {
   case class User(name: String)
 
-  val getUser = ZIO.access[Has[User]](_.get)
+  case class Context(user: User, response: SafeMetadata)
 
-  object ServiceWithConsole extends ZTestService[Console with Clock, Has[User]] {
-    def unary(request: Request): ZIO[Console with Has[User], Status, Response] =
+  val getUser             = ZIO.access[Has[Context]](_.get.user)
+  val getResponseMetadata = ZIO.access[Has[Context]](_.get.response)
+
+  object ServiceWithConsole extends ZTestService[Console with Clock, Has[Context]] {
+    def unary(request: Request): ZIO[Console with Has[Context], Status, Response] =
       for {
         user <- getUser
+        md   <- getResponseMetadata
+        _    <- md.put(RequestIdKey, "1")
       } yield Response(out = user.name)
 
     def serverStreaming(
         request: Request
-    ): ZStream[Console with Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
-        ZStream(
-          Response(u.get.name),
-          Response(u.get.name)
-        )
+    ): ZStream[Console with Has[Context], Status, Response] =
+      ZStream.accessStream { (u: Has[Context]) =>
+        ZStream
+          .fromEffect(
+            u.get.response.put(RequestIdKey, "1")
+          )
+          .drain ++
+          ZStream(
+            Response(u.get.user.name),
+            Response(u.get.user.name)
+          )
       }
 
     def clientStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZIO[Has[User], Status, Response] = getUser.map(n => Response(n.name))
+    ): ZIO[Has[Context], Status, Response] =
+      for {
+        n  <- getUser
+        md <- getResponseMetadata
+        _  <- md.put(RequestIdKey, "1")
+      } yield Response(n.name)
 
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
-    ): ZStream[Has[User], Status, Response] =
-      ZStream.accessStream { (u: Has[User]) =>
-        ZStream(
-          Response(u.get.name)
-        )
+    ): ZStream[Has[Context], Status, Response] =
+      ZStream.accessStream { (u: Has[Context]) =>
+        ZStream.fromEffect(u.get.response.put(RequestIdKey, "1")).drain ++ ZStream(Response(u.get.user.name))
       }
   }
 
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  def parseUser(rc: RequestContext): IO[Status, User] =
+  def parseUser(rc: RequestContext): IO[Status, Context] =
     rc.metadata.get(UserKey).flatMap {
-      case Some("alice") =>
-        IO.fail(
-          Status.PERMISSION_DENIED.withDescription("You are not allowed!")
-        )
-      case Some(name)    => IO.succeed(User(name))
+      case Some("alice") => IO.fail(Status.PERMISSION_DENIED.withDescription("You are not allowed!"))
+      case Some(name)    => IO.succeed(Context(User(name), rc.responseMetadata))
       case None          => IO.fail(Status.UNAUTHENTICATED)
     }
 
@@ -83,10 +93,25 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
       }
     }
 
+  override def clientMetadataLayer: ZLayer[Server, Nothing, TestServiceClientWithMetadata] =
+    ZLayer.fromServiceManaged { (ss: Server.Service) =>
+      ZManaged.fromEffect(ss.port).orDie >>= { (port: Int) =>
+        val ch = ZManagedChannel(
+          ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
+          Seq(
+            ZClientInterceptor.headersUpdater((_, _, md) => md.put(UserKey, "bob").unit)
+          )
+        )
+        TestServiceClientWithMetadata
+          .managed(ch)
+          .orDie
+      }
+    }
+
   val layers = serviceLayer >>> (serverLayer ++ Annotations.live)
 
   def spec =
     suite("EnvSpec")(
-      specs: _*
-    ).provideLayer(layers.orDie)
+      specs
+    ).provideCustomLayer(layers.orDie)
 }
