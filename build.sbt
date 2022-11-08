@@ -1,6 +1,6 @@
 import Settings.stdSettings
 
-val Scala3 = "3.2.0"
+val Scala3 = "3.2.1"
 
 val Scala213 = "2.13.8"
 
