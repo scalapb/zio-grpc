@@ -42,27 +42,35 @@ object CallDriver {
       listener = new Listener[Req] {
         override def onCancel(): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
+            val _ = runtime.unsafe.run(cancelled.succeed(())).getOrThrowFiberFailure()
           }
 
         override def onHalfClose(): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe.run(completed.completeWith(ZIO.unit).unit).getOrThrowFiberFailure()
+            val _ = runtime.unsafe.run(completed.succeed(())).getOrThrowFiberFailure()
           }
 
         override def onMessage(message: Req): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe
+            val _ = runtime.unsafe
               .run {
                 request.succeed(message).flatMap {
                   case false =>
                     completed
                       .fail(Status.INTERNAL.withDescription("Too many requests"))
-                      .unit
                   case true  =>
                     ZIO.unit
                 }
               }
+              .getOrThrowFiberFailure()
+          }
+
+        override def onReady(): Unit =
+          Unsafe.unsafe { implicit u =>
+            val _ = runtime.unsafe
+              .run(
+                requestContext.canSend.release.commit
+              )
               .getOrThrowFiberFailure()
           }
       },
@@ -118,19 +126,28 @@ object CallDriver {
       listener = new Listener[Req] {
         override def onCancel(): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe.run(cancelled.succeed(()).unit).getOrThrowFiberFailure()
+            val _ = runtime.unsafe.run(cancelled.succeed(())).getOrThrowFiberFailure()
           }
 
         override def onHalfClose(): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe.run(queue.offer(None).unit).getOrThrowFiberFailure()
+            val _ = runtime.unsafe.run(queue.offer(None)).getOrThrowFiberFailure()
           }
 
         override def onMessage(message: Req): Unit =
           Unsafe.unsafe { implicit u =>
-            runtime.unsafe
+            val _ = runtime.unsafe
               .run(
-                call.request(1) *> queue.offer(Some(message)).unit
+                call.request(1) *> queue.offer(Some(message))
+              )
+              .getOrThrowFiberFailure()
+          }
+
+        override def onReady(): Unit =
+          Unsafe.unsafe { implicit u =>
+            val _ = runtime.unsafe
+              .run(
+                requestContext.canSend.release.commit
               )
               .getOrThrowFiberFailure()
           }

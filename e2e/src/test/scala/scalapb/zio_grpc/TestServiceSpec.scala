@@ -332,6 +332,6 @@ object TestServiceSpec extends ZIOSpecDefault {
       serverStreamingSuite,
       clientStreamingSuite,
       bidiStreamingSuite
-    ).provideCustomLayer(layers.orDie)
+    ).provideLayer(layers.orDie)
 
 }

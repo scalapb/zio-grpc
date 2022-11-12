@@ -5,7 +5,9 @@ import zio.ZIO
 import scalapb.zio_grpc.GIO
 
 /** Wrapper around [[io.grpc.ServerCall]] that lifts its effects into ZIO values */
-class ZServerCall[Res](private val call: ServerCall[_, Res]) extends AnyVal {
+final class ZServerCall[Res](private val call: ServerCall[_, Res]) extends AnyVal {
+  def isReady: Boolean = call.isReady()
+
   def request(n: Int): GIO[Unit] = GIO.fromTask(ZIO.attempt(call.request(n)))
 
   def sendMessage(message: Res): GIO[Unit] =

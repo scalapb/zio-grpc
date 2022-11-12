@@ -3,19 +3,22 @@ package scalapb.zio_grpc
 import io.grpc.MethodDescriptor
 import io.grpc.Attributes
 import io.grpc.ServerCall
+import zio.stm.TSemaphore
 
 final case class RequestContext(
     metadata: SafeMetadata,
     responseMetadata: SafeMetadata,
     authority: Option[String],
     methodDescriptor: MethodDescriptor[_, _],
-    attributes: Attributes
+    attributes: Attributes,
+    canSend: TSemaphore
 )
 
 object RequestContext {
   def fromServerCall[Req, Res](
       metadata: SafeMetadata,
       responseMetadata: SafeMetadata,
+      canSend: TSemaphore,
       sc: ServerCall[Req, Res]
   ): RequestContext =
     RequestContext(
@@ -23,6 +26,7 @@ object RequestContext {
       responseMetadata,
       Option(sc.getAuthority()),
       sc.getMethodDescriptor(),
-      sc.getAttributes()
+      sc.getAttributes(),
+      canSend
     )
 }
