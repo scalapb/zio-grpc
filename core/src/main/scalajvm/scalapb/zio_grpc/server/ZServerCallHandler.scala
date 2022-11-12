@@ -128,7 +128,12 @@ object ZServerCallHandler {
     ZIO
       .scoped[Any](
         stream
-          .catchAllCause(e => e.dieOption.fold(ZStream.failCause(e))(t => ZStream.fail(Status.INTERNAL.withCause(t))))
+          .catchAllCause(e =>
+            if (e.isInterrupted)
+              ZStream.failCause(e)
+            else
+              e.dieOption.fold(ZStream.failCause(e))(t => ZStream.fail(Status.INTERNAL.withCause(t)))
+          )
           // ^ This is necessary: https://github.com/zio/zio/issues/7518
           .toQueueOfElements(1)
           .flatMap(outerLoop)
