@@ -135,7 +135,10 @@ object ZServerCallHandler {
               e.dieOption.fold(ZStream.failCause(e))(t => ZStream.fail(Status.INTERNAL.withCause(t)))
           )
           // ^ This is necessary: https://github.com/zio/zio/issues/7518
-          .toQueueOfElements(1)
+          .toQueueOfElements(16)
+          // ^ Would need to benchmark the optimal size for this queue,
+          // but 16 seems like a reasonable default esp. as right now that
+          // buffer is unbounded.
           .flatMap(outerLoop)
       )
       .unit
