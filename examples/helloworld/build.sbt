@@ -1,6 +1,6 @@
 scalaVersion := "2.13.8"
 
-resolvers += Resolver.sonatypeRepo("snapshots")
+resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 val grpcVersion = "1.47.0"
 
