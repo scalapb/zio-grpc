@@ -41,8 +41,7 @@ jobs:
 
     - name: Examples
       run: |
-        cd examples
-        for d in */ ; do cd "$d" && sbt scalafmtCheck test:scalafmtCheck scalafmtSbtCheck test && cd ../ ; done
+        .github/workflows/test_examples.sh
 
   # Single final job for mergify.
   ci-passed:
