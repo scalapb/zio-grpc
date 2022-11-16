@@ -1,16 +1,17 @@
 package scalapb.zio_grpc.server
 
-import zio._
-import io.grpc.ServerCall.Listener
-import io.grpc.Status
-import zio.stream.Stream
-import io.grpc.ServerCall
-import io.grpc.ServerCallHandler
-import zio.stream.ZStream
-import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
+import io.grpc.ServerCall
+import io.grpc.ServerCall.Listener
+import io.grpc.ServerCallHandler
+import io.grpc.Status
+import scalapb.zio_grpc.RequestContext
 import scalapb.zio_grpc.SafeMetadata
+import zio._
 import zio.stm.TSemaphore
+import zio.stream.Stream
+import zio.stream.ZChannel
+import zio.stream.ZStream
 
 class ZServerCallHandler[R, Req, Res](
     runtime: Runtime[R],
@@ -76,7 +77,11 @@ object ZServerCallHandler {
     unaryInput[Any, Req, Res](
       runtime,
       (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
-        loop(call, requestContext, impl(req).provideEnvironment(ZEnvironment(requestContext)))
+        serverStreamingWithBackpressure(
+          call,
+          requestContext,
+          impl(req).provideEnvironment(ZEnvironment(requestContext))
+        )
     )
 
   def clientStreamingCallHandler[Req, Res](
@@ -96,10 +101,19 @@ object ZServerCallHandler {
     streamingInput(
       runtime,
       (req, requestContext, call) =>
-        loop(call, requestContext, impl(req).provideEnvironment(ZEnvironment(requestContext)))
+        serverStreamingWithBackpressure(
+          call,
+          requestContext,
+          impl(req).provideEnvironment(ZEnvironment(requestContext))
+        )
     )
 
-  private def loop[Res](
+  // Dispatches items from the stream to the client, and awaits until the client is ready to receive
+  // more. Elements of type `Res` are pulled from the stream one by one and sent to the client until
+  // the underlying call signals it is not ready to receive more. At that point, the fiber awaits until
+  // the listener receiving an `onReady` signal provides an execution permit; coordination is done via
+  // a semaphore.
+  private[scalapb] def serverStreamingWithBackpressure[Res](
       call: ZServerCall[Res],
       ctx: RequestContext,
       stream: ZStream[Any, Status, Res]
@@ -109,13 +123,16 @@ object ZServerCallHandler {
     def innerLoop(queue: Dequeue[Exit[Option[Status], Res]]) =
       queue.take
         .flatMap {
-          case Exit.Success(elem)  =>
-            call.sendMessage(elem).as(true)
+          case Exit.Success(res)   =>
+            call.sendMessage(res).as(true)
           case Exit.Failure(cause) =>
             cause.failureOrCause match {
-              case Left(Some(status)) => ZIO.fail(status)
-              case Left(None)         => ZIO.succeed(false)
-              case Right(e)           => ZIO.fail(e.dieOption.foldLeft(Status.INTERNAL)(_.withCause(_)))
+              case Left(Some(status)) =>
+                ZIO.fail(status)
+              case Left(None)         =>
+                ZIO.succeed(false)
+              case Right(cause)       =>
+                ZIO.failCause(cause)
             }
         }
         .repeatWhile(_ && call.isReady)
@@ -127,15 +144,7 @@ object ZServerCallHandler {
 
     ZIO
       .scoped[Any](
-        stream
-          .catchAllCause(e =>
-            if (e.isInterrupted)
-              ZStream.failCause(e)
-            else
-              e.dieOption.fold(ZStream.failCause(e))(t => ZStream.fail(Status.INTERNAL.withCause(t)))
-          )
-          // ^ This is necessary: https://github.com/zio/zio/issues/7518
-          .toQueueOfElements(16)
+        toQueueOfElements(stream, 16)
           // ^ Would need to benchmark the optimal size for this queue,
           // but 16 seems like a reasonable default esp. as right now that
           // buffer is unbounded.
@@ -143,4 +152,40 @@ object ZServerCallHandler {
       )
       .unit
   }
+
+  // This is a copy of ZStream#toQueueOfElements, it can be removed once
+  // ZIO 2.0.4 is published
+  private def toQueueOfElements[R, E, A](
+      stream: ZStream[R, E, A],
+      capacity: => Int = 2
+  )(implicit trace: Trace): ZIO[R with Scope, Nothing, Dequeue[Exit[Option[E], A]]] =
+    for {
+      queue <- ZIO.acquireRelease(Queue.bounded[Exit[Option[E], A]](capacity))(_.shutdown)
+      _     <- runIntoQueueElementsScoped(stream, queue).forkScoped
+    } yield queue
+
+  // This is a copy of ZStream#runIntoQueueElementsScoped, it can be removed once
+  // ZIO 2.0.4 is published
+  private def runIntoQueueElementsScoped[R, E, A](
+      stream: ZStream[R, E, A],
+      queue: => Enqueue[Exit[Option[E], A]]
+  )(implicit trace: Trace): ZIO[R with Scope, Nothing, Unit] = {
+    lazy val writer: ZChannel[R, E, Chunk[A], Any, Nothing, Exit[Option[E], A], Any] =
+      ZChannel.readWithCause[R, E, Chunk[A], Any, Nothing, Exit[Option[E], A], Any](
+        in =>
+          in.foldLeft[ZChannel[R, Any, Any, Any, Nothing, Exit[Option[E], A], Any]](ZChannel.unit) {
+            case (channel, a) =>
+              channel *> ZChannel.write(Exit.succeed(a))
+          } *> writer,
+        err => ZChannel.write(Exit.failCause(err.map(Some(_)))),
+        _ => ZChannel.write(Exit.fail(None))
+      )
+
+    (stream.channel >>> writer)
+      .mapOutZIO(queue.offer)
+      .drain
+      .runScoped
+      .unit
+  }
+
 }
