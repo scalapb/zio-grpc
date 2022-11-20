@@ -144,47 +144,13 @@ object ZServerCallHandler {
 
     ZIO
       .scoped[Any](
-        toQueueOfElements(stream, 16)
+        stream
+          .toQueueOfElements(16)
           // ^ Would need to benchmark the optimal size for this queue,
           // but 16 seems like a reasonable default esp. as right now that
           // buffer is unbounded.
           .flatMap(outerLoop)
       )
-      .unit
-  }
-
-  // This is a copy of ZStream#toQueueOfElements, it can be removed once
-  // ZIO 2.0.4 is published
-  private def toQueueOfElements[R, E, A](
-      stream: ZStream[R, E, A],
-      capacity: => Int = 2
-  )(implicit trace: Trace): ZIO[R with Scope, Nothing, Dequeue[Exit[Option[E], A]]] =
-    for {
-      queue <- ZIO.acquireRelease(Queue.bounded[Exit[Option[E], A]](capacity))(_.shutdown)
-      _     <- runIntoQueueElementsScoped(stream, queue).forkScoped
-    } yield queue
-
-  // This is a copy of ZStream#runIntoQueueElementsScoped, it can be removed once
-  // ZIO 2.0.4 is published
-  private def runIntoQueueElementsScoped[R, E, A](
-      stream: ZStream[R, E, A],
-      queue: => Enqueue[Exit[Option[E], A]]
-  )(implicit trace: Trace): ZIO[R with Scope, Nothing, Unit] = {
-    lazy val writer: ZChannel[R, E, Chunk[A], Any, Nothing, Exit[Option[E], A], Any] =
-      ZChannel.readWithCause[R, E, Chunk[A], Any, Nothing, Exit[Option[E], A], Any](
-        in =>
-          in.foldLeft[ZChannel[R, Any, Any, Any, Nothing, Exit[Option[E], A], Any]](ZChannel.unit) {
-            case (channel, a) =>
-              channel *> ZChannel.write(Exit.succeed(a))
-          } *> writer,
-        err => ZChannel.write(Exit.failCause(err.map(Some(_)))),
-        _ => ZChannel.write(Exit.fail(None))
-      )
-
-    (stream.channel >>> writer)
-      .mapOutZIO(queue.offer)
-      .drain
-      .runScoped
       .unit
   }
 
