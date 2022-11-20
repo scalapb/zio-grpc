@@ -188,13 +188,7 @@ object TestServiceSpec extends ZIOSpecDefault {
       test("catches client cancellation") {
         assertZIO(for {
           fiber <- TestServiceClient
-                     .clientStreaming(
-                       ZStream(
-                         Request(Scenario.OK, in = 17),
-                         Request(Scenario.OK, in = 12),
-                         Request(Scenario.DELAY, in = 33)
-                       )
-                     )
+                     .clientStreaming(ZStream.never)
                      .fork
           _     <- TestServiceImpl.awaitDelayReceived
           _     <- fiber.interrupt
