@@ -6,6 +6,7 @@ import zio._
 import zio.stream.Stream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
+import zio.stm.TSemaphore
 
 /** Represents a running request to be served by [[ZServerCallHandler]]
   *
@@ -34,6 +35,7 @@ object CallDriver {
   def unaryInputCallDriver[R, Req](
       runtime: Runtime[R],
       call: ZServerCall[_],
+      canSend: TSemaphore,
       cancelled: Promise[Nothing, Unit],
       completed: Promise[Status, Unit],
       request: Promise[Nothing, Req],
@@ -63,7 +65,7 @@ object CallDriver {
         }
 
         override def onReady(): Unit = {
-          val _ = runtime.unsafeRun(requestContext.canSend.release.commit)
+          val _ = runtime.unsafeRun(canSend.release.commit)
         }
       },
       run = (
@@ -85,10 +87,12 @@ object CallDriver {
       writeResponse: (
           Req,
           RequestContext,
-          ZServerCall[Res]
+          ZServerCall[Res],
+          TSemaphore
       ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
+      canSend: TSemaphore,
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
@@ -99,16 +103,18 @@ object CallDriver {
     } yield unaryInputCallDriver(
       runtime,
       zioCall,
+      canSend,
       cancelled,
       completed,
       request,
       requestContext,
-      writeResponse(_, requestContext, zioCall)
+      writeResponse(_, requestContext, zioCall, canSend)
     )
 
   def streamingInputCallDriver[R, Req, Res](
       runtime: Runtime[R],
       call: ZServerCall[Res],
+      canSend: TSemaphore,
       cancelled: Promise[Nothing, Unit],
       queue: Queue[Option[Req]],
       requestContext: RequestContext,
@@ -116,16 +122,21 @@ object CallDriver {
   ): CallDriver[R, Req] =
     CallDriver(
       listener = new Listener[Req] {
-        override def onCancel(): Unit =
-          runtime.unsafeRun(cancelled.succeed(()).unit)
+        override def onCancel(): Unit = {
+          val _ = runtime.unsafeRun(cancelled.succeed(()))
+        }
 
-        override def onHalfClose(): Unit =
-          runtime.unsafeRun(queue.offer(None).unit)
-
-        override def onMessage(message: Req): Unit =
-          runtime.unsafeRun(
-            call.request(1) *> queue.offer(Some(message)).unit
+        override def onHalfClose(): Unit = {
+          val _ = runtime.unsafeRun(queue.offer(None))
+        }
+        override def onMessage(message: Req): Unit = {
+          val _ = runtime.unsafeRun(
+            call.request(1) *> queue.offer(Some(message))
           )
+        }
+        override def onReady(): Unit = {
+          val _ = runtime.unsafeRun(canSend.release.commit)
+        }
       },
       run = {
         val requestStream = Stream
@@ -150,10 +161,12 @@ object CallDriver {
       writeResponse: (
           Stream[Status, Req],
           RequestContext,
-          ZServerCall[Res]
+          ZServerCall[Res],
+          TSemaphore
       ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
+      canSend: TSemaphore,
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
@@ -163,9 +176,10 @@ object CallDriver {
     } yield streamingInputCallDriver[R, Req, Res](
       runtime,
       zioCall,
+      canSend,
       cancelled,
       queue,
       requestContext,
-      writeResponse(_, requestContext, zioCall)
+      writeResponse(_, requestContext, zioCall, canSend)
     )
 }

@@ -15,7 +15,7 @@ import zio.stream.Take
 
 class ZServerCallHandler[R, Req, Res](
     runtime: Runtime[R],
-    mkDriver: (ZServerCall[Res], RequestContext) => URIO[R, CallDriver[R, Req]]
+    mkDriver: (ZServerCall[Res], TSemaphore, RequestContext) => URIO[R, CallDriver[R, Req]]
 ) extends ServerCallHandler[Req, Res] {
   def startCall(
       call: ServerCall[Req, Res],
@@ -26,7 +26,7 @@ class ZServerCallHandler[R, Req, Res](
       rmd     <- SafeMetadata.make
       md      <- SafeMetadata.fromMetadata(headers)
       canSend <- TSemaphore.make(1).commit
-      driver  <- mkDriver(zioCall, RequestContext.fromServerCall(md, rmd, canSend, call))
+      driver  <- mkDriver(zioCall, canSend, RequestContext.fromServerCall(md, rmd, call))
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
@@ -41,7 +41,7 @@ class ZServerCallHandler[R, Req, Res](
 object ZServerCallHandler {
   def unaryInput[R, Req, Res](
       runtime: Runtime[R],
-      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[R, Status, Unit]
+      impl: (Req, RequestContext, ZServerCall[Res], TSemaphore) => ZIO[R, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(runtime, CallDriver.makeUnaryInputCallDriver(impl))
 
@@ -50,7 +50,8 @@ object ZServerCallHandler {
       impl: (
           Stream[Status, Req],
           RequestContext,
-          ZServerCall[Res]
+          ZServerCall[Res],
+          TSemaphore
       ) => ZIO[R, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
@@ -64,7 +65,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call, _) =>
+        impl(req).provide(Has(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
@@ -73,8 +75,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        serverStreamingWithBackpressure(call, requestContext, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call, canSend) =>
+        serverStreamingWithBackpressure(call, canSend, requestContext, impl(req).provide(Has(requestContext)))
     )
 
   def clientStreamingCallHandler[Req, Res](
@@ -83,7 +85,7 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, metadata, call, _) => impl(req).provide(Has(metadata)).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
@@ -92,12 +94,13 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        serverStreamingWithBackpressure(call, requestContext, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call, canSend) =>
+        serverStreamingWithBackpressure(call, canSend, requestContext, impl(req).provide(Has(requestContext)))
     )
 
   def serverStreamingWithBackpressure[Res](
       call: ZServerCall[Res],
+      canSend: TSemaphore,
       ctx: RequestContext,
       stream: ZStream[Any, Status, Res]
   ): ZIO[Any, Status, Unit] = {
@@ -115,7 +118,7 @@ object ZServerCallHandler {
         .repeatWhile(_ && call.isReady)
 
     def outerLoop(queue: Dequeue[Take[Status, Res]])(buffer: Ref[Chunk[Res]]): ZIO[Any, Status, Boolean] =
-      (ctx.canSend.acquire.commit *> innerLoop(queue, buffer))
+      (canSend.acquire.commit *> innerLoop(queue, buffer))
         .repeatWhile(identity)
 
     stream
