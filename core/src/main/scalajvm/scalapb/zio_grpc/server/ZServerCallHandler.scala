@@ -10,12 +10,11 @@ import scalapb.zio_grpc.SafeMetadata
 import zio._
 import zio.stm.TSemaphore
 import zio.stream.Stream
-import zio.stream.ZChannel
 import zio.stream.ZStream
 
 class ZServerCallHandler[R, Req, Res](
     runtime: Runtime[R],
-    mkDriver: (ZServerCall[Res], RequestContext) => URIO[R, CallDriver[R, Req]]
+    mkDriver: (ZServerCall[Res], TSemaphore, RequestContext) => URIO[R, CallDriver[R, Req]]
 ) extends ServerCallHandler[Req, Res] {
   def startCall(
       call: ServerCall[Req, Res],
@@ -26,7 +25,7 @@ class ZServerCallHandler[R, Req, Res](
       rmd     <- SafeMetadata.make
       md      <- SafeMetadata.fromMetadata(headers)
       canSend <- TSemaphore.makeCommit(1)
-      driver  <- mkDriver(zioCall, RequestContext.fromServerCall(md, rmd, canSend, call))
+      driver  <- mkDriver(zioCall, canSend, RequestContext.fromServerCall(md, rmd, call))
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
       // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
@@ -43,7 +42,7 @@ class ZServerCallHandler[R, Req, Res](
 object ZServerCallHandler {
   def unaryInput[R, Req, Res](
       runtime: Runtime[R],
-      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[R, Status, Unit]
+      impl: (Req, RequestContext, ZServerCall[Res], TSemaphore) => ZIO[R, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(runtime, CallDriver.makeUnaryInputCallDriver(impl))
 
@@ -52,7 +51,8 @@ object ZServerCallHandler {
       impl: (
           Stream[Status, Req],
           RequestContext,
-          ZServerCall[Res]
+          ZServerCall[Res],
+          TSemaphore
       ) => ZIO[R, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
@@ -66,7 +66,7 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
+      (req, requestContext, call, _) =>
         impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap(call.sendMessage)
     )
 
@@ -76,9 +76,10 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
+      (req: Req, requestContext: RequestContext, call: ZServerCall[Res], canSend: TSemaphore) =>
         serverStreamingWithBackpressure(
           call,
+          canSend,
           requestContext,
           impl(req).provideEnvironment(ZEnvironment(requestContext))
         )
@@ -90,7 +91,7 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
+      (req, requestContext, call, _) =>
         impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap(call.sendMessage)
     )
 
@@ -100,9 +101,10 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput(
       runtime,
-      (req, requestContext, call) =>
+      (req, requestContext, call, canSend) =>
         serverStreamingWithBackpressure(
           call,
+          canSend,
           requestContext,
           impl(req).provideEnvironment(ZEnvironment(requestContext))
         )
@@ -115,6 +117,7 @@ object ZServerCallHandler {
   // a semaphore.
   private[scalapb] def serverStreamingWithBackpressure[Res](
       call: ZServerCall[Res],
+      canSend: TSemaphore,
       ctx: RequestContext,
       stream: ZStream[Any, Status, Res]
   ): ZIO[Any, Status, Unit] = {
@@ -140,7 +143,7 @@ object ZServerCallHandler {
     // Acquire a permit then read as much as possible from the queue, stop
     // when the queue has offered its last element (i.e. Exit.fail(None))
     def outerLoop(queue: Dequeue[Exit[Option[Status], Res]]) =
-      (ctx.canSend.acquire.commit *> innerLoop(queue)).repeatWhile(identity)
+      (canSend.acquire.commit *> innerLoop(queue)).repeatWhile(identity)
 
     ZIO
       .scoped[Any](

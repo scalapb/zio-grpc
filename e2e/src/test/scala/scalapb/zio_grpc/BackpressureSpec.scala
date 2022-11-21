@@ -17,10 +17,15 @@ object BackpressureSpec extends ZIOSpecDefault {
         assertZIO(for {
           sem  <- TSemaphore.makeCommit(1)
           md   <- SafeMetadata.make
-          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY, sem)
+          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY)
           exit <-
             ZServerCallHandler
-              .serverStreamingWithBackpressure(new ZServerCall(null), ctx, ZStream.die(new RuntimeException("Boom")))
+              .serverStreamingWithBackpressure(
+                new ZServerCall(null),
+                sem,
+                ctx,
+                ZStream.die(new RuntimeException("Boom"))
+              )
               .exit
         } yield exit)(dies(hasMessage(equalTo("Boom"))))
       },
@@ -28,9 +33,9 @@ object BackpressureSpec extends ZIOSpecDefault {
         assertZIO(for {
           sem  <- TSemaphore.makeCommit(1)
           md   <- SafeMetadata.make
-          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY, sem)
+          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY)
           exit <- ZServerCallHandler
-                    .serverStreamingWithBackpressure(new ZServerCall(null), ctx, ZStream.fromZIO(ZIO.interrupt))
+                    .serverStreamingWithBackpressure(new ZServerCall(null), sem, ctx, ZStream.fromZIO(ZIO.interrupt))
                     .exit
         } yield exit)(isInterrupted)
       },
@@ -42,7 +47,7 @@ object BackpressureSpec extends ZIOSpecDefault {
           md      <- SafeMetadata.make
           runtime <- ZIO.runtime[Any]
           ref     <- Ref.make(List.empty[Int])
-          ctx      = RequestContext(md, md, None, null, Attributes.EMPTY, sem)
+          ctx      = RequestContext(md, md, None, null, Attributes.EMPTY)
           call     = new ServerCall[Any, Int]() {
                        override def sendMessage(message: Int): Unit =
                          Unsafe.unsafe(implicit u => runtime.unsafe.run(ref.update(message :: _)).getOrThrowFiberFailure())
@@ -59,7 +64,7 @@ object BackpressureSpec extends ZIOSpecDefault {
                        override def isCancelled(): Boolean                                          = false
                      }
           exit    <- ZServerCallHandler
-                       .serverStreamingWithBackpressure(new ZServerCall(call), ctx, ZStream.fromIterable(input))
+                       .serverStreamingWithBackpressure(new ZServerCall(call), sem, ctx, ZStream.fromIterable(input))
                        .exit
           result  <- ref.get
         } yield assert(exit)(succeeds(equalTo(()))) && assert(result)(hasSameElements(input))
