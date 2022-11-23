@@ -9,7 +9,7 @@ import scalapb.zio_grpc.testservice._
 import zio.{durationInt, Fiber, Queue, URIO, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test._
 
 object TestServiceSpec extends ZIOSpecDefault {
@@ -188,13 +188,19 @@ object TestServiceSpec extends ZIOSpecDefault {
       test("catches client cancellation") {
         assertZIO(for {
           fiber <- TestServiceClient
-                     .clientStreaming(ZStream.never)
+                     .clientStreaming(
+                       ZStream(
+                         Request(Scenario.OK, in = 17),
+                         Request(Scenario.OK, in = 12),
+                         Request(Scenario.DELAY, in = 33)
+                       )
+                     )
                      .fork
           _     <- TestServiceImpl.awaitDelayReceived
           _     <- fiber.interrupt
           exit  <- TestServiceImpl.awaitExit
         } yield exit)(isInterrupted)
-      },
+      } @@ nonFlaky,
       test("returns response on failures") {
         assertZIO(
           TestServiceClient
