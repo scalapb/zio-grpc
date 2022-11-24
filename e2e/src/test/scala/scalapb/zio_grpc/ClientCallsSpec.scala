@@ -14,15 +14,15 @@ object ClientCallsSpec extends ZIOSpecDefault {
     suite("unaryCall")(
       test("should not fail with 'INTERNAL: already started' on retry") {
         for {
-          channel <- ZChannel.scoped[Any](
-                       ManagedChannelBuilder.forAddress("localhost", 0).usePlaintext(),
-                       Nil,
-                       1.second
-                     )
+          channel <- ZChannel
+                       .scoped[Any](
+                         ManagedChannelBuilder.forAddress("localhost", 0).usePlaintext(),
+                         Nil,
+                         1.second
+                       )
           meta    <- SafeMetadata.make
           res     <- ClientCalls
                        .unaryCall(
-                         // This test does not require working server
                          channel,
                          scalapb.zio_grpc.testservice.TestServiceGrpc.METHOD_UNARY,
                          CallOptions.DEFAULT,
@@ -31,7 +31,6 @@ object ClientCallsSpec extends ZIOSpecDefault {
                        )
                        .retry(Schedule.recurs(2))
                        .exit
-
         } yield
         // There was a bug, when call.start was invoked multiple times, so this test was failing
         // with 'already started' instead of 'io exception'

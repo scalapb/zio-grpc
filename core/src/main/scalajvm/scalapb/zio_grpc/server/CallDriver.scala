@@ -65,6 +65,11 @@ object CallDriver {
               }
               .getOrThrowFiberFailure()
           }
+
+        override def onReady(): Unit =
+          Unsafe.unsafe { implicit u =>
+            runtime.unsafe.run(call.setReady())
+          }
       },
       run = (
         call.request(2) *>
@@ -133,6 +138,12 @@ object CallDriver {
                 call.request(1) *> queue.offer(Some(message)).unit
               )
               .getOrThrowFiberFailure()
+          }
+
+        override def onReady(): Unit =
+          Unsafe.unsafe { implicit u =>
+            runtime.unsafe
+              .run(call.setReady())
           }
       },
       run = {
