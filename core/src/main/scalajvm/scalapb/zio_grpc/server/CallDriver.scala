@@ -6,7 +6,6 @@ import zio._
 import zio.stream.Stream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
-import zio.stm.TSemaphore
 
 /** Represents a running request to be served by [[ZServerCallHandler]]
   *
@@ -35,7 +34,6 @@ object CallDriver {
   def unaryInputCallDriver[R, Req](
       runtime: Runtime[R],
       call: ZServerCall[_],
-      canSend: TSemaphore,
       cancelled: Promise[Nothing, Unit],
       completed: Promise[Status, Unit],
       request: Promise[Nothing, Req],
@@ -65,7 +63,7 @@ object CallDriver {
         }
 
         override def onReady(): Unit = {
-          val _ = runtime.unsafeRun(canSend.release.commit)
+          val _ = runtime.unsafeRun(call.setReady())
         }
       },
       run = (
@@ -87,12 +85,10 @@ object CallDriver {
       writeResponse: (
           Req,
           RequestContext,
-          ZServerCall[Res],
-          TSemaphore
+          ZServerCall[Res]
       ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
-      canSend: TSemaphore,
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
@@ -103,18 +99,16 @@ object CallDriver {
     } yield unaryInputCallDriver(
       runtime,
       zioCall,
-      canSend,
       cancelled,
       completed,
       request,
       requestContext,
-      writeResponse(_, requestContext, zioCall, canSend)
+      writeResponse(_, requestContext, zioCall)
     )
 
   def streamingInputCallDriver[R, Req, Res](
       runtime: Runtime[R],
       call: ZServerCall[Res],
-      canSend: TSemaphore,
       cancelled: Promise[Nothing, Unit],
       queue: Queue[Option[Req]],
       requestContext: RequestContext,
@@ -135,7 +129,7 @@ object CallDriver {
           )
         }
         override def onReady(): Unit = {
-          val _ = runtime.unsafeRun(canSend.release.commit)
+          val _ = runtime.unsafeRun(call.setReady())
         }
       },
       run = {
@@ -161,12 +155,10 @@ object CallDriver {
       writeResponse: (
           Stream[Status, Req],
           RequestContext,
-          ZServerCall[Res],
-          TSemaphore
+          ZServerCall[Res]
       ) => ZIO[R, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
-      canSend: TSemaphore,
       requestContext: RequestContext
   ): ZIO[R, Nothing, CallDriver[R, Req]] =
     for {
@@ -176,10 +168,9 @@ object CallDriver {
     } yield streamingInputCallDriver[R, Req, Res](
       runtime,
       zioCall,
-      canSend,
       cancelled,
       queue,
       requestContext,
-      writeResponse(_, requestContext, zioCall, canSend)
+      writeResponse(_, requestContext, zioCall)
     )
 }

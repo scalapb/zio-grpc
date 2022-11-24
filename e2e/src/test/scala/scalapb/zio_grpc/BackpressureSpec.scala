@@ -16,14 +16,10 @@ object BackpressureSpec extends DefaultRunnableSpec {
       testM("Die is propagated") {
         assertM(for {
           sem  <- TSemaphore.make(1).commit
-          md   <- SafeMetadata.make
-          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY)
           exit <-
             ZServerCallHandler
               .serverStreamingWithBackpressure(
-                new ZServerCall(null),
-                sem,
-                ctx,
+                new ZServerCall(null, sem),
                 ZStream.die(new RuntimeException("Boom"))
               )
               .run
@@ -32,10 +28,8 @@ object BackpressureSpec extends DefaultRunnableSpec {
       testM("Interruption is propagated") {
         assertM(for {
           sem  <- TSemaphore.make(1).commit
-          md   <- SafeMetadata.make
-          ctx   = RequestContext(md, md, None, null, Attributes.EMPTY)
           exit <- ZServerCallHandler
-                    .serverStreamingWithBackpressure(new ZServerCall(null), sem, ctx, ZStream.fromEffect(ZIO.interrupt))
+                    .serverStreamingWithBackpressure(new ZServerCall(null, sem), ZStream.fromEffect(ZIO.interrupt))
                     .run
         } yield exit)(isInterrupted)
       },
@@ -44,10 +38,8 @@ object BackpressureSpec extends DefaultRunnableSpec {
 
         for {
           sem     <- TSemaphore.make(1).commit
-          md      <- SafeMetadata.make
           runtime <- ZIO.runtime[Any]
           ref     <- Ref.make(List.empty[Int])
-          ctx      = RequestContext(md, md, None, null, Attributes.EMPTY)
           call     = new ServerCall[Any, Int]() {
                        override def sendMessage(message: Int): Unit =
                          runtime.unsafeRun(ref.update(message :: _))
@@ -64,7 +56,7 @@ object BackpressureSpec extends DefaultRunnableSpec {
                        override def isCancelled(): Boolean                                          = false
                      }
           exit    <- ZServerCallHandler
-                       .serverStreamingWithBackpressure(new ZServerCall(call), sem, ctx, ZStream.fromIterable(input))
+                       .serverStreamingWithBackpressure(new ZServerCall(call, sem), ZStream.fromIterable(input))
                        .run
           result  <- ref.get
         } yield assert(exit)(succeeds(equalTo(()))) && assert(result)(hasSameElements(input))
