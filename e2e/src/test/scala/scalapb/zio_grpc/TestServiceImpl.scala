@@ -108,7 +108,7 @@ package object server {
 
       def awaitReceived = requestReceived.await
 
-      def awaitDelayReceived = requestReceived.await
+      def awaitDelayReceived = delayReceived.await
 
       def awaitExit = exit.await
     }
