@@ -103,13 +103,15 @@ lazy val e2e =
     .defaultAxes()
     .enablePlugins(LocalCodeGenPlugin)
     .jvmPlatform(ScalaVersions)
+    .configs(IntegrationTest)
     .settings(stdSettings)
     .settings(
+      Defaults.itSettings,
       crossScalaVersions := Seq(Scala212, Scala213),
       publish / skip := true,
       libraryDependencies ++= Seq(
-        "dev.zio"              %% "zio-test"             % Version.zio % "test",
-        "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test",
+        "dev.zio"              %% "zio-test"             % Version.zio % "test,it",
+        "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test,it",
         "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
         "io.grpc"               % "grpc-netty"           % Version.grpc
       ),

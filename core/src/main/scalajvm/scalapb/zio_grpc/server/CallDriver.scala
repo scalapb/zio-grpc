@@ -42,23 +42,29 @@ object CallDriver {
   ): CallDriver[R, Req] =
     CallDriver(
       listener = new Listener[Req] {
-        override def onCancel(): Unit =
-          runtime.unsafeRun(cancelled.succeed(()).unit)
+        override def onCancel(): Unit = {
+          val _ = runtime.unsafeRun(cancelled.succeed(()))
+        }
 
-        override def onHalfClose(): Unit =
-          runtime.unsafeRun(completed.completeWith(ZIO.unit).unit)
+        override def onHalfClose(): Unit = {
+          val _ = runtime.unsafeRun(completed.succeed(()))
+        }
 
-        override def onMessage(message: Req): Unit =
-          runtime.unsafeRun {
+        override def onMessage(message: Req): Unit = {
+          val _ = runtime.unsafeRun {
             request.succeed(message).flatMap {
               case false =>
                 completed
                   .fail(Status.INTERNAL.withDescription("Too many requests"))
-                  .unit
               case true  =>
                 ZIO.unit
             }
           }
+        }
+
+        override def onReady(): Unit = {
+          val _ = runtime.unsafeRun(call.setReady())
+        }
       },
       run = (
         call.request(2) *>
@@ -110,16 +116,21 @@ object CallDriver {
   ): CallDriver[R, Req] =
     CallDriver(
       listener = new Listener[Req] {
-        override def onCancel(): Unit =
-          runtime.unsafeRun(cancelled.succeed(()).unit)
+        override def onCancel(): Unit = {
+          val _ = runtime.unsafeRun(cancelled.succeed(()))
+        }
 
-        override def onHalfClose(): Unit =
-          runtime.unsafeRun(queue.offer(None).unit)
-
-        override def onMessage(message: Req): Unit =
-          runtime.unsafeRun(
-            call.request(1) *> queue.offer(Some(message)).unit
+        override def onHalfClose(): Unit = {
+          val _ = runtime.unsafeRun(queue.offer(None))
+        }
+        override def onMessage(message: Req): Unit = {
+          val _ = runtime.unsafeRun(
+            call.request(1) *> queue.offer(Some(message))
           )
+        }
+        override def onReady(): Unit = {
+          val _ = runtime.unsafeRun(call.setReady())
+        }
       },
       run = {
         val requestStream = Stream

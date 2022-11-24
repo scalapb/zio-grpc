@@ -28,7 +28,7 @@ class StreamingClientCallListener[R, Res](
       .tap {
         case ResponseFrame.Trailers(status, _) if !status.isOk => queue.shutdown *> IO.fail(status)
         case ResponseFrame.Trailers(_, _)                      => queue.shutdown
-        case otherwise                                         => IO.unit
+        case _                                                 => IO.unit
       }
 }
 
