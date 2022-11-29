@@ -1,7 +1,7 @@
 name: Release
 on:
   push:
-    branches: [master]
+    branches: [master, 0.5.x]
     tags: ["*"]
 jobs:
   publish:
@@ -15,20 +15,6 @@ jobs:
       uses: actions/setup-java@v1
       with:
           java-version: 1.8
-    - name: Update docs
-      run: |
-        git config --global user.name "ZIO-gRPC Docs"
-        git config --global user.email "zio-grpc-docs@users.noreply.github.com"
-        eval "$(ssh-agent -s)"
-        echo "$TOKEN" | ssh-add -
-        sbt docs/mdoc
-        cd website
-        yarn install
-        yarn deploy
-      env:
-         TOKEN: ${{secrets.DEPLOY_KEY}}
-         USE_SSH: true
-         GIT_USER: git
     - uses: olafurpg/setup-gpg@v3
     - name: Publish ${{ github.ref }}
       run: sbt ci-release
