@@ -19,17 +19,28 @@ object BackpressureSpec extends DefaultRunnableSpec {
           exit <-
             ZServerCallHandler
               .serverStreamingWithBackpressure(
+                1, 
                 new ZServerCall(null, sem),
                 ZStream.die(new RuntimeException("Boom"))
               )
               .run
         } yield exit)(dies(hasMessage(equalTo("Boom"))))
       },
+      testM("Gets default queue size") {
+        assertM(ZServerCallHandler.backpressureQueueSize)(equalTo(16))
+      },
+      testM("Gets queue size from config") {
+        assertM(for {
+          _ <- ZIO.effect(sys.props += ZServerCallHandler.queueSizeProp -> "32")
+          size <- ZServerCallHandler.backpressureQueueSize
+          _ <- ZIO.effect(sys.props -= ZServerCallHandler.queueSizeProp)
+        } yield size)(equalTo(32))
+      },
       testM("Interruption is propagated") {
         assertM(for {
           sem  <- TSemaphore.make(1).commit
           exit <- ZServerCallHandler
-                    .serverStreamingWithBackpressure(new ZServerCall(null, sem), ZStream.fromEffect(ZIO.interrupt))
+                    .serverStreamingWithBackpressure(1, new ZServerCall(null, sem), ZStream.fromEffect(ZIO.interrupt))
                     .run
         } yield exit)(isInterrupted)
       },
@@ -56,7 +67,7 @@ object BackpressureSpec extends DefaultRunnableSpec {
                        override def isCancelled(): Boolean                                          = false
                      }
           exit    <- ZServerCallHandler
-                       .serverStreamingWithBackpressure(new ZServerCall(call, sem), ZStream.fromIterable(input))
+                       .serverStreamingWithBackpressure(1, new ZServerCall(call, sem), ZStream.fromIterable(input))
                        .run
           result  <- ref.get
         } yield assert(exit)(succeeds(equalTo(()))) && assert(result)(hasSameElements(input))
