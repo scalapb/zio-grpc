@@ -19,7 +19,7 @@ object BackpressureSpec extends DefaultRunnableSpec {
           exit <-
             ZServerCallHandler
               .serverStreamingWithBackpressure(
-                1, 
+                1,
                 new ZServerCall(null, sem),
                 ZStream.die(new RuntimeException("Boom"))
               )
@@ -31,9 +31,9 @@ object BackpressureSpec extends DefaultRunnableSpec {
       },
       testM("Gets queue size from config") {
         assertM(for {
-          _ <- ZIO.effect(sys.props += ZServerCallHandler.queueSizeProp -> "32")
+          _    <- ZIO.effect(sys.props += ZServerCallHandler.queueSizeProp -> "32")
           size <- ZServerCallHandler.backpressureQueueSize
-          _ <- ZIO.effect(sys.props -= ZServerCallHandler.queueSizeProp)
+          _    <- ZIO.effect(sys.props -= ZServerCallHandler.queueSizeProp)
         } yield size)(equalTo(32))
       },
       testM("Interruption is propagated") {

@@ -40,7 +40,7 @@ class ZServerCallHandler[R, Req, Res](
 
 object ZServerCallHandler {
   private[zio_grpc] val queueSizeProp = "zio-grpc.backpressure-queue-size"
-  
+
   val backpressureQueueSize: UIO[Int] =
     ZIO.effect(sys.props.get(queueSizeProp).map(_.toInt)).some.orElse(ZIO.succeed(16))
 
@@ -80,7 +80,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) => serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call) =>
+        serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
     )
 
   def clientStreamingCallHandler[Req, Res](
@@ -100,7 +101,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) => serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call) =>
+        serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
     )
 
   def serverStreamingWithBackpressure[Res](
