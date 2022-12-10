@@ -41,8 +41,13 @@ class ZServerCallHandler[R, Req, Res](
 object ZServerCallHandler {
   private[zio_grpc] val queueSizeProp = "zio-grpc.backpressure-queue-size"
 
-  val backpressureQueueSize: UIO[Int] =
-    ZIO.effect(sys.props.get(queueSizeProp).map(_.toInt)).some.orElse(ZIO.succeed(16))
+  val backpressureQueueSize: IO[Status, Int] =
+    ZIO
+      .effect(sys.props.get(queueSizeProp).map(_.toInt).getOrElse(16))
+      .refineToOrDie[NumberFormatException]
+      .catchAll { t =>
+        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}"))
+      }
 
   def unaryInput[R, Req, Res](
       runtime: Runtime[R],
@@ -65,7 +70,6 @@ object ZServerCallHandler {
 
   def unaryCallHandler[Req, Res](
       runtime: Runtime[Any],
-      backpressureQueueSize: Int,
       impl: Req => ZIO[Has[RequestContext], Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
@@ -75,18 +79,15 @@ object ZServerCallHandler {
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      backpressureQueueSize: Int,
       impl: Req => ZStream[Has[RequestContext], Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call) => serverStreamingWithBackpressure(call, impl(req).provide(Has(requestContext)))
     )
 
   def clientStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      backpressureQueueSize: Int,
       impl: Stream[Status, Req] => ZIO[Has[RequestContext], Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
@@ -96,17 +97,14 @@ object ZServerCallHandler {
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      backpressureQueueSize: Int,
       impl: Stream[Status, Req] => ZStream[Has[RequestContext], Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Any, Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        serverStreamingWithBackpressure(backpressureQueueSize, call, impl(req).provide(Has(requestContext)))
+      (req, requestContext, call) => serverStreamingWithBackpressure(call, impl(req).provide(Has(requestContext)))
     )
 
   def serverStreamingWithBackpressure[Res](
-      backpressureQueueSize: Int,
       call: ZServerCall[Res],
       stream: ZStream[Any, Status, Res]
   ): ZIO[Any, Status, Unit] = {
@@ -127,9 +125,11 @@ object ZServerCallHandler {
       (call.awaitReady *> innerLoop(queue, buffer))
         .repeatWhile(identity)
 
-    stream
-      .toQueue(backpressureQueueSize)
-      .use(queue => Ref.make[Chunk[Res]](Chunk.empty).flatMap(outerLoop(queue)))
-      .unit
+    for {
+      queueSize <- backpressureQueueSize
+      _         <- stream
+                     .toQueue(queueSize)
+                     .use(queue => Ref.make[Chunk[Res]](Chunk.empty).flatMap(outerLoop(queue)))
+    } yield ()
   }
 }

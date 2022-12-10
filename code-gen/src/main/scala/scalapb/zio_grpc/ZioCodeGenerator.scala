@@ -109,8 +109,6 @@ class ZioFilePrinter(
     private val accessorsClassName             = OuterObject / (service.name + "Accessors")
     private val accessorsWithMetadataClassName = OuterObject / (service.name + "WithMetadataAccessors")
 
-    private val CH = "_root_.scalapb.zio_grpc.server.ZServerCallHandler"
-
     def methodInType(method: MethodDescriptor, inEnvType: String): String = {
       val scalaInType = method.inputType.scalaType
 
@@ -385,9 +383,9 @@ class ZioFilePrinter(
               _.add(
                 s"""def bind[R, C](serviceImpl: ${ztraitName.fullName}[R, C], env: zio.Has[$RequestContext] => R with C): zio.URIO[R, $serverServiceDef] ="""
               ).indent
-                .add(s"zio.ZIO.runtime[Any].zip($CH.backpressureQueueSize).map {")
+                .add("zio.ZIO.runtime[Any].map {")
                 .indent
-                .add("case (runtime, queueSize) =>")
+                .add("runtime =>")
                 .indent
                 .add(
                   s"""$serverServiceDef.builder(${service.grpcDescriptor.fullName})"""
@@ -669,6 +667,8 @@ class ZioFilePrinter(
         fp: FunctionalPrinter,
         method: MethodDescriptor
     ): FunctionalPrinter = {
+      val CH = "_root_.scalapb.zio_grpc.server.ZServerCallHandler"
+
       val serverCall = (method.streamType match {
         case StreamType.Unary           => "unaryCallHandler"
         case StreamType.ClientStreaming => "clientStreamingCallHandler"
@@ -682,7 +682,7 @@ class ZioFilePrinter(
           s"${method.grpcDescriptor.fullName},"
         )
         .add(
-          s"$CH.$serverCall(runtime, queueSize, (t: ${methodInType(method, inEnvType = "Any")})=>serviceImpl.${method.name}(t).provideSome(env))"
+          s"$CH.$serverCall(runtime, (t: ${methodInType(method, inEnvType = "Any")})=>serviceImpl.${method.name}(t).provideSome(env))"
         )
         .outdent
         .add(")")
