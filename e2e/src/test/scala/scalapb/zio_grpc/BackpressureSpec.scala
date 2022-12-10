@@ -25,6 +25,23 @@ object BackpressureSpec extends DefaultRunnableSpec {
               .run
         } yield exit)(dies(hasMessage(equalTo("Boom"))))
       },
+      testM("Gets default queue size") {
+        assertM(ZServerCallHandler.backpressureQueueSize)(equalTo(16))
+      },
+      testM("Gets queue size from config") {
+        assertM(for {
+          _    <- ZIO.effect(sys.props += ZServerCallHandler.queueSizeProp -> "32")
+          size <- ZServerCallHandler.backpressureQueueSize
+          _    <- ZIO.effect(sys.props -= ZServerCallHandler.queueSizeProp)
+        } yield size)(equalTo(32))
+      },
+      testM("Fails when queue size is malformatted") {
+        assertM(for {
+          _    <- ZIO.effect(sys.props += ZServerCallHandler.queueSizeProp -> " 32 ")
+          size <- ZServerCallHandler.backpressureQueueSize.run
+          _    <- ZIO.effect(sys.props -= ZServerCallHandler.queueSizeProp)
+        } yield size)(fails(anything))
+      },
       testM("Interruption is propagated") {
         assertM(for {
           sem  <- TSemaphore.make(1).commit
@@ -61,6 +78,6 @@ object BackpressureSpec extends DefaultRunnableSpec {
           result  <- ref.get
         } yield assert(exit)(succeeds(equalTo(()))) && assert(result)(hasSameElements(input))
       }
-    )
+    ) @@ TestAspect.sequential
 
 }
