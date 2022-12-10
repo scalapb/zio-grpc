@@ -47,6 +47,10 @@
         {
           "type": "doc",
           "id": "version-0.5.x/scala.js"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.5.x/backpressure"
         }
       ]
     }
