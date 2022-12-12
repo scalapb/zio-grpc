@@ -32,7 +32,7 @@ jobs:
 
     - name: Compile and test (JVM)
       run: |
-        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/it:test
 
     - name: Compile and test (JS)
       if: ${{ matrix.scala != 3 }}
