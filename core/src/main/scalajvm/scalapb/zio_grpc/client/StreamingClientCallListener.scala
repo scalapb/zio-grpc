@@ -26,7 +26,8 @@ class StreamingClientCallListener[R, Res](
     ZStream
       .fromQueue(queue)
       .tap {
-        case ResponseFrame.Trailers(status, _) if !status.isOk => queue.shutdown *> IO.fail(status)
+        case ResponseFrame.Trailers(status, trailers) if !status.isOk =>
+          queue.shutdown *> IO.fail(status.withCause(status.asException(trailers)))
         case ResponseFrame.Trailers(_, _)                      => queue.shutdown
         case _                                                 => IO.unit
       }
