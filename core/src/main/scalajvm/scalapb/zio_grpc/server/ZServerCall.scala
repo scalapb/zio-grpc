@@ -14,7 +14,7 @@ final class ZServerCall[Res](private val call: ServerCall[_, Res], private val c
 
   // Blocks until the channel is ready to sent.
   // The semaphore being used here gets acquired by users for this class
-  // and released by `onReady` within the listener created by the CallDriver.
+  // and released by `onReady` within the listener.
   // Marked private for now since the current flow-control implementation is coupled with
   // the listener implementation.
   private[zio_grpc] def awaitReady: UIO[Unit] = canSend.acquire.commit

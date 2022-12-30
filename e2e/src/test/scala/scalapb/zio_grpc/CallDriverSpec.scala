@@ -2,15 +2,15 @@ package scalapb.zio_grpc
 
 import io.grpc.Status
 import scalapb.zio_grpc.TestUtils._
-import scalapb.zio_grpc.server.CallDriver
+import scalapb.zio_grpc.server.ListenerDriver
 import zio._
 import zio.Clock._
 import zio.Random._
 import zio.test._
 
-object CallDriverSpec extends ZIOSpecDefault {
+object ListenerDriverSpec extends ZIOSpecDefault {
 
-  def spec = suite("CallDriverSpec")(
+  def spec = suite("ListenerDriverSpec")(
     test("exitToStatus prioritizes failures over interrupts") {
       val effectWithInterruptAndFailure = ZIO
         .foreachParDiscard(List.range(0, 16))(i =>
@@ -21,7 +21,7 @@ object CallDriverSpec extends ZIOSpecDefault {
           } yield ()
         )
         .withParallelism(128)
-      assertZIO(effectWithInterruptAndFailure.exit map CallDriver.exitToStatus)(
+      assertZIO(effectWithInterruptAndFailure.exit map ListenerDriver.exitToStatus)(
         hasStatusCode(Status.INVALID_ARGUMENT)
       )
     }

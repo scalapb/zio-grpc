@@ -15,7 +15,7 @@ import zio.stream.Take
 
 class ZServerCallHandler[R, Req, Res](
     runtime: Runtime[R],
-    mkDriver: (ZServerCall[Res], RequestContext) => URIO[R, CallDriver[R, Req]]
+    mkListener: (ZServerCall[Res], RequestContext) => URIO[R, Listener[Req]]
 ) extends ServerCallHandler[Req, Res] {
   def startCall(
       call: ServerCall[Req, Res],
@@ -26,13 +26,8 @@ class ZServerCallHandler[R, Req, Res](
       canSend          <- TSemaphore.make(1).commit
       zioCall           = new ZServerCall(call, canSend)
       md               <- SafeMetadata.fromMetadata(headers)
-      driver           <- mkDriver(zioCall, RequestContext.fromServerCall(md, responseMetadata, call))
-      // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
-      // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
-      // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
-      // service.
-      _                <- driver.run.forkDaemon
-    } yield driver.listener
+      listener         <- mkListener(zioCall, RequestContext.fromServerCall(md, responseMetadata, call))
+    } yield listener
 
     Unsafe.unsafe { implicit u =>
       runtime.unsafe.run(runner).getOrThrowFiberFailure()
@@ -55,7 +50,7 @@ object ZServerCallHandler {
       runtime: Runtime[R],
       impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[R, Status, Unit]
   ): ServerCallHandler[Req, Res] =
-    new ZServerCallHandler(runtime, CallDriver.makeUnaryInputCallDriver(impl))
+    new ZServerCallHandler(runtime, ListenerDriver.makeUnaryInputListener(impl, runtime))
 
   def streamingInput[R, Req, Res](
       runtime: Runtime[R],
@@ -67,7 +62,7 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
       runtime,
-      CallDriver.makeStreamingInputCallDriver(impl)
+      ListenerDriver.makeStreamingInputListener(impl)
     )
 
   def unaryCallHandler[Req, Res](
