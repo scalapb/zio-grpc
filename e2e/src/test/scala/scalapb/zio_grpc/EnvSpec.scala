@@ -27,6 +27,7 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         user <- getUser
         md   <- getResponseMetadata
         _    <- md.put(RequestIdKey, "1")
+        _    <- ZIO.fail(Status.FAILED_PRECONDITION).when(user.name == "Eve")
       } yield Response(out = user.name)
 
     def serverStreaming(
@@ -35,7 +36,9 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
       ZStream.accessStream { (u: Has[Context]) =>
         ZStream
           .fromEffect(
-            u.get.response.put(RequestIdKey, "1")
+            u.get.response
+              .put(RequestIdKey, "1")
+              .andThen(ZIO.fail(Status.FAILED_PRECONDITION).when(u.get.user.name == "Eve"))
           )
           .drain ++
           ZStream(
@@ -48,16 +51,23 @@ object EnvSpec extends DefaultRunnableSpec with MetadataTests {
         request: zio.stream.ZStream[Any, Status, Request]
     ): ZIO[Has[Context], Status, Response] =
       for {
-        n  <- getUser
-        md <- getResponseMetadata
-        _  <- md.put(RequestIdKey, "1")
-      } yield Response(n.name)
+        user <- getUser
+        md   <- getResponseMetadata
+        _    <- md.put(RequestIdKey, "1")
+        _    <- ZIO.fail(Status.FAILED_PRECONDITION).when(user.name == "Eve")
+      } yield Response(user.name)
 
     def bidiStreaming(
         request: zio.stream.ZStream[Any, Status, Request]
     ): ZStream[Has[Context], Status, Response] =
       ZStream.accessStream { (u: Has[Context]) =>
-        ZStream.fromEffect(u.get.response.put(RequestIdKey, "1")).drain ++ ZStream(Response(u.get.user.name))
+        ZStream
+          .fromEffect(
+            u.get.response
+              .put(RequestIdKey, "1")
+              .andThen(ZIO.fail(Status.FAILED_PRECONDITION).when(u.get.user.name == "Eve"))
+          )
+          .drain ++ ZStream(Response(u.get.user.name))
       }
   }
 

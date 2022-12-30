@@ -57,7 +57,7 @@ class UnaryClientCallListener[Res](
     runtime.unsafeRun {
       for {
         s <- state.get
-        _ <- if (!status.isOk) promise.fail(status)
+        _ <- if (!status.isOk) promise.fail(status.withCause(status.asException(trailers)))
              else
                s match {
                  case ResponseReceived(headers, message) =>
