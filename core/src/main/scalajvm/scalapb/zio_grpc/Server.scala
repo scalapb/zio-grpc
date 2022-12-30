@@ -115,7 +115,7 @@ object Server {
 
 object ServerLayer {
   def fromServiceList[R](builder: => ServerBuilder[_], l: ServiceList[R]) =
-    ZLayer.scoped[R](ManagedServer.fromServiceList(builder, l))
+    ZLayer.scoped[R](ScopedServer.fromServiceList(builder, l))
 
   def access[S1: Tag](
       builder: => ServerBuilder[_]
@@ -151,7 +151,7 @@ object ServerLayer {
     fromServiceList(builder, ServiceList.add(s1).add(s2).add(s3))
 }
 
-object ManagedServer {
+object ScopedServer {
   def fromBuilder(builder: => ServerBuilder[_]): ZIO[Scope, Throwable, Server.Service] =
     fromServiceList(builder, ServiceList)
 

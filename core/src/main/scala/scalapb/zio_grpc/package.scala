@@ -12,4 +12,7 @@ package object zio_grpc {
   type Server = Server.Service
 
   type ZManagedChannel[R] = ZIO[Scope, Throwable, ZChannel[R]]
+
+  @deprecated("Use ScopedServer instead of ManagedServer", "0.6.0")
+  val ManagedServer = scalapb.zio_grpc.ScopedServer
 }
