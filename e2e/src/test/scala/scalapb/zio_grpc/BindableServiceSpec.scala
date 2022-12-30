@@ -27,7 +27,7 @@ object BindableServiceSpec extends ZIOSpecDefault {
   ]
   implicitly[ZBindableService[Clock with Console, ZTestService[Clock with Console, Any]]]
 
-  class UnimpTestService[P, R, C] extends ZTestService[R, C] {
+  class UnimpTestService[R, C] extends ZTestService[R, C] {
     def unary(request: Request): ZIO[R with C, Status, Response] = ???
 
     def serverStreaming(request: Request): ZStream[R with C, Status, Response] = ???
@@ -37,13 +37,13 @@ object BindableServiceSpec extends ZIOSpecDefault {
     def bidiStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZStream[R with C, Status, Response] = ???
   }
 
-  object S1 extends UnimpTestService[Int, Any, RequestContext]
-  object S2 extends UnimpTestService[Int, Any, SafeMetadata]
-  object S3 extends UnimpTestService[Int, Any, Any]
-  object S4 extends UnimpTestService[Int, Clock, SafeMetadata]
-  object S5 extends UnimpTestService[Int, Clock, RequestContext]
-  object S6 extends UnimpTestService[Int, Clock, Any]
-  object S7 extends UnimpTestService[Int, Console, Any]
+  object S1 extends UnimpTestService[Any, RequestContext]
+  object S2 extends UnimpTestService[Any, SafeMetadata]
+  object S3 extends UnimpTestService[Any, Any]
+  object S4 extends UnimpTestService[Clock, SafeMetadata]
+  object S5 extends UnimpTestService[Clock, RequestContext]
+  object S6 extends UnimpTestService[Clock, Any]
+  object S7 extends UnimpTestService[Console, Any]
 
   ServerLayer.fromService(ServerBuilder.forPort(9000), S1)
   ServerLayer.fromService(ServerBuilder.forPort(9000), S2)
