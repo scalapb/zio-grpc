@@ -52,6 +52,7 @@ object BindableServiceSpec extends ZIOSpecDefault {
   ServerLayer.fromService(ServerBuilder.forPort(9000), S5)
   ServerLayer.fromService(ServerBuilder.forPort(9000), S6)
   ServerLayer.fromService(ServerBuilder.forPort(9000), S7)
+
   val l3a = ServerLayer.fromServices(ServerBuilder.forPort(9000), S1, S2, S3)
   val l3b = ServerLayer.fromServices(ServerBuilder.forPort(9000), S1, S4, S7)
 

@@ -55,15 +55,15 @@ object ServerLayer {
   )(implicit bs: ZBindableService[R, S1]): ZLayer[R with S1, Throwable, Server] =
     fromServiceList(builder, ServiceList.accessEnv[R, S1])
 
-  def fromServiceLayer[R, S1: Tag](
-      serverBuilder: => ServerBuilder[_]
-  )(l: ZLayer[R, Throwable, S1])(implicit bs: ZBindableService[Any, S1]) =
-    l >>> fromServiceList(serverBuilder, ServiceList.access[S1])
-
   def fromService[R1, S1](builder: => ServerBuilder[_], s1: S1)(implicit
       bs: ZBindableService[R1, S1]
   ): ZLayer[R1, Throwable, Server] =
     fromServiceList(builder, ServiceList.add(s1))
+
+  def fromServiceLayer[R, S1: Tag](
+      serverBuilder: => ServerBuilder[_]
+  )(l: ZLayer[R, Throwable, S1])(implicit bs: ZBindableService[R, S1]): ZLayer[R, Throwable, Server] =
+    l.flatMap(env => fromService(serverBuilder, env.get[S1]))
 
   def fromServices[R1, S1, R2, S2](builder: => ServerBuilder[_], s1: S1, s2: S2)(implicit
       bs1: ZBindableService[R1, S1],

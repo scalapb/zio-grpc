@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import zio.{Scope, Tag, ZEnvironment, ZIO}
+import zio.{Scope, Tag, ZEnvironment, ZIO, ZLayer}
 import io.grpc.ServerServiceDefinition
 
 /** Represents a managed list of services to be added to the a server.
@@ -28,6 +28,11 @@ sealed class ServiceList[-RR] private[scalapb] (
       l  <- bindAll
       sd <- s1.flatMap(bs.bindService(_))
     } yield sd :: l)
+
+  def addLayer[R <: RR, S1: Tag](layer: ZLayer[R, Throwable, S1])(implicit
+      bs: ZBindableService[R, S1]
+  ): ServiceList[RR with R] =
+    addScoped[R, R, S1](layer.build.map(_.get))
 
   /** Adds a dependency on a service that will be provided later from the environment or a Layer * */
   def access[B: Tag](implicit bs: ZBindableService[Any, B]): ServiceList[B with RR] =
