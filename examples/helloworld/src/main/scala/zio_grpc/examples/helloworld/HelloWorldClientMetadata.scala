@@ -38,7 +38,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   // Option 1: through layer and accessors
   val clientLayer = GreeterClient.live(channel, headers = userEnvToMetadata)
 
-  type UserClient = GreeterClient.ZService[Any, User]
+  type UserClient = GreeterClient.ZService[User]
 
   // The default accessors expect the client type that has no context. We need
   // to set up accessors for the User context
@@ -67,7 +67,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
 
   // Option 2: through a managed client
   val userClientManaged
-      : ZIO[Scope, Throwable, GreeterClient.ZService[Any, User]] =
+      : ZIO[Scope, Throwable, GreeterClient.ZService[User]] =
     GreeterClient.scoped(channel, headers = userEnvToMetadata)
 
   def appLogic2 =
