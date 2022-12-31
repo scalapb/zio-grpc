@@ -7,6 +7,7 @@ import scalapb.zio_grpc.testservice.{Request, Response}
 import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
+import zio.ZLayer
 
 object BindableServiceSpec extends ZIOSpecDefault {
   implicitly[ZBindableService[ZTestService[RequestContext]]]
@@ -42,7 +43,7 @@ object BindableServiceSpec extends ZIOSpecDefault {
   val z2 = ServiceList.addZIO(ZIO.succeed(S2))
   val z3 = ServiceList.addZIO(ZIO.succeed(S3))
   val z8 = ServiceList.access[S1.type]
-  val z9 = ServiceList.addScoped(ZIO.succeed(S3))
+  val z9 = ServiceList.addLayer(ZLayer.succeed(S3))
 
   def spec = suite("BindableServiceSpec")(
     test("empty - required to make the compiler happy") {
