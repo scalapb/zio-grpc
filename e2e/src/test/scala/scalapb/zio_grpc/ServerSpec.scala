@@ -26,7 +26,7 @@ object ServerSpec extends ZIOSpecDefault {
                          def isTerminated(): Boolean                                  = ???
                          def awaitTermination(timeout: Long, unit: TimeUnit): Boolean = ???
                        }
-          pbServer   = new Server.ServiceImpl(server)
+          pbServer   = new ServerImpl(server)
           _         <- pbServer.awaitTermination
           waited    <- waitedRef.get
         } yield assert(waited)(isTrue)
@@ -52,7 +52,7 @@ object ServerSpec extends ZIOSpecDefault {
                          def isTerminated(): Boolean       = ???
                          def awaitTermination(): Unit      = ???
                        }
-          pbServer   = new Server.ServiceImpl(server)
+          pbServer   = new ServerImpl(server)
           _         <- pbServer.awaitTermination(Duration.ofSeconds(2, 500000000L))
           assertion <- waitedRef.get
         } yield assertion

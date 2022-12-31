@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import zio.{EnvironmentTag, Tag, ZEnvironment, ZIO}
+import zio.{IO, Tag, ZEnvironment, ZIO}
 import zio.stream.ZStream
 
 /** Describes a transformation of an effect or a stream.
@@ -9,62 +9,49 @@ import zio.stream.ZStream
   * "decorated" service. This can be used for pre- or post-processing of requests/responses and also for environment and
   * context transformations.
   */
-trait ZTransform[+RIn, E, -ROut] { self =>
-  def effect[A](io: ZIO[RIn, E, A]): ZIO[ROut, E, A]
-  def stream[A](io: ZStream[RIn, E, A]): ZStream[ROut, E, A]
+trait ZTransform[+ContextIn, E, -ContextOut] { self =>
+  def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut, E, A]
+  def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut, E, A]
 
   /** Combine two ZTransforms
     */
-  def andThen[RIn2 <: ROut, ROut2](
-      zt: ZTransform[RIn2, E, ROut2]
-  ): ZTransform[RIn, E, ROut2] =
-    new ZTransform[RIn, E, ROut2] {
-      override def effect[A](io: ZIO[RIn, E, A]): ZIO[ROut2, E, A] =
+  def andThen[ContextIn2 <: ContextOut, ContextOut2](
+      zt: ZTransform[ContextIn2, E, ContextOut2]
+  ): ZTransform[ContextIn, E, ContextOut2] =
+    new ZTransform[ContextIn, E, ContextOut2] {
+      override def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut2, E, A] =
         zt.effect(self.effect(io))
 
-      override def stream[A](io: ZStream[RIn, E, A]): ZStream[ROut2, E, A] =
+      override def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut2, E, A] =
         zt.stream(self.stream(io))
     }
 }
 
 object ZTransform {
 
-  /** Returns a ZTransform that can provide some of the environment of a service */
-  def provideSomeEnvironment[RIn, E, ROut](f: ZEnvironment[ROut] => ZEnvironment[RIn]): ZTransform[RIn, E, ROut] =
-    new ZTransform[RIn, E, ROut] {
-      def effect[A](io: ZIO[RIn, E, A]): ZIO[ROut, E, A]         = io.provideSomeEnvironment(f)
-      def stream[A](io: ZStream[RIn, E, A]): ZStream[ROut, E, A] = io.provideSomeEnvironment(f)
-    }
-
-  /** Provides the entire environment of a service (leaving only the context) */
-  def provideEnvironment[R, E, Context: EnvironmentTag](
-      env: => ZEnvironment[R]
-  ): ZTransform[R with Context, E, Context] =
-    provideSomeEnvironment((ctx: ZEnvironment[Context]) => env.union[Context](ctx))
-
   /** Changes the Context type of the service from Context1 to Context2, by applying an effectful function on the
-    * environment
+    * environment before the request is further processed.
     */
-  def transformContext[RIn, E, ContextIn: Tag, ROut <: RIn, ContextOut: Tag](
-      f: ContextOut => ZIO[ROut, E, ContextIn]
-  ): ZTransform[RIn with ContextIn, E, ROut with ContextOut] =
-    new ZTransform[RIn with ContextIn, E, ROut with ContextOut] {
-      def effect[A](io: ZIO[RIn with ContextIn, E, A]): ZIO[ROut with ContextOut, E, A] =
+  def transformContext[ContextIn: Tag, E, ContextOut: Tag](
+      f: ContextOut => IO[E, ContextIn]
+  ): ZTransform[ContextIn, E, ContextOut] =
+    new ZTransform[ContextIn, E, ContextOut] {
+      def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut, E, A] =
         ZIO
-          .environmentWithZIO { (env: ZEnvironment[ROut with ContextOut]) =>
-            f(env.get[ContextOut]).map(cin => env.add[ContextIn](cin))
+          .environmentWithZIO { (env: ZEnvironment[ContextOut]) =>
+            f(env.get[ContextOut])
           }
           .flatMap { env =>
-            io.provideEnvironment(env)
+            io.provideEnvironment(ZEnvironment(env))
           }
 
-      def stream[A](io: ZStream[RIn with ContextIn, E, A]): ZStream[ROut with ContextOut, E, A] =
+      def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut, E, A] =
         ZStream
-          .fromZIO(ZIO.environmentWithZIO { (env: ZEnvironment[ROut with ContextOut]) =>
-            f(env.get[ContextOut]).map(cin => env.add[ContextIn](cin))
+          .fromZIO(ZIO.environmentWithZIO { (env: ZEnvironment[ContextOut]) =>
+            f(env.get[ContextOut])
           })
           .flatMap { env =>
-            io.provideEnvironment(env)
+            io.provideEnvironment(ZEnvironment(env))
           }
     }
 }

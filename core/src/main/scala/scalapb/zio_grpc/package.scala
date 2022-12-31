@@ -9,9 +9,7 @@ package object zio_grpc {
 
   type GStream[A] = Stream[Status, A]
 
-  type Server = Server.Service
-
-  type ZManagedChannel[R] = ZIO[Scope, Throwable, ZChannel[R]]
+  type ZManagedChannel = ZIO[Scope, Throwable, ZChannel]
 
   @deprecated("Use ScopedServer instead of ManagedServer", "0.6.0")
   val ManagedServer = scalapb.zio_grpc.ScopedServer

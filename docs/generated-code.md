@@ -17,24 +17,21 @@ You can read more on how ScalaPB determines the Scala package name and how can t
 Inside the object, for each service `ServiceName` that is defined in a `.proto` file, the following structure is generated:
 
 ```scala
-trait ZServiceName[R, Context] {
+trait ZServiceName[Context] {
   // methods for each RPC
   def sayHello(request: HelloRequest):
-    ZIO[R with Context, Status, HelloReply]
+    ZIO[Context, Status, HelloReply]
 }
-type ServiceName = ZServiceName[Any, Any]
+type ServiceName = ZServiceName[Any]
 ```
 
-The trait `ZServiceName` is to be extended when implementing a server for this service. The trait takes two type parameters: `R` and `Context`:
+The trait `ZServiceName` is to be extended when implementing a server for this service. The trait takes one type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to have available in the environment.
 
-* `R` representes the dependencies of the service. All the effects being returned by these methods depend on `R` to encode this dependency.
-* `Context` represents any domain object that you would like your RPC methods to have available in the environment.
-
-You can set both `R` and `Context` to be `Any` when implementing a service to indicate that the service does not have any dependencies or expectations from the environment. Since it is very common situation, especially when getting started, you can have your service implementation extends `ServiceName` which is a type alias to `ZServiceName[Any, Any]`:
+You can set `Context` to `Any` when implementing a service to indicate that the service does not have any dependencies or expectations from the environment. Since it is very common situation, especially when getting started, you can have your service implementation extends `ServiceName` which is a type alias to `ZServiceName[Any]`:
 
 
 ```scala
-trait ServiceNameImpl extends ServiceName {
+object ServiceNameImpl extends ServiceName {
 }
 ```
 
@@ -61,7 +58,7 @@ object MyMain extends ServerMain {
 
 You can also override `def port: Int` to set a port number (by default port 9000 is used).
 
-`ServiceList` contains additional methods to add services to the service list that can be used when the service must be created effectfully, or wrapped in a managed, or provided to you as a layer.
+`ServiceList` contains additional methods to add services to the service list that can be used when the service must be created effectfully, resourcefully (scoped), or provided through a layer.
 
 ## Client trait
 
@@ -71,10 +68,10 @@ The generated client follows [ZIO's module pattern](https://zio.dev/docs/howto/h
 type ServiceNameClient = ServiceNameClient.Service
 
 object ServiceNameClient {
-  trait ZService[R] {
+  trait ZService[Context] {
     // methods for use as a client
     def sayHello(request: HelloRequest):
-      ZIO[R, Status, HelloReply]
+      ZIO[Context, Status, HelloReply]
   }
   type Service = ZService[Any]
 
@@ -83,27 +80,27 @@ object ServiceNameClient {
     ZIO[ServiceNameClient, Status, HelloReply]
 
   def scoped[R](
-      managedChannel: ZManagedChannel[R],
+      managedChannel: ZManagedChannel,
       options: CallOptions =
           io.grpc.CallOptions.DEFAULT,
       headers: zio.UIO[SafeMetadata] =
           scalapb.zio_grpc.SafeMetadata.make
   ): zio.Managed[Throwable, ZService[R]]
 
-  def live[R](
-      managedChannel: ZManagedChannel[R],
+  def live[Context](
+      managedChannel: ZManagedChannel,
       options: CallOptions =
           io.grpc.CallOptions.DEFAULT,
       headers: zio.UIO[scalapb.zio_grpc.SafeMetadata] =
           scalapb.zio_grpc.SafeMetadata.make
-  ): zio.ZLayer[R, Throwable, ServiceNameClient]
+  ): zio.ZLayer[Any, Throwable, ZService[Context]]
 }
 ```
 
-We have two ways to use a client: through a managed resource, or through a layer. In both cases, we start by creating a `ZManagedChannel`, which represents a communication channel to a gRPC server as a managed resource. Since it is wrapped in [ZIO's `Managed`](https://zio.dev/docs/datatypes/datatypes_managed), proper shutdown of the channel is guaranteed:
+We have two ways to use a client: through a managed resource, or through a layer. In both cases, we start by creating a `ZManagedChannel`, which represents a communication channel to a gRPC server as a managed resource. Since it is scoped, proper shutdown of the channel is guaranteed:
 
 ```scala
-type ZManagedChannel[R] = Managed[Throwable, ZChannel[R]]
+type ZManagedChannel[R] = ZIO[Scope, Throwable, ZChannel[R]]
 ```
 
 Creating a channel:
@@ -149,9 +146,9 @@ object LayeredApp extends zio.ZIOAppDefault {
 Here the application is broken to multiple value assignments so you can see the types.
 The first effect `myAppLogicNeedsEnv` uses accessor functions, which makes it depend on  an environment of type `ServiceNameClient`. It chains the `unary` RPC with printing the result to the console, and hence the final inferred effect type is `ServiceNameClient`. Once we provide our custom layer, the effect type is `ZEnv`, which we can use with ZIO's `exit` method.
 
-### Using a Managed Client
+### Using a Scoped client
 
-As an alternative to using ZLayer, you can use the client through a managed resource:
+As an alternative to using ZLayer, you can use the client as a scoped resource:
 
 ```scala mdoc
 import myexample.testservice.ZioTestservice.ServiceNameClient
@@ -168,4 +165,4 @@ val myAppLogic = ZIO.scoped {
 }
 ```
 
-Since the service acquistion (through the ZManaged) can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.
+Since the service acquistion can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.

@@ -17,14 +17,14 @@ object ListenerDriver {
       completed = _ => Status.OK
     )
 
-  def unaryInputListener[R, Req](
-      runtime: Runtime[R],
+  def unaryInputListener[Req](
+      runtime: Runtime[Any],
       call: ZServerCall[_],
       completed: Promise[Status, Unit],
       request: Promise[Nothing, Req],
       requestContext: RequestContext,
-      writeResponse: Req => ZIO[R, Status, Unit]
-  ): ZIO[R, Nothing, Listener[Req]] =
+      writeResponse: Req => ZIO[Any, Status, Unit]
+  ): ZIO[Any, Nothing, Listener[Req]] =
     (
       call.request(2) *>
         completed.await *>
@@ -68,6 +68,7 @@ object ListenerDriver {
           override def onReady(): Unit =
             Unsafe.unsafe { implicit u =>
               runtime.unsafe.run(call.setReady())
+              ()
             }
         }
       )
@@ -77,17 +78,17 @@ object ListenerDriver {
     * writeResponse: given a request, returns a effects that computes the response and writes it through the given
     * ZServerCall.
     */
-  def makeUnaryInputListener[R, Req, Res](
+  def makeUnaryInputListener[Req, Res](
       writeResponse: (
           Req,
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[R, Status, Unit],
-      runtime: Runtime[R]
+      ) => ZIO[Any, Status, Unit],
+      runtime: Runtime[Any]
   )(
       zioCall: ZServerCall[Res],
       requestContext: RequestContext
-  ): ZIO[R, Nothing, Listener[Req]] =
+  ): ZIO[Any, Nothing, Listener[Req]] =
     for {
       completed <- Promise.make[Status, Unit]
       request   <- Promise.make[Nothing, Req]
@@ -101,13 +102,13 @@ object ListenerDriver {
                    )
     } yield listener
 
-  def streamingInputListener[R, Req, Res](
-      runtime: Runtime[R],
+  def streamingInputListener[Req, Res](
+      runtime: Runtime[Any],
       call: ZServerCall[Res],
       queue: Queue[Option[Req]],
       requestContext: RequestContext,
-      writeResponse: Stream[Status, Req] => ZIO[R, Status, Unit]
-  ): ZIO[R, Nothing, Listener[Req]] = {
+      writeResponse: Stream[Status, Req] => ZIO[Any, Status, Unit]
+  ): ZIO[Any, Nothing, Listener[Req]] = {
     val requestStream = ZStream
       .fromQueue(queue)
       .collectWhileSome
@@ -141,8 +142,8 @@ object ListenerDriver {
 
           override def onReady(): Unit =
             Unsafe.unsafe { implicit u =>
-              runtime.unsafe
-                .run(call.setReady())
+              runtime.unsafe.run(call.setReady())
+              ()
             }
         }
       )
@@ -153,20 +154,20 @@ object ListenerDriver {
     * writeResponse: given a request, returns a effects that computes the response and writes it through the given
     * ZServerCall.
     */
-  def makeStreamingInputListener[R, Req, Res](
+  def makeStreamingInputListener[Req, Res](
       writeResponse: (
           Stream[Status, Req],
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[R, Status, Unit]
+      ) => ZIO[Any, Status, Unit]
   )(
       zioCall: ZServerCall[Res],
       requestContext: RequestContext
-  ): ZIO[R, Nothing, Listener[Req]] =
+  ): ZIO[Any, Nothing, Listener[Req]] =
     for {
-      runtime  <- ZIO.runtime[R]
+      runtime  <- ZIO.runtime[Any]
       queue    <- Queue.unbounded[Option[Req]]
-      listener <- streamingInputListener[R, Req, Res](
+      listener <- streamingInputListener[Req, Res](
                     runtime,
                     zioCall,
                     queue,

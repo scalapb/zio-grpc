@@ -17,7 +17,7 @@ object BackpressureSpec extends ZIOSpecDefault {
   val client =
     ZLayer.scoped[Server] {
       for {
-        ss     <- ZIO.service[Server.Service]
+        ss     <- ZIO.service[Server]
         port   <- ss.port.orDie
         ch      = InProcessChannelBuilder.forName("backpressure-test").usePlaintext().directExecutor()
         client <- ZioTestservice.TestServiceClient.scoped(ZManagedChannel(ch)).orDie

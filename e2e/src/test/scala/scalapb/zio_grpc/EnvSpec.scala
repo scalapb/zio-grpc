@@ -19,7 +19,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
   val getUser             = ZIO.serviceWith[Context](_.user)
   val getResponseMetadata = ZIO.serviceWith[Context](_.response)
 
-  object ServiceWithConsole extends ZTestService[Any, Context] {
+  object ServiceWithConsole extends ZTestService[Context] {
     def unary(request: Request): ZIO[Context, Status, Response] =
       for {
         user <- getUser
@@ -73,17 +73,17 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
       case None          => ZIO.fail(Status.UNAUTHENTICATED)
     }
 
-  val serviceLayer = ServiceWithConsole.transformContextZIO(parseUser(_)).toLayer
+  val serviceLayer = ZLayer.succeed(ServiceWithConsole.transformContextZIO(parseUser(_)))
 
-  val serverLayer: ZLayer[ZTestService[Any, RequestContext], Throwable, Server] =
-    ServerLayer.access[ZTestService[Any, RequestContext]](ServerBuilder.forPort(0))
+  val serverLayer: ZLayer[ZTestService[RequestContext], Throwable, Server] =
+    ServerLayer.access[ZTestService[RequestContext]](ServerBuilder.forPort(0))
 
   override def clientLayer(
       userName: Option[String]
   ): URLayer[Server, TestServiceClient] =
     ZLayer.scoped {
-      ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
-        ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
+      ZIO.environmentWithZIO { (ss: ZEnvironment[Server]) =>
+        ss.get[Server].port.orDie flatMap { (port: Int) =>
           val ch = ZManagedChannel(
             ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
             Seq(
@@ -99,8 +99,8 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
 
   override def clientMetadataLayer: URLayer[Server, TestServiceClientWithMetadata] =
     ZLayer.scoped {
-      ZIO.environmentWithZIO { (ss: ZEnvironment[Server.Service]) =>
-        ss.get[Server.Service].port.orDie flatMap { (port: Int) =>
+      ZIO.environmentWithZIO { (ss: ZEnvironment[Server]) =>
+        ss.get[Server].port.orDie flatMap { (port: Int) =>
           val ch = ZManagedChannel(
             ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(),
             Seq(

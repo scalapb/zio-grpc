@@ -4,16 +4,13 @@ import io.grpc.ManagedChannelBuilder
 import zio.ZIO
 
 object ZManagedChannel {
-  def apply[R](
+  def apply(
       builder: => ManagedChannelBuilder[_],
-      interceptors: Seq[ZClientInterceptor[R]] = Nil
-  ): ZManagedChannel[R] =
+      interceptors: Seq[ZClientInterceptor]
+  ): ZManagedChannel =
     ZIO.acquireRelease(ZIO.attempt(new ZChannel(builder.build(), interceptors)))(
       _.shutdown().ignore
     )
 
-  def apply(builder: ManagedChannelBuilder[_]): ZManagedChannel[Any] =
-    ZIO.acquireRelease(ZIO.attempt(new ZChannel(builder.build(), Nil)))(
-      _.shutdown().ignore
-    )
+  def apply(builder: ManagedChannelBuilder[_]): ZManagedChannel = apply(builder, Nil)
 }

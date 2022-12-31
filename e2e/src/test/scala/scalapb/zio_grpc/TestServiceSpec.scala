@@ -19,7 +19,7 @@ object TestServiceSpec extends ZIOSpecDefault {
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.scoped[Server] {
       for {
-        ss     <- ZIO.service[Server.Service]
+        ss     <- ZIO.service[Server]
         port   <- ss.port.orDie
         ch      = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
         client <- TestServiceClient.scoped(ZManagedChannel(ch)).orDie
@@ -252,7 +252,7 @@ object TestServiceSpec extends ZIOSpecDefault {
     suite("bidi streaming request")(
       test("returns successful response") {
         assertZIO(for {
-          bf   <- BidiFixture(TestServiceClient.bidiStreaming[Any])
+          bf   <- BidiFixture(TestServiceClient.bidiStreaming)
           _    <- bf.send(Request(Scenario.OK, in = 1))
           f1   <- bf.receive(1)
           _    <- bf.send(Request(Scenario.OK, in = 3))
@@ -274,7 +274,7 @@ object TestServiceSpec extends ZIOSpecDefault {
       },
       test("returns correct error response") {
         assertZIO(for {
-          bf <- BidiFixture(TestServiceClient.bidiStreaming[Any])
+          bf <- BidiFixture(TestServiceClient.bidiStreaming)
           _  <- bf.send(Request(Scenario.OK, in = 1))
           f1 <- bf.receive(1)
           _  <- bf.send(Request(Scenario.ERROR_NOW, in = 3))
@@ -292,7 +292,7 @@ object TestServiceSpec extends ZIOSpecDefault {
           for {
             testServiceImpl <- ZIO.environment[TestServiceImpl]
             collectFiber    <- collectWithError(
-                                 TestServiceClient.bidiStreaming[Any](
+                                 TestServiceClient.bidiStreaming(
                                    ZStream(
                                      Request(Scenario.OK, in = 17)
                                    ) ++ ZStream.fromZIO(testServiceImpl.get.awaitReceived).drain

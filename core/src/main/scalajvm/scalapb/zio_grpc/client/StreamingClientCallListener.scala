@@ -1,15 +1,14 @@
 package scalapb.zio_grpc.client
 
-import zio.{Queue, Runtime, URIO, ZIO}
 import scalapb.zio_grpc.ResponseFrame
 import io.grpc.ClientCall
 import io.grpc.{Metadata, Status}
 import zio.stream.ZStream
 import zio._
 
-class StreamingClientCallListener[R, Res](
-    runtime: Runtime[R],
-    call: ZClientCall[R, _, Res],
+class StreamingClientCallListener[Res](
+    runtime: Runtime[Any],
+    call: ZClientCall[_, Res],
     queue: Queue[ResponseFrame[Res]]
 ) extends ClientCall.Listener[Res] {
 
@@ -44,11 +43,11 @@ class StreamingClientCallListener[R, Res](
 }
 
 object StreamingClientCallListener {
-  def make[R, Res](
-      call: ZClientCall[R, _, Res]
-  ): URIO[R, StreamingClientCallListener[R, Res]] =
+  def make[Res](
+      call: ZClientCall[_, Res]
+  ): UIO[StreamingClientCallListener[Res]] =
     for {
-      runtime <- zio.ZIO.runtime[R]
+      runtime <- zio.ZIO.runtime[Any]
       queue   <- Queue.unbounded[ResponseFrame[Res]]
     } yield new StreamingClientCallListener(runtime, call, queue)
 }

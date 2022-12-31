@@ -2,62 +2,51 @@ package scalapb.zio_grpc
 
 import io.grpc.MethodDescriptor
 import io.grpc.CallOptions
-import zio.ZIO
+import zio.IO
 import io.grpc.Status
 import scalapb.zio_grpc.client.ZClientCall
-import zio.ZEnvironment
 
-abstract class ZClientInterceptor[R] {
+abstract class ZClientInterceptor {
   self =>
   def interceptCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       call: CallOptions,
-      clientCall: ZClientCall[R, Req, Res]
-  ): ZClientCall[R, Req, Res]
-
-  def provideEnvironment(r: => ZEnvironment[R]): ZClientInterceptor[Any] =
-    new ZClientInterceptor[Any] {
-      def interceptCall[Req, Res](
-          methodDescriptor: MethodDescriptor[Req, Res],
-          call: CallOptions,
-          clientCall: ZClientCall[Any, Req, Res]
-      ): ZClientCall[Any, Req, Res] =
-        self.interceptCall(methodDescriptor, call, clientCall).provideEnvironment(r)
-    }
+      clientCall: ZClientCall[Req, Res]
+  ): ZClientCall[Req, Res]
 }
 
 object ZClientInterceptor {
-  def headersReplacer[R](
+  def headersReplacer(
       effect: (
           MethodDescriptor[_, _],
           CallOptions
-      ) => ZIO[R, Status, SafeMetadata]
-  ): ZClientInterceptor[R] =
-    new ZClientInterceptor[R] {
+      ) => IO[Status, SafeMetadata]
+  ): ZClientInterceptor =
+    new ZClientInterceptor {
       def interceptCall[Req, Res](
           methodDescriptor: MethodDescriptor[Req, Res],
           call: CallOptions,
-          clientCall: ZClientCall[R, Req, Res]
-      ): ZClientCall[R, Req, Res] =
+          clientCall: ZClientCall[Req, Res]
+      ): ZClientCall[Req, Res] =
         ZClientCall.headersTransformer(
           clientCall,
           _ => effect(methodDescriptor, call)
         )
     }
 
-  def headersUpdater[R](
+  def headersUpdater(
       effect: (
           MethodDescriptor[_, _],
           CallOptions,
           SafeMetadata
-      ) => ZIO[R, Status, Unit]
-  ): ZClientInterceptor[R] =
-    new ZClientInterceptor[R] {
+      ) => IO[Status, Unit]
+  ): ZClientInterceptor =
+    new ZClientInterceptor {
       def interceptCall[Req, Res](
           methodDescriptor: MethodDescriptor[Req, Res],
           call: CallOptions,
-          clientCall: ZClientCall[R, Req, Res]
-      ): ZClientCall[R, Req, Res] =
+          clientCall: ZClientCall[Req, Res]
+      ): ZClientCall[Req, Res] =
         ZClientCall.headersTransformer(
           clientCall,
           md => effect(methodDescriptor, call, md).as(md)

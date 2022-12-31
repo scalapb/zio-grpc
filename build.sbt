@@ -60,7 +60,7 @@ lazy val core = projectMatrix
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
       .settings(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.4",
+          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.5",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.2.1"

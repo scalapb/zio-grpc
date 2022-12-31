@@ -20,7 +20,7 @@ trait ServerMain extends zio.ZIOAppDefault {
 
   def serverLive: ZLayer[Any, Throwable, Server] = ServerLayer.fromServiceList(builder, services)
 
-  val myAppLogic = welcome *> serverLive.build *> ZIO.never
+  val myAppLogic = welcome *> serverLive.launch
 
   def run = myAppLogic.exitCode
 }

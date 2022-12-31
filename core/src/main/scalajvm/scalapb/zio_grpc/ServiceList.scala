@@ -8,43 +8,40 @@ import io.grpc.ServerServiceDefinition
   * This is just a wrapper around a list of ServerServiceDefinition.
   */
 sealed class ServiceList[-RR] private[scalapb] (
-    val bindAll: ZIO[RR with Scope, Throwable, List[ServerServiceDefinition]]
+    val bindAll: ZIO[RR, Throwable, List[ServerServiceDefinition]]
 ) {
 
   /** Adds a service to the service list */
-  def add[R1 <: RR, S1](s1: S1)(implicit b: ZBindableService[R1, S1]): ServiceList[R1] =
-    addScoped[R1, RR, S1](ZIO.succeed(s1))
+  def add[S1: ZBindableService](s1: S1): ServiceList[RR] =
+    addZIO[Any, S1](ZIO.succeed(s1))
 
   /** Adds an effect that returns a service to the service list */
-  def addZIO[R1 <: RR, R2 <: RR, S1](
-      s1: ZIO[R2, Throwable, S1]
-  )(implicit b: ZBindableService[R1, S1]): ServiceList[R1 with R2] =
-    addScoped[R1, R2, S1](s1)
+  def addZIO[R1, S1: ZBindableService](
+      s1: ZIO[R1, Throwable, S1]
+  ): ServiceList[RR with R1] =
+    new ServiceList(for {
+      ll      <- bindAll
+      service <- s1
+      ssd     <- ZBindableService[S1].bindService(service)
+    } yield ssd :: ll)
 
-  def addScoped[R1 <: RR, R2 <: RR, S1](s1: ZIO[R2 with Scope, Throwable, S1])(implicit
-      bs: ZBindableService[R1, S1]
-  ): ServiceList[RR with R1 with R2] =
-    new ServiceList[RR with R1 with R2](for {
-      l  <- bindAll
-      sd <- s1.flatMap(bs.bindService(_))
-    } yield sd :: l)
-
-  def addLayer[R <: RR, S1: Tag](layer: ZLayer[R, Throwable, S1])(implicit
-      bs: ZBindableService[R, S1]
-  ): ServiceList[RR with R] =
-    addScoped[R, R, S1](layer.build.map(_.get))
+  def addLayer[R1, S1: Tag: ZBindableService](layer: ZLayer[R1, Throwable, S1]): ServiceList[RR with R1 with Scope] =
+    addZIO[R1 with Scope, S1](layer.build.map(_.get))
 
   /** Adds a dependency on a service that will be provided later from the environment or a Layer * */
-  def access[B: Tag](implicit bs: ZBindableService[Any, B]): ServiceList[B with RR] =
-    accessEnv[Any, B]
-
-  def accessEnv[R, B: Tag](implicit bs: ZBindableService[R, B]): ServiceList[R with B with RR] =
-    new ServiceList[R with B with RR](ZIO.environmentWithZIO[R with B with RR] { r =>
-      bindAll.flatMap(ll => bs.bindService(r.get[B]).map(_ :: ll))
-    })
+  def access[B: Tag: ZBindableService]: ServiceList[RR with B] =
+    addZIO(ZIO.environmentWith(_.get[B]))
 
   def provideEnvironment(r: => ZEnvironment[RR]): ServiceList[Any] =
-    new ServiceList[Any](bindAll.provideSomeEnvironment[Scope](r.union[Scope](_)))
+    new ServiceList[Any](bindAll.provideEnvironment(r))
+
+  /** Provides layers to this ServiceList which translates it to another layer */
+  def provideLayer[R1](layer: ZLayer[R1, Throwable, RR]): ServiceList[R1] =
+    new ServiceList(bindAll.provideLayer(layer))
+
+  /** Provides all layers needed by this ServiceList */
+  def provide(layer: ZLayer[Any, Throwable, RR]): ServiceList[Any] =
+    provideLayer(layer)
 }
 
 object ServiceList extends ServiceList(ZIO.succeed(Nil)) {

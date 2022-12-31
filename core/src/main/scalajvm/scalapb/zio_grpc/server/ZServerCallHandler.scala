@@ -13,9 +13,9 @@ import scalapb.zio_grpc.SafeMetadata
 import zio.stm.TSemaphore
 import zio.stream.Take
 
-class ZServerCallHandler[R, Req, Res](
-    runtime: Runtime[R],
-    mkListener: (ZServerCall[Res], RequestContext) => URIO[R, Listener[Req]]
+class ZServerCallHandler[Req, Res](
+    runtime: Runtime[Any],
+    mkListener: (ZServerCall[Res], RequestContext) => UIO[Listener[Req]]
 ) extends ServerCallHandler[Req, Res] {
   def startCall(
       call: ServerCall[Req, Res],
@@ -46,19 +46,19 @@ object ZServerCallHandler {
         ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}"))
       }
 
-  def unaryInput[R, Req, Res](
-      runtime: Runtime[R],
-      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[R, Status, Unit]
+  def unaryInput[Req, Res](
+      runtime: Runtime[Any],
+      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[Any, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(runtime, ListenerDriver.makeUnaryInputListener(impl, runtime))
 
-  def streamingInput[R, Req, Res](
-      runtime: Runtime[R],
+  def streamingInput[Req, Res](
+      runtime: Runtime[Any],
       impl: (
           Stream[Status, Req],
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[R, Status, Unit]
+      ) => ZIO[Any, Status, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
       runtime,
@@ -69,7 +69,7 @@ object ZServerCallHandler {
       runtime: Runtime[Any],
       impl: Req => ZIO[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    unaryInput[Any, Req, Res](
+    unaryInput[Req, Res](
       runtime,
       (req, requestContext, call) =>
         impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
@@ -79,7 +79,7 @@ object ZServerCallHandler {
       runtime: Runtime[Any],
       impl: Req => ZStream[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    unaryInput[Any, Req, Res](
+    unaryInput[Req, Res](
       runtime,
       (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
         serverStreamingWithBackpressure(call, impl(req).provideEnvironment(ZEnvironment(requestContext)))
@@ -89,7 +89,7 @@ object ZServerCallHandler {
       runtime: Runtime[Any],
       impl: Stream[Status, Req] => ZIO[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    streamingInput[Any, Req, Res](
+    streamingInput[Req, Res](
       runtime,
       (req, requestContext, call) =>
         impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
@@ -99,7 +99,7 @@ object ZServerCallHandler {
       runtime: Runtime[Any],
       impl: Stream[Status, Req] => ZStream[RequestContext, Status, Res]
   ): ServerCallHandler[Req, Res] =
-    streamingInput[Any, Req, Res](
+    streamingInput[Req, Res](
       runtime,
       (req, requestContext, call) =>
         serverStreamingWithBackpressure(call, impl(req).provideEnvironment(ZEnvironment(requestContext)))
