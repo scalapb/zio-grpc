@@ -76,7 +76,7 @@ object MyServer extends ServerMain {
 }
 ```
 
-### Depending on a service
+### Context transformations that depends on a service
 
 A context transformation may introduce a dependency on another service. For example, you
 may want to organize your code such that there is a `UserDatabase` service that provides
@@ -124,7 +124,6 @@ object MyServer2 extends ServerMain {
 }
 ```
 
-
 ## Using a service as ZLayer
 
 If you require more flexibility than provided through `ServerMain`, you can construct
@@ -147,7 +146,7 @@ import scalapb.zio_grpc.Server
 import zio.ZLayer
 
 val serviceList = ServiceList
-  .addLayer(myServiceLayer)
+  .addFromEnvironment[ZSimpleService[RequestContext]]
 
 val serverLayer =
     ServerLayer.fromServiceList(
@@ -156,7 +155,7 @@ val serverLayer =
     )
 
 val ourApp =
-    UserDatabase.layer >>> serverLayer
+    UserDatabase.layer >>> myServiceLayer >>> serverLayer
 
 object LayeredApp extends zio.ZIOAppDefault {
     def run = ourApp.launch.exitCode
@@ -165,3 +164,59 @@ object LayeredApp extends zio.ZIOAppDefault {
 
 `serverLayer` creates a `Server` from a `ZSimpleService` layer and still depends on a `UserDatabase`. Then, `ourApp` feeds a `UserDatabase.layer` into `serverLayer` to produce
 a `Server` that doesn't depend on anything. In the `run` method we launch the server layer.
+
+## Implementing a service with dependencies
+
+In this scenario, your service depends on two additional services, `DepA` and `DepB`.  Following [ZIO's service pattern](https://zio.dev/reference/service-pattern/), we accept the (interaces of the ) dependencies as constructor parameters.
+
+```scala mdoc
+
+trait DepA {
+  def methodA(param: String): ZIO[Any, Nothing, Int]
+}
+
+object DepA {
+  val layer = ZLayer.succeed[DepA](new DepA {
+    def methodA(param: String) = ???
+  })
+}
+
+object DepB {
+  val layer = ZLayer.succeed[DepB](new DepB {
+    def methodB(param: Float) = ???
+  })
+}
+
+trait DepB {
+  def methodB(param: Float): ZIO[Any, Nothing, Double]
+}
+
+case class MyService2(depA: DepA, depB: DepB) extends ZSimpleService[User] {
+  def sayHello(req: Request): ZIO[User, Status, Response] =
+    for {
+      user <- ZIO.service[User]
+      num1 <- depA.methodA(user.name)
+      num2 <- depB.methodB(12.3f)
+      _ <- printLine("I am here $num1 $num2!").orDie
+    } yield Response(s"Hello, ${user.name}")
+}
+
+object MyService2 {
+  val layer: ZLayer[DepA with DepB, Nothing, ZSimpleService[RequestContext]] =
+    ZLayer.fromFunction {
+      (depA: DepA, depB: DepB) =>
+        MyService2(depA, depB).transformContextZIO(findUser(_))
+  }
+}
+```
+
+Our service layer now depends on the `DepA` and `DepB` interfaces. A server can be created like this:
+
+```scala mdoc
+object MyServer3 extends ServerMain {
+  def services = ServiceList.addFromEnvironment[ZSimpleService[RequestContext]]
+    .provideLayer(
+      (DepA.layer ++ DepB.layer) >>> MyService2.layer
+    )
+}
+```

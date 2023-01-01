@@ -46,10 +46,10 @@ object ServerLayer {
   def fromServiceList[R](builder: => ServerBuilder[_], l: ServiceList[R]): ZLayer[R, Throwable, Server] =
     ZLayer.scoped[R](ScopedServer.fromServiceList(builder, l))
 
-  def access[S1: Tag: ZBindableService](
+  def fromEnvironment[S1: Tag: ZBindableService](
       builder: => ServerBuilder[_]
   ): ZLayer[S1, Throwable, Server] =
-    fromServiceList(builder, ServiceList.access[S1])
+    fromServiceList(builder, ServiceList.addFromEnvironment[S1])
 
   def fromService[S1: ZBindableService](builder: => ServerBuilder[_], s1: S1): ZLayer[Any, Throwable, Server] =
     fromServiceList(builder, ServiceList.add(s1))
