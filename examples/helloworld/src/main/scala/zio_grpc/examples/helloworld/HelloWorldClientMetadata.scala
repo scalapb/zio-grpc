@@ -66,8 +66,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
     } yield ()
 
   // Option 2: through a managed client
-  val userClientManaged
-      : ZIO[Scope, Throwable, GreeterClient.ZService[User]] =
+  val userClientManaged: ZIO[Scope, Throwable, GreeterClient.ZService[User]] =
     GreeterClient.scoped(channel, headers = userEnvToMetadata)
 
   def appLogic2 =

@@ -35,7 +35,8 @@ class GreeterWithDatabase(database: UserDatabase) extends Greeter {
 }
 
 object GreeterWithDatabase {
-  val layer: ZLayer[UserDatabase, Nothing, Greeter] = ZLayer.fromFunction(new GreeterWithDatabase(_))
+  val layer: ZLayer[UserDatabase, Nothing, Greeter] =
+    ZLayer.fromFunction(new GreeterWithDatabase(_))
 }
 
 object GreeterWithDatabaseServer extends zio.ZIOAppDefault {
