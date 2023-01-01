@@ -76,7 +76,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
   val serviceLayer = ZLayer.succeed(ServiceWithConsole.transformContextZIO(parseUser(_)))
 
   val serverLayer: ZLayer[ZTestService[RequestContext], Throwable, Server] =
-    ServerLayer.access[ZTestService[RequestContext]](ServerBuilder.forPort(0))
+    ServerLayer.fromEnvironment[ZTestService[RequestContext]](ServerBuilder.forPort(0))
 
   override def clientLayer(
       userName: Option[String]

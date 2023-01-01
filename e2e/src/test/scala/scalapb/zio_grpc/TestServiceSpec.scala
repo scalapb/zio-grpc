@@ -14,7 +14,7 @@ import zio.test._
 
 object TestServiceSpec extends ZIOSpecDefault {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
-    ServerLayer.access[TestServiceImpl.Service](ServerBuilder.forPort(0))
+    ServerLayer.fromEnvironment[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
   val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.scoped[Server] {
