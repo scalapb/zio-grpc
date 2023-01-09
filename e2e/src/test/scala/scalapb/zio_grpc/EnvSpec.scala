@@ -8,7 +8,7 @@ import testservice._
 import io.grpc.ServerBuilder
 import io.grpc.Metadata
 import io.grpc.ManagedChannelBuilder
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import zio.stream.ZStream
 
 object EnvSpec extends ZIOSpecDefault with MetadataTests {
@@ -17,51 +17,61 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
   case class Context(user: User, response: SafeMetadata)
 
   object ServiceWithConsole extends ZTestService[Context] {
-    def unary(request: Request, context: Context): ZIO[Any, Status, Response] =
+    def unary(request: Request, context: Context): ZIO[Any, StatusException, Response] =
       for {
         _ <- context.response.put(RequestIdKey, "1")
-      } yield Response(out = context.user.name)
+        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
+      } yield Response(context.user.name)
 
     def serverStreaming(
         request: Request,
         context: Context
-    ): ZStream[Any, Status, Response] =
+    ): ZStream[Any, StatusException, Response] =
       ZStream
-        .fromZIO(
-          context.response.put(RequestIdKey, "1")
-        )
-        .drain ++
-        ZStream(
-          Response(context.user.name),
-          Response(context.user.name)
-        )
+          .fromZIO(
+            for {
+              _ <- context.response.put(RequestIdKey, "1")
+              _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
+            } yield ()
+          )
+          .drain ++
+          ZStream(
+            Response(context.user.name),
+            Response(context.user.name)
+          )
 
     def clientStreaming(
-        request: zio.stream.ZStream[Any, Status, Request],
+        request: ZStream[Any, StatusException, Request],
         context: Context
-    ): ZIO[Any, Status, Response] =
+    ): ZIO[Any, StatusException, Response] =
       for {
         _ <- context.response.put(RequestIdKey, "1")
+        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
       } yield Response(context.user.name)
 
     def bidiStreaming(
-        request: zio.stream.ZStream[Any, Status, Request],
+        request: ZStream[Any, StatusException, Request],
         context: Context
-    ): ZStream[Any, Status, Response] =
-      ZStream.fromZIO(context.response.put(RequestIdKey, "1")).drain ++ ZStream(Response(context.user.name))
+    ): ZStream[Any, StatusException, Response] =
+        ZStream.fromZIO(
+          for {
+            _ <- context.response.put(RequestIdKey, "1")
+            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
+          } yield ()
+        ).drain ++ ZStream(Response(context.user.name))
   }
 
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  def parseUser(rc: RequestContext): IO[Status, Context] =
+  def parseUser(rc: RequestContext): IO[StatusException, Context] =
     rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
         ZIO.fail(
-          Status.PERMISSION_DENIED.withDescription("You are not allowed!")
+          Status.PERMISSION_DENIED.withDescription("You are not allowed!").asException()
         )
       case Some(name)    => ZIO.succeed(Context(User(name), rc.responseMetadata))
-      case None          => ZIO.fail(Status.UNAUTHENTICATED)
+      case None          => ZIO.fail(Status.UNAUTHENTICATED.asException())
     }
 
   val serviceLayer = ZLayer.succeed(ServiceWithConsole.transformContextZIO(parseUser(_)))

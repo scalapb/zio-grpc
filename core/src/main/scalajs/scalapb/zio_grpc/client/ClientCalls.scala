@@ -5,10 +5,8 @@ import scalapb.zio_grpc.ResponseContext
 import scalapb.zio_grpc.ResponseFrame
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.ZChannel
-import io.grpc.MethodDescriptor
-import io.grpc.CallOptions
+import io.grpc.{CallOptions, MethodDescriptor, Status, StatusException}
 import scalapb.grpcweb.native.ErrorInfo
-import io.grpc.Status
 import zio.stream.ZStream
 import scalapb.grpcweb.native.StatusInfo
 
@@ -20,8 +18,8 @@ object ClientCalls {
         options: CallOptions,
         headers: SafeMetadata,
         req: Req
-    ): IO[Status, ResponseContext[Res]] =
-      ZIO.fail(Status.INTERNAL.withDescription("Not supported"))
+    ): IO[StatusException, ResponseContext[Res]] =
+      ZIO.fail(Status.INTERNAL.withDescription("Not supported").asException())
 
     def serverStreamingCall[Req, Res](
         channel: ZChannel,
@@ -29,26 +27,26 @@ object ClientCalls {
         options: CallOptions,
         headers: SafeMetadata,
         req: Req
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
-      ZStream.fail(Status.INTERNAL.withDescription("Not supported"))
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream.fail(Status.INTERNAL.withDescription("Not supported").asException())
 
     def clientStreamingCall[Req, Res](
         channel: ZChannel,
         method: MethodDescriptor[Req, Res],
         options: CallOptions,
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): IO[Status, ResponseContext[Res]] =
-      ZIO.fail(Status.INTERNAL.withDescription("Not supported"))
+        req: ZStream[Any, StatusException, Req]
+    ): IO[StatusException, ResponseContext[Res]] =
+      ZIO.fail(Status.INTERNAL.withDescription("Not supported").asException())
 
     def bidiCall[Req, Res](
         channel: ZChannel,
         method: MethodDescriptor[Req, Res],
         options: CallOptions,
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
-      ZStream.fail(Status.INTERNAL.withDescription("Not supported"))
+        req: ZStream[Any, StatusException, Req]
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream.fail(Status.INTERNAL.withDescription("Not supported").asException())
   }
 
   def unaryCall[Req, Res](
@@ -57,7 +55,7 @@ object ClientCalls {
       options: CallOptions,
       headers: SafeMetadata,
       req: Req
-  ): IO[Status, Res] =
+  ): IO[StatusException, Res] =
     ZIO.async { callback =>
       channel.channel.client.rpcCall[Req, Res](
         channel.channel.baseUrl + "/" + method.fullName,
@@ -77,8 +75,8 @@ object ClientCalls {
       options: CallOptions,
       headers: SafeMetadata,
       req: Req
-  ): ZStream[Any, Status, Res] =
-    ZStream.async[Any, Status, Res] { cb =>
+  ): ZStream[Any, StatusException, Res] =
+    ZStream.async[Any, StatusException, Res] { cb =>
       channel.channel.client
         .serverStreaming[Req, Res](
           channel.channel.baseUrl + "/" + method.fullName,
@@ -117,16 +115,16 @@ object ClientCalls {
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[Any, Status, Req]
-  ): ZIO[Any, Status, Res] =
-    ZIO.fail(Status.INTERNAL.withDescription("Not supported"))
+      req: ZStream[Any, StatusException, Req]
+  ): ZIO[Any, StatusException, Res] =
+    ZIO.fail(Status.INTERNAL.withDescription("Not supported").asException())
 
   def bidiCall[Req, Res](
       channel: ZChannel,
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[Any, Status, Req]
-  ): ZStream[Any, Status, Res] =
-    ZStream.fail(Status.INTERNAL.withDescription("Not supported"))
+      req: ZStream[Any, StatusException, Req]
+  ): ZStream[Any, StatusException, Res] =
+    ZStream.fail(Status.INTERNAL.withDescription("Not supported").asException())
 }

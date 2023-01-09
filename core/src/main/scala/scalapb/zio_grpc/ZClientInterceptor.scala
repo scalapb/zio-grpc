@@ -1,10 +1,8 @@
 package scalapb.zio_grpc
 
-import io.grpc.MethodDescriptor
-import io.grpc.CallOptions
-import zio.IO
-import io.grpc.Status
+import io.grpc.{CallOptions, MethodDescriptor, StatusException}
 import scalapb.zio_grpc.client.ZClientCall
+import zio.IO
 
 abstract class ZClientInterceptor {
   self =>
@@ -20,7 +18,7 @@ object ZClientInterceptor {
       effect: (
           MethodDescriptor[_, _],
           CallOptions
-      ) => IO[Status, SafeMetadata]
+      ) => IO[StatusException, SafeMetadata]
   ): ZClientInterceptor =
     new ZClientInterceptor {
       def interceptCall[Req, Res](
@@ -39,7 +37,7 @@ object ZClientInterceptor {
           MethodDescriptor[_, _],
           CallOptions,
           SafeMetadata
-      ) => IO[Status, Unit]
+      ) => IO[StatusException, Unit]
   ): ZClientInterceptor =
     new ZClientInterceptor {
       def interceptCall[Req, Res](

@@ -1,10 +1,9 @@
 package scalapb.zio_grpc.client
 
-import io.grpc.ClientCall
+import io.grpc.{ClientCall, StatusException}
 import io.grpc.ClientCall.Listener
 import scalapb.zio_grpc.GIO
 import zio.IO
-import io.grpc.Status
 import scalapb.zio_grpc.SafeMetadata
 
 trait ZClientCall[Req, Res] extends Any {
@@ -12,15 +11,15 @@ trait ZClientCall[Req, Res] extends Any {
   def start(
       responseListener: Listener[Res],
       headers: SafeMetadata
-  ): IO[Status, Unit]
+  ): IO[StatusException, Unit]
 
-  def request(numMessages: Int): IO[Status, Unit]
+  def request(numMessages: Int): IO[StatusException, Unit]
 
-  def cancel(message: String): IO[Status, Unit]
+  def cancel(message: String): IO[StatusException, Unit]
 
-  def halfClose(): IO[Status, Unit]
+  def halfClose(): IO[StatusException, Unit]
 
-  def sendMessage(message: Req): IO[Status, Unit]
+  def sendMessage(message: Req): IO[StatusException, Unit]
 }
 
 class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends AnyVal with ZClientCall[Req, Res] {
@@ -49,29 +48,29 @@ object ZClientCall {
     override def start(
         responseListener: Listener[Res],
         headers: SafeMetadata
-    ): IO[Status, Unit] = delegate.start(responseListener, headers)
+    ): IO[StatusException, Unit] = delegate.start(responseListener, headers)
 
-    override def request(numMessages: Int): IO[Status, Unit] =
+    override def request(numMessages: Int): IO[StatusException, Unit] =
       delegate.request(numMessages)
 
-    override def cancel(message: String): IO[Status, Unit] =
+    override def cancel(message: String): IO[StatusException, Unit] =
       delegate.cancel(message)
 
-    override def halfClose(): IO[Status, Unit] = delegate.halfClose()
+    override def halfClose(): IO[StatusException, Unit] = delegate.halfClose()
 
-    override def sendMessage(message: Req): IO[Status, Unit] =
+    override def sendMessage(message: Req): IO[StatusException, Unit] =
       delegate.sendMessage(message)
   }
 
   def headersTransformer[Req, Res](
       clientCall: ZClientCall[Req, Res],
-      updateHeaders: SafeMetadata => IO[Status, SafeMetadata]
+      updateHeaders: SafeMetadata => IO[StatusException, SafeMetadata]
   ): ZClientCall[Req, Res] =
     new ForwardingZClientCall[Req, Res](clientCall) {
       override def start(
           responseListener: Listener[Res],
           headers: SafeMetadata
-      ): IO[Status, Unit] =
+      ): IO[StatusException, Unit] =
         updateHeaders(headers) flatMap { h => delegate.start(responseListener, h) }
     }
 }

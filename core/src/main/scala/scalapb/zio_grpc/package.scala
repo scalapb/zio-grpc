@@ -1,13 +1,13 @@
 package scalapb
 
-import io.grpc.Status
-import zio.{IO, Scope, ZIO}
+import io.grpc.StatusException
 import zio.stream.Stream
+import zio.{IO, Scope, ZIO}
 
 package object zio_grpc {
-  type GIO[A] = IO[Status, A]
+  type GIO[A] = IO[StatusException, A]
 
-  type GStream[A] = Stream[Status, A]
+  type GStream[A] = Stream[StatusException, A]
 
   type ZManagedChannel = ZIO[Scope, Throwable, ZChannel]
 

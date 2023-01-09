@@ -1,12 +1,11 @@
 package scalapb.zio_grpc
 
-import zio.Task
-import zio.ZIO
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
+import zio.{Task, ZIO}
 
 object GIO {
   def fromTask[A](task: Task[A]) =
-    task.mapError(e => Status.INTERNAL.withDescription(e.getMessage).withCause(e))
+    task.mapError(e => Status.INTERNAL.withDescription(e.getMessage).withCause(e).asException())
 
   @deprecated("use attempt", "0.6.0")
   def effect[A](effect: => A) = attempt(effect)

@@ -2,7 +2,7 @@ package scalapb.zio_grpc.server
 
 import zio._
 import io.grpc.ServerCall.Listener
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import zio.stream.Stream
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
@@ -40,27 +40,27 @@ class ZServerCallHandler[Req, Res](
 object ZServerCallHandler {
   private[zio_grpc] val queueSizeProp = "zio-grpc.backpressure-queue-size"
 
-  val backpressureQueueSize: IO[Status, Int] =
+  val backpressureQueueSize: IO[StatusException, Int] =
     ZIO
       .attempt(sys.props.get(queueSizeProp).map(_.toInt).getOrElse(16))
       .refineToOrDie[NumberFormatException]
       .catchAll { t =>
-        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}"))
+        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}").asException())
       }
 
   def unaryInput[Req, Res](
       runtime: Runtime[Any],
-      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[Any, Status, Unit]
+      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[Any, StatusException, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(runtime, ListenerDriver.makeUnaryInputListener(impl, runtime))
 
   def streamingInput[Req, Res](
       runtime: Runtime[Any],
       impl: (
-          Stream[Status, Req],
+          Stream[StatusException, Req],
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[Any, Status, Unit]
+      ) => ZIO[Any, StatusException, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
       runtime,
@@ -69,16 +69,16 @@ object ZServerCallHandler {
 
   def unaryCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: (Req, RequestContext) => ZIO[Any, Status, Res]
+      impl: (Req, RequestContext) => ZIO[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: (Req, RequestContext) => ZStream[Any, Status, Res]
+      impl: (Req, RequestContext) => ZStream[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
@@ -88,16 +88,16 @@ object ZServerCallHandler {
 
   def clientStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: (Stream[Status, Req], RequestContext) => ZIO[Any, Status, Res]
+      impl: (Stream[StatusException, Req], RequestContext) => ZIO[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: (Stream[Status, Req], RequestContext) => ZStream[Any, Status, Res]
+      impl: (Stream[Status, Req], RequestContext) => ZStream[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
@@ -106,17 +106,17 @@ object ZServerCallHandler {
 
   def serverStreamingWithBackpressure[Res](
       call: ZServerCall[Res],
-      stream: ZStream[Any, Status, Res]
-  ): ZIO[Any, Status, Unit] = {
-    def takeFromQueue(queue: Dequeue[Exit[Option[Status], Res]]): ZIO[Any, Status, Unit] =
+      stream: ZStream[Any, StatusException, Res]
+  ): ZIO[Any, StatusException, Unit] = {
+    def takeFromQueue(queue: Dequeue[Exit[Option[StatusException], Res]]): ZIO[Any, StatusException, Unit] =
       queue.takeAll.flatMap(takeFromCache(_, queue))
 
     def takeFromCache(
-        xs: Chunk[Exit[Option[Status], Res]],
-        queue: Dequeue[Exit[Option[Status], Res]]
-    ): ZIO[Any, Status, Unit] =
+        xs: Chunk[Exit[Option[StatusException], Res]],
+        queue: Dequeue[Exit[Option[StatusException], Res]]
+    ): ZIO[Any, StatusException, Unit] =
       ZIO.suspendSucceed {
-        @tailrec def innerLoop(loop: Boolean, i: Int): IO[Status, Unit] =
+        @tailrec def innerLoop(loop: Boolean, i: Int): IO[StatusException, Unit] =
           if (i < xs.length && loop) {
             xs(i) match {
               case Failure(cause) =>
