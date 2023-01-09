@@ -9,7 +9,11 @@ object TestUtils {
     hasField[StatusException, Code]("code", _.getStatus().getCode, equalTo(c.getCode))
 
   def hasDescription(d: String) =
-    hasField[StatusException, String]("description", e => Option(e.getStatus().getDescription()).getOrElse("GotNull"), equalTo(d))
+    hasField[StatusException, String](
+      "description",
+      e => Option(e.getStatus().getDescription()).getOrElse("GotNull"),
+      equalTo(d)
+    )
 
   def hasTrailerValue[T](key: Metadata.Key[T], value: T) =
     hasField[StatusException, T]("trailers", e => Status.trailersFromThrowable(e).get(key), equalTo(value))

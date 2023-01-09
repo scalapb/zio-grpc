@@ -22,11 +22,11 @@ trait MetadataTests {
 
   val authClient   = clientLayer(Some("bob"))
   val unauthClient = clientLayer(Some("alice"))
-  val errorClient = clientLayer(Some("Eve"))
+  val errorClient  = clientLayer(Some("Eve"))
   val unsetClient  = clientLayer(None)
 
-  val permissionDenied = fails(hasStatusCode(Status.PERMISSION_DENIED))
-  val unauthenticated  = fails(hasStatusCode(Status.UNAUTHENTICATED))
+  val permissionDenied  = fails(hasStatusCode(Status.PERMISSION_DENIED))
+  val unauthenticated   = fails(hasStatusCode(Status.UNAUTHENTICATED))
   val errorWithTrailers = fails(hasStatusCode(Status.FAILED_PRECONDITION) && hasTrailerValue(RequestIdKey, "1"))
 
   val unaryEffect           = TestServiceClient.unary(Request())

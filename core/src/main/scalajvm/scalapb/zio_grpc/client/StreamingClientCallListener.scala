@@ -36,8 +36,9 @@ class StreamingClientCallListener[Res](
     ZStream
       .fromQueue(queue)
       .tap {
-        case ResponseFrame.Trailers(status, trailers) => queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(new StatusException(status, trailers)))
-        case _                                 => ZIO.unit
+        case ResponseFrame.Trailers(status, trailers) =>
+          queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(new StatusException(status, trailers)))
+        case _                                        => ZIO.unit
       }
 }
 
