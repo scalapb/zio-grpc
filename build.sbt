@@ -125,6 +125,32 @@ lazy val e2e =
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
     )
 
+lazy val benchmarks =
+  projectMatrix
+    .in(file("benchmarks"))
+    .dependsOn(core)
+    .defaultAxes()
+    .enablePlugins(LocalCodeGenPlugin)
+    .jvmPlatform(ScalaVersions)
+    .settings(stdSettings)
+    .settings(
+      crossScalaVersions   := Seq(Scala212, Scala213),
+      publish / skip       := true,
+      libraryDependencies ++= Seq(
+        "dev.zio"              %% "zio"                  % Version.zio,
+        "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
+        "io.grpc"               % "grpc-netty"           % Version.grpc
+      ),
+      Compile / PB.targets := Seq(
+        scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
+        genModule(
+          "scalapb.zio_grpc.ZioCodeGenerator$"
+        )                        -> (Compile / sourceManaged).value
+      ),
+      PB.protocVersion     := "3.13.0",
+      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value
+    )
+
 lazy val docs = project
   .enablePlugins(LocalCodeGenPlugin)
   .in(file("zio-grpc-docs"))
