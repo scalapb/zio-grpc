@@ -11,7 +11,6 @@ import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 import scalapb.zio_grpc.SafeMetadata
 import zio.stm.TSemaphore
-import zio.stream.Take
 
 class ZServerCallHandler[Req, Res](
     runtime: Runtime[Any],
@@ -109,31 +108,29 @@ object ZServerCallHandler {
       call: ZServerCall[Res],
       stream: ZStream[Any, Status, Res]
   ): ZIO[Any, Status, Unit] = {
-    def innerLoop(queue: Dequeue[Take[Status, Res]], buffer: Ref[Chunk[Res]]): ZIO[Any, Status, Boolean] =
-      buffer
-        .modify(chunk => chunk.headOption -> chunk.drop(1))
+    def innerLoop(queue: Dequeue[Exit[Option[Status], Res]]): ZIO[Any, Status, Boolean] =
+      queue.take
         .flatMap {
-          case None      =>
-            queue.take.flatMap(
-              _.foldZIO(ZIO.succeed(false), ZIO.failCause(_), buffer.set(_) *> innerLoop(queue, buffer))
-            )
-          case Some(res) =>
-            call.sendMessage(res).as(true)
+          case Exit.Success(res)   => call.sendMessage(res).as(true)
+          case Exit.Failure(cause) =>
+            cause.failureOrCause match {
+              case Left(Some(status)) => ZIO.fail(status)
+              case Left(None)         => ZIO.succeed(false)
+              case Right(cause)       => ZIO.failCause(cause)
+            }
         }
         .repeatWhileZIO(res => call.isReady.map(_ && res))
 
-    def outerLoop(queue: Dequeue[Take[Status, Res]])(buffer: Ref[Chunk[Res]]): ZIO[Any, Status, Boolean] =
-      (call.awaitReady *> innerLoop(queue, buffer))
+    def outerLoop(queue: Dequeue[Exit[Option[Status], Res]]): ZIO[Any, Status, Boolean] =
+      (call.awaitReady *> innerLoop(queue))
         .repeatWhile(identity)
 
     for {
       queueSize <- backpressureQueueSize
-      _         <- ZIO.scoped(
+      _         <- ZIO.scoped[Any](
                      stream
-                       .toQueue(queueSize)
-                       .flatMap { queue =>
-                         Ref.make[Chunk[Res]](Chunk.empty).flatMap(outerLoop(queue))
-                       }
+                       .toQueueOfElements(queueSize)
+                       .flatMap(outerLoop)
                    )
     } yield ()
   }
