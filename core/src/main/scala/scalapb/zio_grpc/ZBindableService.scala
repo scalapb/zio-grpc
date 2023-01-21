@@ -40,6 +40,6 @@ object ZBindableService {
   ): ZBindableService[T] =
     new ZBindableService[T] {
       def bindService(s: T): zio.UIO[ServerServiceDefinition] =
-        ev3.bind(ev5.transformContext(s, ev4.bind(_)))
+        ev3.bind(ev5.transformContext[C, RequestContext](s, ev4.bind(_)))
     }
 }

@@ -22,7 +22,7 @@ package object server {
         exit: zio.Promise[Nothing, Exit[Status, Response]]
     )(clock: Clock, console: Console)
         extends testservice.ZioTestservice.TestService {
-      def unary(request: Request): ZIO[Any, Status, Response] =
+      def unary(request: Request, context: Any): ZIO[Any, Status, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK        =>
             ZIO.succeed(
@@ -36,7 +36,8 @@ package object server {
         })).onExit(exit.succeed(_))
 
       def serverStreaming(
-          request: Request
+          request: Request,
+          context: Any
       ): ZStream[Any, Status, Response] =
         ZStream
           .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
@@ -70,7 +71,8 @@ package object server {
           }
 
       def clientStreaming(
-          request: Stream[Status, Request]
+          request: Stream[Status, Request],
+          context: Any
       ): ZIO[Any, Status, Response] =
         requestReceived.succeed(()) *>
           request
@@ -88,7 +90,8 @@ package object server {
             .onExit(exit.succeed(_))
 
       def bidiStreaming(
-          request: Stream[Status, Request]
+          request: Stream[Status, Request],
+          context: Any
       ): Stream[Status, Response] =
         (ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>

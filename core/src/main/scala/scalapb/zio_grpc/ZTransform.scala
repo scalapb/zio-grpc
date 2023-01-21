@@ -1,57 +1,47 @@
 package scalapb.zio_grpc
 
-import zio.{IO, Tag, ZEnvironment, ZIO}
+import zio.ZIO
 import zio.stream.ZStream
 
 /** Describes a transformation of an effect or a stream.
   *
   * Instances of this class can be used to apply a transformation to all methods of a service to generate a new
-  * "decorated" service. This can be used for pre- or post-processing of requests/responses and also for environment and
-  * context transformations.
+  * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
   */
-trait ZTransform[+ContextIn, E, -ContextOut] { self =>
-  def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut, E, A]
-  def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut, E, A]
+trait ZTransform[ContextIn, E, ContextOut] { self =>
+  def effect[A](io: ContextIn => ZIO[Any, E, A])(context: ContextOut): ZIO[Any, E, A]
+  def stream[A](io: ContextIn => ZStream[Any, E, A])(context: ContextOut): ZStream[Any, E, A]
 
   /** Combine two ZTransforms
     */
-  def andThen[ContextIn2 <: ContextOut, ContextOut2](
-      zt: ZTransform[ContextIn2, E, ContextOut2]
-  ): ZTransform[ContextIn, E, ContextOut2] =
-    new ZTransform[ContextIn, E, ContextOut2] {
-      override def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut2, E, A] =
-        zt.effect(self.effect(io))
+  /*
+  def andThen[Context2 <: Context](
+      zt: ZTransform[Context2]
+  ): ZTransform[Context2] =
+    new ZTransform[Context2] {
+      override def effect[A](context: Context2, io: ZIO[Any, Status, A]): ZIO[Any, Status, A] =
+        zt.effect(context, self.effect(context, io))
 
-      override def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut2, E, A] =
-        zt.stream(self.stream(io))
+      override def stream[A](context: Context2, io: ZStream[Any, Status, A]): ZStream[Any, Status, A] =
+        zt.stream(context, self.stream(context, io))
     }
+   */
+
+  /*
+  def transformContext[Context2](f: Context2 => IO[Status, Context]): ZTransform[Context2] = new ZTransform[Context2] {
+    def effect[A](context: Context2, io: ZIO[Any,Status,A]): ZIO[Any,Status,A] = f(context).flatMap(ctx => self.effect(ctx, io))
+
+    def stream[A](context: Context2, io: ZStream[Any,Status,A]): ZStream[Any,Status,A] = ZStream.fromZIO(f(context)).flatMap(ctx => self.stream(ctx, io))
+  }
+   */
 }
 
 object ZTransform {
-
-  /** Changes the Context type of the service from Context1 to Context2, by applying an effectful function on the
-    * environment before the request is further processed.
-    */
-  def transformContext[ContextIn: Tag, E, ContextOut: Tag](
-      f: ContextOut => IO[E, ContextIn]
-  ): ZTransform[ContextIn, E, ContextOut] =
+  def transformContext[ContextIn, E, ContextOut](f: ContextOut => ZIO[Any, E, ContextIn]) =
     new ZTransform[ContextIn, E, ContextOut] {
-      def effect[A](io: ZIO[ContextIn, E, A]): ZIO[ContextOut, E, A] =
-        ZIO
-          .environmentWithZIO { (env: ZEnvironment[ContextOut]) =>
-            f(env.get[ContextOut])
-          }
-          .flatMap { env =>
-            io.provideEnvironment(ZEnvironment(env))
-          }
+      def effect[A](io: ContextIn => ZIO[Any, E, A])(context: ContextOut): ZIO[Any, E, A] = f(context).flatMap(io)
 
-      def stream[A](io: ZStream[ContextIn, E, A]): ZStream[ContextOut, E, A] =
-        ZStream
-          .fromZIO(ZIO.environmentWithZIO { (env: ZEnvironment[ContextOut]) =>
-            f(env.get[ContextOut])
-          })
-          .flatMap { env =>
-            io.provideEnvironment(ZEnvironment(env))
-          }
+      def stream[A](io: ContextIn => ZStream[Any, E, A])(context: ContextOut): ZStream[Any, E, A] =
+        ZStream.fromZIO(f(context)).flatMap(io)
     }
 }
