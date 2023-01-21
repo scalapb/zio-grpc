@@ -155,7 +155,11 @@ val serverLayer =
     )
 
 val ourApp =
-    UserDatabase.layer >>> myServiceLayer >>> serverLayer
+    ZLayer.make[Server](
+      serverLayer,
+      myServiceLayer,
+      UserDatabase.layer
+    )
 
 object LayeredApp extends zio.ZIOAppDefault {
     def run = ourApp.launch.exitCode
@@ -213,10 +217,21 @@ object MyService2 {
 Our service layer now depends on the `DepA` and `DepB` interfaces. A server can be created like this:
 
 ```scala mdoc
-object MyServer3 extends ServerMain {
-  def services = ServiceList.addFromEnvironment[ZSimpleService[RequestContext]]
-    .provideLayer(
-      (DepA.layer ++ DepB.layer) >>> MyService2.layer
+object MyServer3 extends zio.ZIOAppDefault {
+
+  val serverLayer = 
+    ServerLayer.fromServiceList(
+      io.grpc.ServerBuilder.forPort(9000),
+      ServiceList.addFromEnvironment[ZSimpleService[RequestContext]]
     )
+
+  val appLayer = ZLayer.make[Server](
+    serverLayer,
+    DepA.layer,
+    DepB.layer,
+    MyService2.layer
+  )
+
+  def run = ourApp.launch.exitCode
 }
 ```
