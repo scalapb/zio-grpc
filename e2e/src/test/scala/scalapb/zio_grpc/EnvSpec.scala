@@ -2,7 +2,7 @@ package scalapb.zio_grpc
 
 import zio.test._
 import zio._
-import testservice.ZioTestservice.{TestServiceClient, TestServiceClientWithMetadata}
+import testservice.ZioTestservice.{TestServiceClient, TestServiceClientWithResponseMetadata}
 import testservice.ZioTestservice.ZTestService
 import testservice._
 import io.grpc.ServerBuilder
@@ -88,7 +88,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
       }
     }
 
-  override def clientMetadataLayer: URLayer[Server, TestServiceClientWithMetadata] =
+  override def clientMetadataLayer: URLayer[Server, TestServiceClientWithResponseMetadata] =
     ZLayer.scoped {
       ZIO.environmentWithZIO { (ss: ZEnvironment[Server]) =>
         ss.get[Server].port.orDie flatMap { (port: Int) =>
@@ -98,7 +98,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
               ZClientInterceptor.headersUpdater((_, _, md) => md.put(UserKey, "bob").unit)
             )
           )
-          TestServiceClientWithMetadata
+          TestServiceClientWithResponseMetadata
             .scoped(ch)
             .orDie
         }

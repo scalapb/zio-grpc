@@ -1,19 +1,19 @@
 package scalapb.zio_grpc
 
+import scalapb.zio_grpc.testservice.ZioTestservice.TestService
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
 import zio.ZIO
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
-import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
-import zio.ZLayer
 import zio.IO
 
 object BindableServiceSpec extends ZIOSpecDefault {
   implicitly[ZBindableService[ZTestService[RequestContext]]]
   implicitly[ZBindableService[ZTestService[SafeMetadata]]]
   implicitly[ZBindableService[ZTestService[Any]]]
+  implicitly[ZBindableService[TestService]]
 
   class UnimpTestService[C] extends ZTestService[C] {
 

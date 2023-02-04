@@ -7,6 +7,12 @@ trait ZGeneratedService[-C, S[-_]] {
   this: S[C] =>
 }
 
-trait GenericBindable[S[_]] {
-  def bind(s: S[RequestContext]): UIO[ServerServiceDefinition]
+trait GeneratedService {
+  type WithContext[-_]
+
+  def withContext: WithContext[Any]
+}
+
+trait GenericBindable[-S] {
+  def bind(s: S): UIO[ServerServiceDefinition]
 }

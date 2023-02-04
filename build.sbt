@@ -12,6 +12,8 @@ ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 publish / skip := true
 
+ThisBuild / version := "0.6.0-test9"
+
 sonatypeProfileName := "com.thesamet"
 
 inThisBuild(
