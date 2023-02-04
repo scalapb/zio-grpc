@@ -36,38 +36,24 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
     )
 
   // Option 1: through layer and accessors
-  val clientLayer = GreeterClient.live(channel, headers = userEnvToMetadata)
+  val clientLayer = GreeterClient.live(channel)
 
-  type UserClient = GreeterClient.ZService[User]
-
-  // The default accessors expect the client type that has no context. We need
-  // to set up accessors for the User context
-  object UserClient extends GreeterClient.Accessors[User]
-
-  def appLogic1: ZIO[UserClient, Status, Unit] =
+  def appLogic1: ZIO[GreeterClient, Status, Unit] =
     for {
-      // With provideSomeLayer:
+      // With client accessor
       r1 <-
-        UserClient
+        GreeterClient
+          .withMetadataZIO(userToMetadata(User("user1")))
           .sayHello(HelloRequest("World"))
-          .provideSomeLayer[UserClient](ZLayer.succeed(User("user1")))
       _ <- printLine(r1.message).orDie
-
-      // With provideSomeEnvironment:
-      r2 <-
-        UserClient
-          .sayHello(HelloRequest("World"))
-          .provideSomeEnvironment(
-            (_: ZEnvironment[UserClient]) ++ ZEnvironment(
-              User("user1")
-            )
-          )
-      _ <- printLine(r2.message).orDie
     } yield ()
 
   // Option 2: through a managed client
-  val userClientManaged: ZIO[Scope, Throwable, GreeterClient.ZService[User]] =
-    GreeterClient.scoped(channel, headers = userEnvToMetadata)
+
+  // The metadata is fixed for the client, but can be overriden by
+  // `withMetadataZIO`, or mapped with `mapMetadataZIO` - see below.
+  val userClientManaged: ZIO[Scope, Throwable, GreeterClient] =
+    GreeterClient.scoped(channel, metadata = userToMetadata(User("user1")))
 
   def appLogic2 =
     ZIO.scoped {
@@ -76,29 +62,12 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
           r1 <-
             client
               .sayHello(HelloRequest("World"))
-              .provideEnvironment(ZEnvironment(User("user1")))
           _ <- printLine(r1.message)
           r2 <-
             client
+              .withMetadataZIO(userToMetadata(User("user2")))
               .sayHello(HelloRequest("World"))
-              .provideEnvironment(ZEnvironment(User("user2")))
           _ <- printLine(r2.message)
-        } yield ()
-      }
-    }
-
-  // Option 3: by changing the stub
-  val clientManaged = GreeterClient.scoped(channel)
-  def appLogic3 =
-    ZIO.scoped {
-      clientManaged.flatMap { client =>
-        for {
-          // Pass metadata effectfully
-          r1 <-
-            client
-              .withMetadataZIO(userToMetadata(User("hello")))
-              .sayHello(HelloRequest("World"))
-          _ <- printLine(r1.message)
         } yield ()
       }
     }
@@ -106,7 +75,6 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   final def run =
     (
       appLogic1.provideLayer(clientLayer) *>
-        appLogic2 *>
-        appLogic3
+        appLogic2
     ).exitCode
 }

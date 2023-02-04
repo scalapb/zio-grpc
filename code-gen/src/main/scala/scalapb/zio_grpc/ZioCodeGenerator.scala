@@ -300,10 +300,10 @@ class ZioFilePrinter(
 
     def clientTranformableService(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[ZService] = new scalapb.zio_grpc.TransformableService[ZService] {"
+        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[${clientServiceName.name}] = new scalapb.zio_grpc.TransformableService[${clientServiceName.name}] {"
       ).indented(
         _.add(
-          s"def transform[Context, Context1](self: ZService[Context], f: scalapb.zio_grpc.ZTransform[Context, $Status, Context1]): ZService[Context1] = new ZService[Context1] {"
+          s"def transform[Context, Context1](self: ${clientServiceName.name}, f: scalapb.zio_grpc.ZTransform[Context, $Status, Context1]): ${clientServiceName.name}[Context1] = new ${clientServiceName.name}[Context1] {"
         ).indented(
           _.print(service.getMethods().asScala.toVector)(
             printClientTransform
@@ -529,10 +529,12 @@ class ZioFilePrinter(
           s"object ${clientServiceName.name} extends ${accessorsClassName.name} {"
         )
         .indent
-        // .call(clientTranformableService)
+        /*
+        .call(clientTranformableService)
         .add(
-          // s"implicit def ops[C](service: Service): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[Service, C](service)"
+        s"implicit def ops[C](service: ${clientServiceName.name}): scalapb.zio_grpc.TransformableService.TransformableServiceOps[${clientServiceName.name}] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[${clientServiceName.name}, C](service)"
         )
+        */
         .add("")
         .add(
           s"private[this] class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
