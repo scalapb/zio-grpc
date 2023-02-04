@@ -460,8 +460,6 @@ class ZioFilePrinter(
         .add(
           s"// implicit def ops[C](service: Service): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C](service)"
         )
-        .add("")
-        .add("")
         .add(
           s"private[this] class ServiceStub(channel: $ZChannel, callOptions: $CallOptions, metadata: zio.UIO[$SafeMetadata])"
         )
@@ -526,6 +524,7 @@ class ZioFilePrinter(
             )
         )
         .add("}")
+        .add("")
         .add(
           s"object ${clientServiceName.name} extends ${accessorsClassName.name} {"
         )
@@ -534,7 +533,6 @@ class ZioFilePrinter(
         .add(
           // s"implicit def ops[C](service: Service): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[Service, C](service)"
         )
-        .add("")
         .add("")
         .add(
           s"private[this] class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
