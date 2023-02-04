@@ -31,6 +31,9 @@ object TransformableService {
     )(implicit TS: TransformableService[S]): S[ContextOut] =
       TS.transformContextZIO[C, ContextOut](service, transform)
 
+    def transform[ContextOut](zt: ZTransform[C, Status, ContextOut])(implicit TS: TransformableService[S]): S[ContextOut] =
+      TS.transform[C, ContextOut](service, zt)
+
     def toLayer(implicit tag: Tag[S[C]]): ULayer[S[C]] = ZLayer.succeed(service)
   }
 }

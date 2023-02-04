@@ -41,9 +41,8 @@ val channel = ZManagedChannel(
 // create layer:
 val clientLayer = ServiceNameClient.live(
   channel,
-  options=ZIO.succeed(
-    CallOptions.DEFAULT.withDeadlineAfter(3000, TimeUnit.MILLISECONDS)),
-  headers=SafeMetadata.make)
+  options=CallOptions.DEFAULT.withDeadlineAfter(3000, TimeUnit.MILLISECONDS),
+  metadata=SafeMetadata.make)
 
 val myAppLogicNeedsEnv = for {
   // use layer through accessor methods:
@@ -89,7 +88,7 @@ be safely done for each individual call:
 val clientScoped = ServiceNameClient.scoped(channel)
 
 val myAppLogic = ZIO.scoped {
-  clientScoped.flatMap { client => 
+  clientScoped.flatMap { client =>
     for {
       res <- client
                .withTimeoutMillis(3000).unary(Request())

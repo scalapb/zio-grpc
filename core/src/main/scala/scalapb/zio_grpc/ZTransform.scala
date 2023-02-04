@@ -9,17 +9,21 @@ import zio.stream.ZStream
   * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
   */
 trait ZTransform[ContextIn, E, ContextOut] { self =>
-  def effect[A](io: ContextIn => ZIO[Any, E, A])(context: ContextOut): ZIO[Any, E, A]
-  def stream[A](io: ContextIn => ZStream[Any, E, A])(context: ContextOut): ZStream[Any, E, A]
+  def effect[A](io: ContextIn => ZIO[Any, E, A]): (ContextOut => ZIO[Any, E, A])
+  def stream[A](io: ContextIn => ZStream[Any, E, A]): (ContextOut => ZStream[Any, E, A])
 }
 
 object ZTransform {
   // Returns a ZTransform that effectfully transforms the context parameter
   def transformContext[ContextIn, E, ContextOut](f: ContextOut => ZIO[Any, E, ContextIn]) =
     new ZTransform[ContextIn, E, ContextOut] {
-      def effect[A](io: ContextIn => ZIO[Any, E, A])(context: ContextOut): ZIO[Any, E, A] = f(context).flatMap(io)
+      def effect[A](io: ContextIn => ZIO[Any, E, A]): ContextOut => ZIO[Any, E, A] = {
+        context: ContextOut => f(context).flatMap(io)
+      }
 
-      def stream[A](io: ContextIn => ZStream[Any, E, A])(context: ContextOut): ZStream[Any, E, A] =
-        ZStream.fromZIO(f(context)).flatMap(io)
+      def stream[A](io: ContextIn => ZStream[Any, E, A]): ContextOut => ZStream[Any, E, A] = {
+        context: ContextOut =>
+          ZStream.fromZIO(f(context)).flatMap(io)
+      }
     }
 }
