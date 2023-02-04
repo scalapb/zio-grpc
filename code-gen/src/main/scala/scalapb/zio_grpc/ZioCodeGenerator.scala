@@ -421,13 +421,10 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .pipe(genClient)
-        .pipe(genClientWithMetadata)
+        .pipe(genClientWithResponseMetadata)
 
-    def genClientWithMetadata(fp: FunctionalPrinter): FunctionalPrinter =
+    def genClientWithResponseMetadata(fp: FunctionalPrinter): FunctionalPrinter =
       fp
-        .add(
-          s"type ${clientWithResponseMetadataServiceName.name} = ${clientWithResponseMetadataServiceName.name}.Service"
-        )
         .add("")
         .add("// accessor with metadata methods")
         .add(
@@ -446,11 +443,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"object ${clientWithResponseMetadataServiceName.name} extends ${accessorsWithResponseMetadataClassName.name} {"
-        )
-        .indent
-        .add(
-          s"trait Service extends scalapb.zio_grpc.ClientMethods[Service] {"
+          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.ClientMethods[${clientWithResponseMetadataServiceName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(
@@ -458,6 +451,11 @@ class ZioFilePrinter(
           )
         )
         .add("}")
+        .add("")
+        .add(
+          s"object ${clientWithResponseMetadataServiceName.name} extends ${accessorsWithResponseMetadataClassName.name} {"
+        )
+        .indent
         // .call(clientWithMetadataTranformableService)
         .add(
           s"// implicit def ops[C](service: Service): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C](service)"
@@ -467,37 +465,34 @@ class ZioFilePrinter(
         .add(
           s"private[this] class ServiceStub(channel: $ZChannel, callOptions: $CallOptions, metadata: zio.UIO[$SafeMetadata])"
         )
-        .add(s"    extends ${clientWithResponseMetadataServiceName.name}.Service {")
+        .add(s"    extends ${clientWithResponseMetadataServiceName.name} {")
         .indented(
           _.print(service.getMethods().asScala.toVector)(
             printClientWithResponseMetadataImpl
           )
             .add(
               "// Returns new instance with modified call options. See ClientMethods for more.",
-              s"override def mapCallOptions(f: $CallOptions => $CallOptions): Service = new ServiceStub(channel, f(callOptions), metadata)",
+              s"override def mapCallOptions(f: $CallOptions => $CallOptions): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, f(callOptions), metadata)",
               "// Returns new instance with modified metadata. See ClientMethods for more.",
-              s"override def mapMetadataZIO(f: $SafeMetadata => zio.UIO[$SafeMetadata]): Service = new ServiceStub(channel, callOptions, metadata.flatMap(f))",
+              s"override def mapMetadataZIO(f: $SafeMetadata => zio.UIO[$SafeMetadata]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, callOptions, metadata.flatMap(f))",
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}.Service] = managedChannel.map {"
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
         )
         .add("  channel => new ServiceStub(channel, options, metadata)")
         .add("}")
         .add("")
         .add(
-          s"def live[Context](managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}.Service] = zio.ZLayer.scoped(scoped(managedChannel, options, metadata))"
+          s"def live[Context](managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] = zio.ZLayer.scoped(scoped(managedChannel, options, metadata))"
         )
         .outdent
         .add("}")
 
     def genClient(fp: FunctionalPrinter): FunctionalPrinter =
       fp
-        .add(
-          s"type ${clientServiceName.name} = ${clientServiceName.name}.Service"
-        )
         .add("")
         .add("// accessor methods")
         .add(
@@ -516,11 +511,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"object ${clientServiceName.name} extends ${accessorsClassName.name} {"
-        )
-        .indent
-        .add(
-          s"trait Service extends scalapb.zio_grpc.ClientMethods[Service] {"
+          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.ClientMethods[${clientServiceName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(
@@ -531,10 +522,14 @@ class ZioFilePrinter(
             .add("")
             .add(
               "// Returns a client that gives access to headers and trailers from server's response",
-              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name}.Service"
+              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name}"
             )
         )
         .add("}")
+        .add(
+          s"object ${clientServiceName.name} extends ${accessorsClassName.name} {"
+        )
+        .indent
         // .call(clientTranformableService)
         .add(
           // s"implicit def ops[C](service: Service): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[Service, C](service)"
@@ -542,30 +537,30 @@ class ZioFilePrinter(
         .add("")
         .add("")
         .add(
-          s"private[this] class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name}.Service)"
+          s"private[this] class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
         )
-        .add(s"    extends ${clientServiceName.name}.Service {")
+        .add(s"    extends ${clientServiceName.name} {")
         .indented(
           _.print(service.getMethods().asScala.toVector)(
             printClientImpl(envType = "Any")
           )
             .add(
               "// Returns a client that gives access to headers and trailers from server's response",
-              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name}.Service = underlying",
+              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name} = underlying",
               "// Returns new instance with modified call options. See ClientMethods for more.",
-              s"override def mapCallOptions(f: $CallOptions => $CallOptions): Service = new ServiceStub(underlying.mapCallOptions(f))",
+              s"override def mapCallOptions(f: $CallOptions => $CallOptions): ${clientServiceName.name} = new ServiceStub(underlying.mapCallOptions(f))",
               "// Returns new instance with modified metadata. See ClientMethods for more.",
-              s"override def mapMetadataZIO(f: $SafeMetadata => zio.UIO[$SafeMetadata]): Service = new ServiceStub(underlying.mapMetadataZIO(f))",
+              s"override def mapMetadataZIO(f: $SafeMetadata => zio.UIO[$SafeMetadata]): ${clientServiceName.name} = new ServiceStub(underlying.mapMetadataZIO(f))",
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}.Service] = ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, options, metadata).map(client => new ServiceStub(client))"
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, options, metadata).map(client => new ServiceStub(client))"
         )
         .add("")
         .add(
-          s"def live(managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientServiceName.name}.Service] = ${clientWithResponseMetadataServiceName.name}.live(managedChannel, options, metadata).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
+          s"def live(managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.live(managedChannel, options, metadata).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
         )
         .outdent
         .add("}")
@@ -577,18 +572,18 @@ class ZioFilePrinter(
       val sigWithoutContext =
         clientMethodSignature(
           method,
-          contextType = s"${clientServiceName.name}.Service"
+          contextType = s"${clientServiceName.name}"
         ) + " = "
       val innerCall         = s"_.mapCallOptions(callOptionsFunc).mapMetadataZIO(metadataFunc).${method.name}(request)"
       val clientCall        = method.streamType match {
         case StreamType.Unary           =>
-          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}]($innerCall)"
         case StreamType.ClientStreaming =>
-          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}]($innerCall)"
         case StreamType.ServerStreaming =>
-          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}]($innerCall)"
         case StreamType.Bidirectional   =>
-          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}]($innerCall)"
       }
       fp.add(sigWithoutContext + clientCall)
     }
@@ -600,18 +595,18 @@ class ZioFilePrinter(
       val sigWithoutContext =
         clientWithResponseMetadataSignature(
           method,
-          envOutType = s"${clientWithResponseMetadataServiceName.name}.Service"
+          envOutType = s"${clientWithResponseMetadataServiceName.name}"
         ) + " = "
       val innerCall         = s"_.mapCallOptions(callOptionsFunc).mapMetadataZIO(metadataFunc).${method.name}(request)"
       val clientCall        = method.streamType match {
         case StreamType.Unary           =>
-          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}]($innerCall)"
         case StreamType.ClientStreaming =>
-          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}]($innerCall)"
         case StreamType.ServerStreaming =>
-          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}]($innerCall)"
         case StreamType.Bidirectional   =>
-          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}.Service]($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}]($innerCall)"
       }
       fp.add(sigWithoutContext + clientCall)
     }
