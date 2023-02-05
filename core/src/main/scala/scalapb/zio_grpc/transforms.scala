@@ -49,12 +49,13 @@ object ZTransform {
   // Returns a ZTransform that effectfully transforms the context parameter
   def apply[ContextIn, ContextOut](f: ContextOut => ZIO[Any, Status, ContextIn]): ZTransform[ContextIn, ContextOut] =
     new ZTransform[ContextIn, ContextOut] {
-      def effect[A](io: ContextIn => ZIO[Any, Status, A]): ContextOut => ZIO[Any, Status, A] = { context: ContextOut =>
-        f(context).flatMap(io)
+      def effect[A](io: ContextIn => ZIO[Any, Status, A]): ContextOut => ZIO[Any, Status, A] = {
+        (context: ContextOut) =>
+          f(context).flatMap(io)
       }
 
       def stream[A](io: ContextIn => ZStream[Any, Status, A]): ContextOut => ZStream[Any, Status, A] = {
-        context: ContextOut =>
+        (context: ContextOut) =>
           ZStream.fromZIO(f(context)).flatMap(io)
       }
     }
