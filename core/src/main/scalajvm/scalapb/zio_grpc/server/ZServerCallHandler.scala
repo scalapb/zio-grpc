@@ -66,42 +66,39 @@ object ZServerCallHandler {
 
   def unaryCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZIO[RequestContext, Status, Res]
+      impl: (Req, RequestContext) => ZIO[Any, Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZStream[RequestContext, Status, Res]
+      impl: (Req, RequestContext) => ZStream[Any, Status, Res]
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
       (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
-        serverStreamingWithBackpressure(call, impl(req).provideEnvironment(ZEnvironment(requestContext)))
+        serverStreamingWithBackpressure(call, impl(req, requestContext))
     )
 
   def clientStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZIO[RequestContext, Status, Res]
+      impl: (Stream[Status, Req], RequestContext) => ZIO[Any, Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        impl(req).provideEnvironment(ZEnvironment(requestContext)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, Status, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZStream[RequestContext, Status, Res]
+      impl: (Stream[Status, Req], RequestContext) => ZStream[Any, Status, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
-      (req, requestContext, call) =>
-        serverStreamingWithBackpressure(call, impl(req).provideEnvironment(ZEnvironment(requestContext)))
+      (req, requestContext, call) => serverStreamingWithBackpressure(call, impl(req, requestContext))
     )
 
   def serverStreamingWithBackpressure[Res](

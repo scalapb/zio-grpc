@@ -14,32 +14,28 @@ You can read more on how ScalaPB determines the Scala package name and how can t
 
 ## Service trait
 
-Inside the object, for each service `ServiceName` that is defined in a `.proto` file, the following structure is generated:
+Inside the object, for each service `MyService` that is defined in a `.proto` file, the following structure is generated:
 
 ```scala
-trait ZServiceName[Context] {
+trait MyService {
   // methods for each RPC
   def sayHello(request: HelloRequest):
-    ZIO[Context, Status, HelloReply]
+    ZIO[Any, Status, HelloReply]
 }
-type ServiceName = ZServiceName[Any]
 ```
 
-The trait `ZServiceName` is to be extended when implementing a server for this service. The trait takes one type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to have available in the environment.
+The trait `MyService` is to be extended when implementing a server for this service.
 
-You can set `Context` to `Any` when implementing a service to indicate that the service does not have any dependencies or expectations from the environment. Since it is very common situation, especially when getting started, you can have your service implementation extends `ServiceName` which is a type alias to `ZServiceName[Any]`:
-
+It is common that services need to extract information from the request context, for example the caller's identity. To accomplish that, there is another trait `ZMyService` which takes one
+type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to receive.  Later on, we will see how to convert between a `RequestContext` which represents the underlying context of the requset with your domain model.
 
 ```scala
-object ServiceNameImpl extends ServiceName {
+object MyServiceImpl extends MyService {
+  def sayHello(request: HelloRequest): ZIO[Any, Status, HelloReply] = ???
 }
 ```
 
 Learn more about using [context and dependencies](context.md) in the next section.
-
-:::info
-**Why `Any` means that there are no dependencies?** All Scala objects are instances of `Any`. Therefore, any object that is provided as a dependency to our service would satisfy being of type `Any`. In other words, there is no specific instance type required.
-:::
 
 ### Running the server
 

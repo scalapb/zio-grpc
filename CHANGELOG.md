@@ -5,8 +5,14 @@
 ### What changed?
 
 * Removed the `R` type parameter for generated services. Generated services now have a single
-  type parameter for context. This simplifies the previous APIs and encourages the style that 
-  service dependencies are passed via constructors (see [service pattern](https://zio.dev/reference/service-pattern/))
+  type parameter for context. This simplifies the previous APIs and encourages the ZIO 2
+  style that service dependencies are passed via constructors (see [service pattern](https://zio.dev/reference/service-pattern/))
+* Context is now received as a second parameter for each handler. For
+  convenience, there is a trait that only takes one parameter (the request
+  type).
+* Simplified ZTransform. Introduce Transform for effectful transformations for
+  services that do not have context.
+* Classes and methods with suffix ClientWithMetadata have been renamed to ClientWithResponseMetadata.
 * Removed the `R` type parameter in most APIs.
 * ManagedServer renamed to ScopedServer.
 * Clean shutdown when a server is ran through a Scope or ZLayer.

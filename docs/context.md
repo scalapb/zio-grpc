@@ -21,15 +21,12 @@ import io.grpc.Status
 case class User(name: String)
 
 object MyService extends ZSimpleService[User] {
-  def sayHello(req: Request): ZIO[User, Status, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, Status, Response] =
     for {
-      user <- ZIO.service[User]
       _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```
-
-As you can see above, we can access the `User` in our effects. If one of the methods does not need to access the dependencies or context, the returned type from the method can be cleaned up to reflect that certain things are not needed.
 
 ## Context transformations
 
@@ -196,9 +193,8 @@ trait DepB {
 }
 
 case class MyService2(depA: DepA, depB: DepB) extends ZSimpleService[User] {
-  def sayHello(req: Request): ZIO[User, Status, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, Status, Response] =
     for {
-      user <- ZIO.service[User]
       num1 <- depA.methodA(user.name)
       num2 <- depB.methodB(12.3f)
       _ <- printLine("I am here $num1 $num2!").orDie
@@ -219,7 +215,7 @@ Our service layer now depends on the `DepA` and `DepB` interfaces. A server can 
 ```scala mdoc
 object MyServer3 extends zio.ZIOAppDefault {
 
-  val serverLayer = 
+  val serverLayer =
     ServerLayer.fromServiceList(
       io.grpc.ServerBuilder.forPort(9000),
       ServiceList.addFromEnvironment[ZSimpleService[RequestContext]]
