@@ -17,7 +17,7 @@ trait ZGeneratedService[-C, S[-_]] {
   def transformContext[ContextOut](f: ContextOut => C): S[ContextOut] = transformContextZIO(c => zio.ZIO.succeed(f(c)))
 }
 
-trait GeneratedService    {
+trait GeneratedService {
   type WithContext[-_]
 
   def withContext: WithContext[Any]
