@@ -15,7 +15,7 @@ import zio.UIO
 class RouteGuideService(
     features: Seq[Feature],
     routeNotesRef: Ref[Map[Point, List[RouteNote]]]
-) extends ZioRouteGuide.ZRouteGuide[Any] {
+) extends ZioRouteGuide.RouteGuide {
 
   /** Gets the [[io.grpc.examples.routeguide.route_guide.Feature]] at the
     * requested [[Point]]. If no feature at that location exists, a NOT FOUND

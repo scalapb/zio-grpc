@@ -6,10 +6,10 @@ import scalapb.zio_grpc.ServiceList
 import zio._
 import zio.Console._
 
-import io.grpc.examples.helloworld.helloworld.ZioHelloworld.ZGreeter
+import io.grpc.examples.helloworld.helloworld.ZioHelloworld.Greeter
 import io.grpc.examples.helloworld.helloworld.{HelloReply, HelloRequest}
 
-object GreeterImpl extends ZGreeter[Any] {
+object GreeterImpl extends Greeter {
   def sayHello(
       request: HelloRequest
   ): ZIO[Any, Status, HelloReply] =
