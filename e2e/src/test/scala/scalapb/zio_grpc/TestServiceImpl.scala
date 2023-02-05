@@ -35,8 +35,7 @@ package object server {
           case _                  => ZIO.fail(Status.UNKNOWN)
         })).onExit(exit.succeed(_))
 
-      def serverStreaming(
-          request: Request): ZStream[Any, Status, Response] =
+      def serverStreaming(request: Request): ZStream[Any, Status, Response] =
         ZStream
           .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
             ex.foldExit(
