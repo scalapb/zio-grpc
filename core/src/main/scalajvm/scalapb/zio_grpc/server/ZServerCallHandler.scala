@@ -160,14 +160,12 @@ object ZServerCallHandler {
 
     for {
       queueSize <- backpressureQueueSize
-      fiber     <- ZIO
+      _         <- ZIO
                      .scoped[Any](
                        stream
                          .toQueueOfElements(queueSize)
-                         .flatMap(outerLoop(None, _))
+                         .flatMap(outerLoop(None, _).fork.flatMap(_.join))
                      )
-                     .fork
-      _         <- fiber.join
     } yield ()
   }
 }
