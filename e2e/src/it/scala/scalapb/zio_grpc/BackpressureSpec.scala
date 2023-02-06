@@ -12,9 +12,7 @@ import io.grpc.inprocess.InProcessChannelBuilder
 
 object BackpressureSpec extends ZIOSpecDefault {
   val server =
-    ServerLayer.fromEnvironment[ZioTestservice.TestService](
-      InProcessServerBuilder.forName("backpressure-test").directExecutor()
-    )
+    ServerLayer.fromEnvironment[ZioTestservice.TestService](InProcessServerBuilder.forName("backpressure-test").directExecutor())
 
   val client =
     ZLayer.scoped[Server] {
