@@ -118,7 +118,7 @@ object ZServerCallHandler {
         xs: Chunk[Exit[Option[Status], Res]],
         queue: Dequeue[Exit[Option[Status], Res]]
     ): ZIO[Any, Status, Unit] =
-      ZIO.succeed {
+      ZIO.suspendSucceed {
         @tailrec def innerLoop(loop: Boolean, i: Int): IO[Status, Unit] =
           if (loop) {
             xs(i) match {
@@ -148,7 +148,7 @@ object ZServerCallHandler {
             outerLoop(Some(xs.drop(i)), queue)
 
         innerLoop(0 < xs.length, 0)
-      }.flatten
+      }
 
     def outerLoop(
         cache: Option[Chunk[Exit[Option[Status], Res]]],
