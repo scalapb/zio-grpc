@@ -122,7 +122,7 @@ object ZServerCallHandler {
         var done                       = false
         var loop                       = true
         var error: IO[Status, Nothing] = null
-        while (i < xs.length && loop) {
+        while (i < xs.length && loop)
           xs(i) match {
             case Failure(cause) =>
               loop = false
@@ -137,9 +137,8 @@ object ZServerCallHandler {
             case Success(value) =>
               call.call.sendMessage(value)
               loop = call.call.isReady
+              i += 1
           }
-          i += 1
-        }
 
         if (done)
           if (error ne null)
