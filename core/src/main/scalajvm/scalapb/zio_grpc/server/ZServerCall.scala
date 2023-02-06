@@ -7,7 +7,7 @@ import zio.stm.TSemaphore
 import zio.UIO
 
 /** Wrapper around [[io.grpc.ServerCall]] that lifts its effects into ZIO values */
-final class ZServerCall[Res](private val call: ServerCall[_, Res], private val canSend: TSemaphore) {
+final class ZServerCall[Res](private[zio_grpc] val call: ServerCall[_, Res], private val canSend: TSemaphore) {
   def isReady: UIO[Boolean] = ZIO.succeed(call.isReady())
 
   def request(n: Int): GIO[Unit] = GIO.fromTask(ZIO.attempt(call.request(n)))
