@@ -13,6 +13,7 @@ import scalapb.zio_grpc.SafeMetadata
 import zio.stm.TSemaphore
 import zio.Exit.Failure
 import zio.Exit.Success
+import scala.annotation.tailrec
 
 class ZServerCallHandler[Req, Res](
     runtime: Runtime[Any],
@@ -118,37 +119,35 @@ object ZServerCallHandler {
         queue: Dequeue[Exit[Option[Status], Res]]
     ): ZIO[Any, Status, Unit] =
       ZIO.succeed {
-        var i                          = 0
-        var done                       = false
-        var loop                       = true
-        var error: IO[Status, Nothing] = null
-        while (i < xs.length && loop)
-          xs(i) match {
-            case Failure(cause) =>
-              loop = false
-              done = true
-              cause.failureOrCause match {
-                case Left(Some(status)) =>
-                  error = ZIO.fail(status)
-                case Left(None)         =>
-                case Right(cause)       =>
-                  error = ZIO.failCause(cause)
-              }
-            case Success(value) =>
-              call.call.sendMessage(value)
-              loop = call.call.isReady
-              i += 1
-          }
-
-        if (done)
-          if (error ne null)
-            error
+        @tailrec def innerLoop(loop: Boolean, i: Int): IO[Status, Unit] =
+          if (loop) {
+            xs(i) match {
+              case Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(status)) =>
+                    ZIO.fail(status)
+                  case Left(None)         =>
+                    ZIO.unit
+                  case Right(cause)       =>
+                    ZIO.failCause(cause)
+                }
+              case Success(value) =>
+                call.call.sendMessage(value)
+                // at this point we have consumed i + 1 elements from the chunk
+                val newI = i + 1
+                // the loop iteration may only continue if the call can
+                // still accept elements and we have more elements to send
+                innerLoop(call.call.isReady && newI < xs.length, newI)
+            }
+          } else if (call.call.isReady)
+            // ^ if we reached the end of the chunk but the call can still
+            // proceed, we pull from the queue and continue
+            takeFromQueue(queue)
           else
-            ZIO.unit
-        else if (i < xs.length)
-          outerLoop(Some(xs.drop(i)), queue)
-        else
-          takeFromQueue(queue)
+            // ^ otherwise, we wait for the call to be ready and then start again
+            outerLoop(Some(xs.drop(i)), queue)
+
+        innerLoop(0 < xs.length, 0)
       }.flatten
 
     def outerLoop(
