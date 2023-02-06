@@ -1,27 +1,33 @@
 package scalapb.zio_grpc
 
+import scalapb.zio_grpc.testservice.ZioTestservice.TestService
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
 import zio.ZIO
 import io.grpc.Status
 import scalapb.zio_grpc.testservice.{Request, Response}
-import zio.stream.ZStream
 import io.grpc.ServerBuilder
 import zio.test._
-import zio.ZLayer
+import zio.IO
 
 object BindableServiceSpec extends ZIOSpecDefault {
   implicitly[ZBindableService[ZTestService[RequestContext]]]
   implicitly[ZBindableService[ZTestService[SafeMetadata]]]
   implicitly[ZBindableService[ZTestService[Any]]]
+  implicitly[ZBindableService[TestService]]
 
   class UnimpTestService[C] extends ZTestService[C] {
-    def unary(request: Request): ZIO[C, Status, Response] = ???
 
-    def serverStreaming(request: Request): ZStream[C, Status, Response] = ???
+    override def unary(request: Request, context: C): IO[Status, Response] = ???
 
-    def clientStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZIO[C, Status, Response] = ???
+    override def serverStreaming(request: Request, context: C): zio.stream.Stream[Status, Response] = ???
 
-    def bidiStreaming(request: zio.stream.ZStream[Any, Status, Request]): ZStream[C, Status, Response] = ???
+    override def clientStreaming(request: zio.stream.Stream[Status, Request], context: C): IO[Status, Response] = ???
+
+    override def bidiStreaming(
+        request: zio.stream.Stream[Status, Request],
+        context: C
+    ): zio.stream.Stream[Status, Response] = ???
+
   }
 
   object S1 extends UnimpTestService[RequestContext]

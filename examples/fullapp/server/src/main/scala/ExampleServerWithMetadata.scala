@@ -54,16 +54,16 @@ object GreeterServiceWithMetadata {
   // Each request gets a User as a context parameter. The service itself
   // depends on a GreetingsRepo service.
   case class GreeterImpl(greetingsRepo: GreetingsRepo) extends ZGreeter[User] {
-    def greet(req: Request): ZIO[User, Status, Response] =
+    def greet(req: Request, user: User): ZIO[Any, Status, Response] =
       for {
-        user <- ZIO.service[User]
         greeting <- greetingsRepo.greetingForUser(user)
       } yield Response(s"${greeting}, req: ${req}")
 
-    def points(request: Request): Stream[Status, Point] = ???
+    def points(request: Request, user: User): Stream[Status, Point] = ???
 
     def bidi(
-        request: Stream[Status, Point]
+        request: Stream[Status, Point],
+        user: User
     ): Stream[Status, Response] = ???
   }
 

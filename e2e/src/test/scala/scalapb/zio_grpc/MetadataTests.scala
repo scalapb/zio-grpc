@@ -15,7 +15,7 @@ trait MetadataTests {
       userName: Option[String]
   ): ZLayer[Server, Nothing, TestServiceClient]
 
-  def clientMetadataLayer: ZLayer[Server, Nothing, TestServiceClientWithMetadata]
+  def clientMetadataLayer: ZLayer[Server, Nothing, TestServiceClientWithResponseMetadata]
 
   val RequestIdKey =
     Metadata.Key.of("request-id", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
@@ -34,13 +34,13 @@ trait MetadataTests {
   val bidiEffect            = TestServiceClient.bidiStreaming(ZStream.empty).runCollect
 
   val unaryEffectWithMd           =
-    ZioTestservice.TestServiceClientWithMetadata.unary(Request())
+    ZioTestservice.TestServiceClientWithResponseMetadata.unary(Request())
   val serverStreamingEffectWithMd =
-    ZioTestservice.TestServiceClientWithMetadata.serverStreaming(Request()).runCollect
+    ZioTestservice.TestServiceClientWithResponseMetadata.serverStreaming(Request()).runCollect
   val clientStreamingEffectWithMd =
-    ZioTestservice.TestServiceClientWithMetadata.clientStreaming(ZStream.empty)
+    ZioTestservice.TestServiceClientWithResponseMetadata.clientStreaming(ZStream.empty)
   val bidiEffectWithMd            =
-    ZioTestservice.TestServiceClientWithMetadata.bidiStreaming(ZStream.empty).runCollect
+    ZioTestservice.TestServiceClientWithResponseMetadata.bidiStreaming(ZStream.empty).runCollect
 
   val properTrailer = Assertion.assertion[Metadata]("trailers") { md =>
     md.containsKey(RequestIdKey) && md.get(RequestIdKey) == "1"

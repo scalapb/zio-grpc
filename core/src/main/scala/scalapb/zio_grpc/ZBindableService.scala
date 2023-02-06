@@ -30,16 +30,22 @@ object ZBindableService {
   )(implicit bs: ZBindableService[S]): UIO[ServerServiceDefinition] =
     bs.bindService(serviceImpl)
 
-  implicit def fromZGeneratedService1[C, S[-_], T](implicit
+  implicit def fromZGeneratedService[C, S[-_], T](implicit
       ev1: T <:< ZGeneratedService[C, S],
       ev2: T <:< S[C],
-      ev3: GenericBindable[S],
+      ev3: GenericBindable[S[RequestContext]],
       ev4: CanBind[C],
-      ev5: TransformableService[S],
       ev6: Tag[C]
   ): ZBindableService[T] =
     new ZBindableService[T] {
       def bindService(s: T): zio.UIO[ServerServiceDefinition] =
-        ev3.bind(ev5.transformContext(s, ev4.bind(_)))
+        ev3.bind(s.transformContext[RequestContext](ev4.bind(_)))
+    }
+
+  implicit def fromGeneratedService[T <: GeneratedService](implicit
+      ev: GenericBindable[T]
+  ): ZBindableService[T] =
+    new ZBindableService[T] {
+      def bindService(serviceImpl: T): UIO[ServerServiceDefinition] = ev.bind(serviceImpl)
     }
 }
