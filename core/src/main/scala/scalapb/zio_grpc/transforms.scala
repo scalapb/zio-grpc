@@ -25,6 +25,12 @@ trait Transform {
       self.stream(io(c))
     }
   }
+
+  def andThen(other: Transform): Transform = new Transform {
+    def effect[A](io: ZIO[Any, Status, A]): ZIO[Any, Status, A] = other.effect(self.effect(io))
+
+    def stream[A](io: ZStream[Any, Status, A]): ZStream[Any, Status, A] = other.stream(self.stream(io))
+  }
 }
 
 object Transform {
@@ -41,8 +47,19 @@ object Transform {
   * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
   */
 trait ZTransform[+ContextIn, -ContextOut] {
+  self =>
   def effect[A](io: ContextIn => ZIO[Any, Status, A]): (ContextOut => ZIO[Any, Status, A])
   def stream[A](io: ContextIn => ZStream[Any, Status, A]): (ContextOut => ZStream[Any, Status, A])
+
+  def andThen[ContextIn2 <: ContextOut, ContextOut2](
+      other: ZTransform[ContextIn2, ContextOut2]
+  ): ZTransform[ContextIn, ContextOut2] = new ZTransform[ContextIn, ContextOut2] {
+    def effect[A](io: ContextIn => ZIO[Any, Status, A]): ContextOut2 => ZIO[Any, Status, A] =
+      other.effect(self.effect(io))
+
+    def stream[A](io: ContextIn => ZStream[Any, Status, A]): ContextOut2 => ZStream[Any, Status, A] =
+      other.stream(self.stream(io))
+  }
 }
 
 object ZTransform {
