@@ -147,7 +147,10 @@ object ZServerCallHandler {
             // ^ otherwise, we wait for the call to be ready and then start again
             outerLoop(Some(xs.drop(i)), queue)
 
-        innerLoop(0 < xs.length, 0)
+        if (xs.isEmpty)
+          takeFromQueue(queue)
+        else
+          innerLoop(true, 0)
       }
 
     def outerLoop(
