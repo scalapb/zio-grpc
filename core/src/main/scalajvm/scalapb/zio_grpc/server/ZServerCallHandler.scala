@@ -137,7 +137,7 @@ object ZServerCallHandler {
                 // still accept elements and we have more elements to send
                 innerLoop(call.call.isReady, i + 1)
             }
-          } else if (call.call.isReady)
+          } else if (loop)
             // ^ if we reached the end of the chunk but the call can still
             // proceed, we pull from the queue and continue
             takeFromQueue(queue)
