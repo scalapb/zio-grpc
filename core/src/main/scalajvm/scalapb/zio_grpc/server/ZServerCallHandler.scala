@@ -145,7 +145,7 @@ object ZServerCallHandler {
             takeFromQueue(queue)
           else
             // ^ otherwise, we wait for the call to be ready and then start again
-            outerLoop(Some(xs.drop(i)), queue)
+            call.awaitReady *> takeFromCache(xs.drop(i), queue)
 
         if (xs.isEmpty)
           takeFromQueue(queue)
@@ -153,19 +153,13 @@ object ZServerCallHandler {
           innerLoop(true, 0)
       }
 
-    def outerLoop(
-        cache: Option[Chunk[Exit[Option[Status], Res]]],
-        queue: Dequeue[Exit[Option[Status], Res]]
-    ): ZIO[Any, Status, Unit] =
-      (call.awaitReady *> cache.fold(takeFromQueue(queue))(takeFromCache(_, queue)))
-
     for {
       queueSize <- backpressureQueueSize
       _         <- ZIO
                      .scoped[Any](
                        stream
                          .toQueueOfElements(queueSize)
-                         .flatMap(outerLoop(None, _).fork.flatMap(_.join))
+                         .flatMap(queue => call.awaitReady *> takeFromQueue(queue))
                      )
     } yield ()
   }
