@@ -120,7 +120,7 @@ object ZServerCallHandler {
     ): ZIO[Any, Status, Unit] =
       ZIO.suspendSucceed {
         @tailrec def innerLoop(loop: Boolean, i: Int): IO[Status, Unit] =
-          if (loop) {
+          if (i < xs.length && loop) {
             xs(i) match {
               case Failure(cause) =>
                 cause.failureOrCause match {
@@ -133,11 +133,9 @@ object ZServerCallHandler {
                 }
               case Success(value) =>
                 call.call.sendMessage(value)
-                // at this point we have consumed i + 1 elements from the chunk
-                val newI = i + 1
                 // the loop iteration may only continue if the call can
                 // still accept elements and we have more elements to send
-                innerLoop(call.call.isReady && newI < xs.length, newI)
+                innerLoop(call.call.isReady, i + 1)
             }
           } else if (call.call.isReady)
             // ^ if we reached the end of the chunk but the call can still
