@@ -250,9 +250,9 @@ class ZioFilePrinter(
         case StreamType.ServerStreaming =>
           s"f.stream($delegate(request))"
         case StreamType.ClientStreaming =>
-          s"""zio.ZIO.fail($Status.INTERNAL.withDescription("Transforming client-side client-streaming calls is not supported"))"""
+          s"f.effect($delegate(request))"
         case StreamType.Bidirectional   =>
-          s"""zio.stream.ZStream.fail($Status.INTERNAL.withDescription("Transforming client-side bidi calls is not supported"))"""
+          s"f.stream($delegate(request))"
       }
       fp.add(
         clientWithResponseMetadataSignature(
@@ -273,9 +273,9 @@ class ZioFilePrinter(
         case StreamType.ServerStreaming =>
           s"f.stream($delegate(request))"
         case StreamType.ClientStreaming =>
-          s"""zio.ZIO.fail($Status.INTERNAL.withDescription("Transforming client-side client-streaming calls is not supported"))"""
+          s"f.effect($delegate(request))"
         case StreamType.Bidirectional   =>
-          s"""zio.stream.ZStream.fail($Status.INTERNAL.withDescription("Transforming client-side bidi calls is not supported"))"""
+          s"f.stream($delegate(request))"
       }
       fp.add(
         clientMethodSignature(
