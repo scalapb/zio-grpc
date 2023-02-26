@@ -30,9 +30,8 @@ object GreeterService {
 
     def bidi(
         request: Stream[Status, Point]
-    ): Stream[Status, Response] = {
+    ): Stream[Status, Response] =
       request.grouped(3).map(r => Response(r.toString()))
-    }
   }
 }
 
