@@ -55,7 +55,7 @@ lazy val core = projectMatrix
   )
   .customRow(
     true,
-    Seq(Scala212, Scala213),
+    ScalaVersions,
     Seq(VirtualAxis.js),
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
       .settings(

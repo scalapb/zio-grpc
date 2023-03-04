@@ -44,6 +44,6 @@ object Settings {
 
   def stdSettings =
     Seq(
-      scalacOptions := stdOptions ++ extraOptions(scalaVersion.value)
+      scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value)
     )
 }
