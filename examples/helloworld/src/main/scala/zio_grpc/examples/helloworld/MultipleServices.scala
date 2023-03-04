@@ -8,7 +8,7 @@ import scalapb.zio_grpc.ServiceList
 import zio._
 import zio.Console._
 
-import io.grpc.examples.helloworld.helloworld.ZioHelloworld.{Welcomer, Greeter}
+import io.grpc.examples.helloworld.helloworld.ZioHelloworld.{Greeter, Welcomer}
 import io.grpc.examples.helloworld.helloworld.{HelloReply, HelloRequest}
 import zio_grpc.examples.helloworld.userdatabase.UserDatabase
 import scalapb.zio_grpc.ServerLayer

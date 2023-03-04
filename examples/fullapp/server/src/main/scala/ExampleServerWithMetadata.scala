@@ -25,7 +25,7 @@ trait UserRepo {
 case class UserRepoImpl() extends UserRepo {
   def findUser(name: String): ZIO[Any, Status, User] = name match {
     case "john" => ZIO.succeed(User("John"))
-    case _ => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+    case _      => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
   }
 }
 
@@ -75,15 +75,14 @@ object GreeterServiceWithMetadata {
   def findUser(userRepo: UserRepo, rc: RequestContext): IO[Status, User] =
     for {
       name <- rc.metadata
-        .get(UserKey)
-        .someOrFail(
-          Status.UNAUTHENTICATED.withDescription("No user-key header provided")
-        )
+                .get(UserKey)
+                .someOrFail(
+                  Status.UNAUTHENTICATED.withDescription("No user-key header provided")
+                )
       user <- userRepo.findUser(name)
     } yield user
 
-  val layer
-      : ZLayer[UserRepo with GreetingsRepo, Nothing, ZGreeter[RequestContext]] =
+  val layer: ZLayer[UserRepo with GreetingsRepo, Nothing, ZGreeter[RequestContext]] =
     ZLayer.fromFunction((userRepo: UserRepo, greetingsRepo: GreetingsRepo) =>
       GreeterImpl(greetingsRepo).transformContextZIO(findUser(userRepo, _))
     )
