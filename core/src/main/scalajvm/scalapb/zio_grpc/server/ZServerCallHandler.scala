@@ -73,7 +73,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusRuntimeException, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req, requestContext).flatMap[Any, StatusRuntimeException, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
@@ -92,7 +93,8 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusRuntimeException, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req, requestContext).flatMap[Any, StatusRuntimeException, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
@@ -108,7 +110,9 @@ object ZServerCallHandler {
       call: ZServerCall[Res],
       stream: ZStream[Any, StatusRuntimeException, Res]
   ): ZIO[Any, StatusRuntimeException, Unit] = {
-    def takeFromQueue(queue: Dequeue[Exit[Option[StatusRuntimeException], Res]]): ZIO[Any, StatusRuntimeException, Unit] =
+    def takeFromQueue(
+        queue: Dequeue[Exit[Option[StatusRuntimeException], Res]]
+    ): ZIO[Any, StatusRuntimeException, Unit] =
       queue.takeAll.flatMap(takeFromCache(_, queue))
 
     def takeFromCache(

@@ -101,7 +101,9 @@ package object server {
               case Scenario.ERROR_NOW =>
                 ZStream.fail(Status.INTERNAL.withDescription("Intentional error").asRuntimeException())
               case _                  =>
-                ZStream.fail(Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}").asRuntimeException())
+                ZStream.fail(
+                  Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}").asRuntimeException()
+                )
             }
           } ++ ZStream(Response("DONE")))
             .ensuring(exit.succeed(Exit.succeed(Response()))))

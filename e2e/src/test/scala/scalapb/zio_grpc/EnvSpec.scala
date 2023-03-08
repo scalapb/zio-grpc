@@ -28,17 +28,17 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
         context: Context
     ): ZStream[Any, StatusRuntimeException, Response] =
       ZStream
-          .fromZIO(
-            for {
-              _ <- context.response.put(RequestIdKey, "1")
-              _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
-            } yield ()
-          )
-          .drain ++
-          ZStream(
-            Response(context.user.name),
-            Response(context.user.name)
-          )
+        .fromZIO(
+          for {
+            _ <- context.response.put(RequestIdKey, "1")
+            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
+          } yield ()
+        )
+        .drain ++
+        ZStream(
+          Response(context.user.name),
+          Response(context.user.name)
+        )
 
     def clientStreaming(
         request: ZStream[Any, StatusRuntimeException, Request],
@@ -53,12 +53,14 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
         request: ZStream[Any, StatusRuntimeException, Request],
         context: Context
     ): ZStream[Any, StatusRuntimeException, Response] =
-        ZStream.fromZIO(
+      ZStream
+        .fromZIO(
           for {
             _ <- context.response.put(RequestIdKey, "1")
             _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
           } yield ()
-        ).drain ++ ZStream(Response(context.user.name))
+        )
+        .drain ++ ZStream(Response(context.user.name))
   }
 
   val UserKey =

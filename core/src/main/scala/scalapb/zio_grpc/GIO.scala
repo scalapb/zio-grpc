@@ -1,7 +1,7 @@
 package scalapb.zio_grpc
 
 import io.grpc.{Status, StatusRuntimeException}
-import zio.{Task, ZIO, IO}
+import zio.{IO, Task, ZIO}
 
 object GIO {
   def fromTask[A](task: Task[A]): IO[StatusRuntimeException, A] =

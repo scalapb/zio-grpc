@@ -22,7 +22,10 @@ object BindableServiceSpec extends ZIOSpecDefault {
 
     override def serverStreaming(request: Request, context: C): Stream[StatusRuntimeException, Response] = ???
 
-    override def clientStreaming(request: Stream[StatusRuntimeException, Request], context: C): IO[StatusRuntimeException, Response] = ???
+    override def clientStreaming(
+        request: Stream[StatusRuntimeException, Request],
+        context: C
+    ): IO[StatusRuntimeException, Response] = ???
 
     override def bidiStreaming(
         request: zio.stream.Stream[StatusRuntimeException, Request],
