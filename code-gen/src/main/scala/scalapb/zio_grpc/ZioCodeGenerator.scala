@@ -61,7 +61,7 @@ class ZioFilePrinter(
   val ClientCalls         = "scalapb.zio_grpc.client.ClientCalls"
   val Duration            = "zio.Duration"
   val SafeMetadata        = "scalapb.zio_grpc.SafeMetadata"
-  val StatusException     = "io.grpc.StatusException"
+  val StatusRuntimeException     = "io.grpc.StatusRuntimeException"
   val Deadline            = "io.grpc.Deadline"
   val methodDescriptor    = "io.grpc.MethodDescriptor"
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
@@ -673,13 +673,13 @@ class ZioFilePrinter(
 
   def stream(res: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.stream.Stream[$StatusException, $res]"
-      case r     => s"_root_.zio.stream.ZStream[$r, $StatusException, $res]"
+      case "Any" => s"_root_.zio.stream.Stream[$StatusRuntimeException, $res]"
+      case r     => s"_root_.zio.stream.ZStream[$r, $StatusRuntimeException, $res]"
     }
 
   def io(res: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.IO[$StatusException, $res]"
-      case r     => s"_root_.zio.ZIO[$r, $StatusException, $res]"
+      case "Any" => s"_root_.zio.IO[$StatusRuntimeException, $res]"
+      case r     => s"_root_.zio.ZIO[$r, $StatusRuntimeException, $res]"
     }
 }

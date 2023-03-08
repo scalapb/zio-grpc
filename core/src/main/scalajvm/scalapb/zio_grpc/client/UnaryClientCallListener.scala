@@ -1,7 +1,7 @@
 package scalapb.zio_grpc.client
 
 import zio.{IO, Promise, Ref, Runtime, Unsafe}
-import io.grpc.{ClientCall, Metadata, Status, StatusException}
+import io.grpc.{ClientCall, Metadata, Status, StatusRuntimeException}
 import UnaryCallState._
 import scalapb.zio_grpc.ResponseContext
 
@@ -20,7 +20,7 @@ object UnaryCallState {
 class UnaryClientCallListener[Res](
     runtime: Runtime[Any],
     state: Ref[UnaryCallState[Res]],
-    promise: Promise[StatusException, ResponseContext[Res]]
+    promise: Promise[StatusRuntimeException, ResponseContext[Res]]
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
@@ -58,18 +58,18 @@ class UnaryClientCallListener[Res](
         .run {
           for {
             s <- state.get
-            _ <- if (!status.isOk) promise.fail(new StatusException(status, trailers))
+            _ <- if (!status.isOk) promise.fail(new StatusRuntimeException(status, trailers))
                  else
                    s match {
                      case ResponseReceived(headers, message) =>
                        promise.succeed(ResponseContext(headers, message, trailers))
                      case Failure(errorMessage)              =>
                        promise.fail(
-                         Status.INTERNAL.withDescription(errorMessage).asException()
+                         Status.INTERNAL.withDescription(errorMessage).asRuntimeException()
                        )
                      case _                                  =>
                        promise.fail(
-                         Status.INTERNAL.withDescription("No data received").asException()
+                         Status.INTERNAL.withDescription("No data received").asRuntimeException()
                        )
                    }
           } yield ()
@@ -77,7 +77,7 @@ class UnaryClientCallListener[Res](
         .getOrThrowFiberFailure()
     }
 
-  def getValue: IO[StatusException, ResponseContext[Res]] = promise.await
+  def getValue: IO[StatusRuntimeException, ResponseContext[Res]] = promise.await
 }
 
 object UnaryClientCallListener {
@@ -85,6 +85,6 @@ object UnaryClientCallListener {
     for {
       runtime <- zio.ZIO.runtime[Any]
       state   <- Ref.make[UnaryCallState[Res]](Initial)
-      promise <- Promise.make[StatusException, ResponseContext[Res]]
+      promise <- Promise.make[StatusRuntimeException, ResponseContext[Res]]
     } yield new UnaryClientCallListener[Res](runtime, state, promise)
 }

@@ -1,13 +1,13 @@
 package scalapb.zio_grpc.server
 
 import io.grpc.ServerCall.Listener
-import io.grpc.{Metadata, Status, StatusException}
+import io.grpc.{Metadata, Status, StatusRuntimeException}
 import zio._
 import zio.stream.{Stream, ZStream}
 import scalapb.zio_grpc.RequestContext
 
 object ListenerDriver {
-  def exitToStatus(ex: Exit[StatusException, Unit]): Status =
+  def exitToStatus(ex: Exit[StatusRuntimeException, Unit]): Status =
     ex.foldExit(
       failed = { cause =>
         if (cause.isInterruptedOnly) Status.CANCELLED
@@ -19,10 +19,10 @@ object ListenerDriver {
   def unaryInputListener[Req](
       runtime: Runtime[Any],
       call: ZServerCall[_],
-      completed: Promise[StatusException, Unit],
+      completed: Promise[StatusRuntimeException, Unit],
       request: Promise[Nothing, Req],
       requestContext: RequestContext,
-      writeResponse: Req => ZIO[Any, StatusException, Unit]
+      writeResponse: Req => ZIO[Any, StatusRuntimeException, Unit]
   ): ZIO[Any, Nothing, Listener[Req]] =
     (
       call.request(2) *>
@@ -55,7 +55,7 @@ object ListenerDriver {
                   request.succeed(message).flatMap {
                     case false =>
                       completed
-                        .fail(Status.INTERNAL.withDescription("Too many requests").asException())
+                        .fail(Status.INTERNAL.withDescription("Too many requests").asRuntimeException())
                         .unit
                     case true  =>
                       ZIO.unit
@@ -82,14 +82,14 @@ object ListenerDriver {
           Req,
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[Any, StatusException, Unit],
+      ) => ZIO[Any, StatusRuntimeException, Unit],
       runtime: Runtime[Any]
   )(
       zioCall: ZServerCall[Res],
       requestContext: RequestContext
   ): ZIO[Any, Nothing, Listener[Req]] =
     for {
-      completed <- Promise.make[StatusException, Unit]
+      completed <- Promise.make[StatusRuntimeException, Unit]
       request   <- Promise.make[Nothing, Req]
       listener  <- unaryInputListener(
                      runtime,
@@ -106,7 +106,7 @@ object ListenerDriver {
       call: ZServerCall[Res],
       queue: Queue[Option[Req]],
       requestContext: RequestContext,
-      writeResponse: Stream[StatusException, Req] => ZIO[Any, StatusException, Unit]
+      writeResponse: Stream[StatusRuntimeException, Req] => ZIO[Any, StatusRuntimeException, Unit]
   ): ZIO[Any, Nothing, Listener[Req]] = {
     val requestStream = ZStream
       .fromQueue(queue)
@@ -155,10 +155,10 @@ object ListenerDriver {
     */
   def makeStreamingInputListener[Req, Res](
       writeResponse: (
-          Stream[StatusException, Req],
+          Stream[StatusRuntimeException, Req],
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[Any, StatusException, Unit]
+      ) => ZIO[Any, StatusRuntimeException, Unit]
   )(
       zioCall: ZServerCall[Res],
       requestContext: RequestContext
