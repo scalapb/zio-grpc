@@ -97,7 +97,7 @@ object ZServerCallHandler {
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: (Stream[Status, Req], RequestContext) => ZStream[Any, StatusException, Res]
+      impl: (Stream[StatusException, Req], RequestContext) => ZStream[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
