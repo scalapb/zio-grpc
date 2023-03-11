@@ -174,4 +174,4 @@ val myAppLogic = for {
 // myAppLogic: ZIO[Any with Any, Throwable, Response] = zio.ZIO$FlatMap@1a4cd330
 ```
 
-Since the service acquistion (through the ZManaged) can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.
+Since the service acquistion (through the ZManaged) can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusException`. This way, the resulting effect can fail with a `Throwable`.

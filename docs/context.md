@@ -16,12 +16,12 @@ import zio.Console.printLine
 import scalapb.zio_grpc.RequestContext
 import myexample.testservice.ZioTestservice.ZSimpleService
 import myexample.testservice.{Request, Response}
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.{Status, StatusException}
 
 case class User(name: String)
 
 object MyService extends ZSimpleService[User] {
-  def sayHello(req: Request, user: User): ZIO[Any, StatusRuntimeException, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, StatusException, Response] =
     for {
       _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
@@ -59,7 +59,7 @@ import scalapb.zio_grpc.{ServiceList, ServerMain}
 val UserKey = io.grpc.Metadata.Key.of(
   "user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-def findUser(rc: RequestContext): IO[StatusRuntimeException, User] =
+def findUser(rc: RequestContext): IO[StatusException, User] =
   rc.metadata.get(UserKey).flatMap {
     case Some(name) => ZIO.succeed(User(name))
     case _          => ZIO.fail(
@@ -82,13 +82,13 @@ a `fetchUser` effect that retrieves users from a database. Here is how you can d
 
 ```scala mdoc
 trait UserDatabase {
-  def fetchUser(name: String): IO[StatusRuntimeException, User]
+  def fetchUser(name: String): IO[StatusException, User]
 }
 
 object UserDatabase {
   val layer = zio.ZLayer.succeed(
     new UserDatabase {
-      def fetchUser(name: String): IO[StatusRuntimeException, User] =
+      def fetchUser(name: String): IO[StatusException, User] =
         ZIO.succeed(User(name))
     })
 }
@@ -194,7 +194,7 @@ trait DepB {
 }
 
 case class MyService2(depA: DepA, depB: DepB) extends ZSimpleService[User] {
-  def sayHello(req: Request, user: User): ZIO[Any, StatusRuntimeException, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, StatusException, Response] =
     for {
       num1 <- depA.methodA(user.name)
       num2 <- depB.methodB(12.3f)

@@ -3,7 +3,7 @@ package scalapb.zio_grpc
 import scalapb.zio_grpc.testservice.Request
 import zio.{Clock, Console, Exit, Promise, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.{Status, StatusException}
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.stream.{Stream, ZStream}
 import zio.ZEnvironment
@@ -19,10 +19,10 @@ package object server {
     class Service(
         requestReceived: zio.Promise[Nothing, Unit],
         delayReceived: zio.Promise[Nothing, Unit],
-        exit: zio.Promise[Nothing, Exit[StatusRuntimeException, Response]]
+        exit: zio.Promise[Nothing, Exit[StatusException, Response]]
     )(clock: Clock, console: Console)
         extends testservice.ZioTestservice.TestService {
-      def unary(request: Request): ZIO[Any, StatusRuntimeException, Response] =
+      def unary(request: Request): ZIO[Any, StatusException, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK        =>
             ZIO.succeed(
@@ -37,7 +37,7 @@ package object server {
 
       def serverStreaming(
           request: Request
-      ): ZStream[Any, StatusRuntimeException, Response] =
+      ): ZStream[Any, StatusException, Response] =
         ZStream
           .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
             ex.foldExit(
@@ -70,8 +70,8 @@ package object server {
           }
 
       def clientStreaming(
-          request: Stream[StatusRuntimeException, Request]
-      ): ZIO[Any, StatusRuntimeException, Response] =
+          request: Stream[StatusException, Request]
+      ): ZIO[Any, StatusException, Response] =
         requestReceived.succeed(()) *>
           request
             .runFoldZIO(0)((state, req) =>
@@ -88,8 +88,8 @@ package object server {
             .onExit(exit.succeed(_))
 
       def bidiStreaming(
-          request: Stream[StatusRuntimeException, Request]
-      ): Stream[StatusRuntimeException, Response] =
+          request: Stream[StatusException, Request]
+      ): Stream[StatusException, Response] =
         (ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
@@ -123,7 +123,7 @@ package object server {
       for {
         p1 <- Promise.make[Nothing, Unit]
         p2 <- Promise.make[Nothing, Unit]
-        p3 <- Promise.make[Nothing, Exit[StatusRuntimeException, Response]]
+        p3 <- Promise.make[Nothing, Exit[StatusException, Response]]
       } yield new Service(p1, p2, p3)(clock, console)
 
     def makeFromEnv: ZIO[Any, Nothing, Service] =
@@ -144,7 +144,7 @@ package object server {
     def awaitDelayReceived: ZIO[TestServiceImpl, Nothing, Unit] =
       ZIO.environmentWithZIO(_.get.awaitDelayReceived)
 
-    def awaitExit: ZIO[TestServiceImpl, Nothing, Exit[StatusRuntimeException, Response]] =
+    def awaitExit: ZIO[TestServiceImpl, Nothing, Exit[StatusException, Response]] =
       ZIO.environmentWithZIO(_.get.awaitExit)
   }
 }

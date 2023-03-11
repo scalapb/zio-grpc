@@ -20,7 +20,7 @@ Inside the object, for each service `MyService` that is defined in a `.proto` fi
 trait MyService {
   // methods for each RPC
   def sayHello(request: HelloRequest):
-    ZIO[Any, StatusRuntimeException, HelloReply]
+    ZIO[Any, StatusException, HelloReply]
 }
 ```
 
@@ -31,7 +31,7 @@ type parameter `Context`. The `Context` type parameter represents any domain obj
 
 ```scala
 object MyServiceImpl extends MyService {
-  def sayHello(request: HelloRequest): ZIO[Any, StatusRuntimeException, HelloReply] = ???
+  def sayHello(request: HelloRequest): ZIO[Any, StatusException, HelloReply] = ???
 }
 ```
 
@@ -67,13 +67,13 @@ object ServiceNameClient {
   trait ZService[Context] {
     // methods for use as a client
     def sayHello(request: HelloRequest):
-      ZIO[Context, StatusRuntimeException, HelloReply]
+      ZIO[Context, StatusException, HelloReply]
   }
   type Service = ZService[Any]
 
   // accessor methods
   def sayHello(request: HelloRequest):
-    ZIO[ServiceNameClient, StatusRuntimeException, HelloReply]
+    ZIO[ServiceNameClient, StatusException, HelloReply]
 
   def scoped[R](
       managedChannel: ZManagedChannel,
