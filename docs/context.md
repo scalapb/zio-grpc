@@ -63,7 +63,7 @@ def findUser(rc: RequestContext): IO[StatusException, User] =
   rc.metadata.get(UserKey).flatMap {
     case Some(name) => ZIO.succeed(User(name))
     case _          => ZIO.fail(
-      Status.UNAUTHENTICATED.withDescription("No access!").asRuntimeException)
+      Status.UNAUTHENTICATED.withDescription("No access!").asException)
   }
 
 val rcService =
@@ -105,7 +105,7 @@ val myServiceAuthWithDatabase: ZIO[UserDatabase, Nothing, ZSimpleService[Request
       MyService.transformContextZIO {
         (rc: RequestContext) =>
             rc.metadata.get(UserKey)
-            .someOrFail(Status.UNAUTHENTICATED.asRuntimeException)
+            .someOrFail(Status.UNAUTHENTICATED.asException)
             .flatMap(userDatabase.fetchUser(_))
       }
   )

@@ -296,7 +296,7 @@ object TestServiceSpec extends ZIOSpecDefault {
                                    ZStream(
                                      Request(Scenario.OK, in = 17)
                                    ) ++ ZStream.fromZIO(testServiceImpl.get.awaitReceived).drain
-                                     ++ ZStream.fail(Status.CANCELLED.asRuntimeException())
+                                     ++ ZStream.fail(Status.CANCELLED.asException())
                                  )
                                ).fork
             _               <- testServiceImpl.get.awaitExit

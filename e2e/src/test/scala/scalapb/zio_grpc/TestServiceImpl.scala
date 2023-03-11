@@ -29,10 +29,10 @@ package object server {
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>
-            ZIO.fail(Status.INTERNAL.withDescription("FOO!").asRuntimeException())
+            ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException())
           case Scenario.DELAY     => ZIO.never
           case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
-          case _                  => ZIO.fail(Status.UNKNOWN.asRuntimeException())
+          case _                  => ZIO.fail(Status.UNKNOWN.asException())
         })).onExit(exit.succeed(_))
 
       def serverStreaming(
@@ -43,8 +43,8 @@ package object server {
             ex.foldExit(
               failed =>
                 if (failed.isInterrupted || failed.isInterruptedOnly)
-                  exit.succeed(Exit.fail(Status.CANCELLED.asRuntimeException()))
-                else exit.succeed(Exit.fail(Status.UNKNOWN.asRuntimeException())),
+                  exit.succeed(Exit.fail(Status.CANCELLED.asException()))
+                else exit.succeed(Exit.fail(Status.UNKNOWN.asException())),
               _ => exit.succeed(Exit.succeed(Response()))
             )
           }
@@ -53,11 +53,11 @@ package object server {
               case Scenario.OK          =>
                 ZStream(Response(out = "X1"), Response(out = "X2"))
               case Scenario.ERROR_NOW   =>
-                ZStream.fail(Status.INTERNAL.withDescription("FOO!").asRuntimeException())
+                ZStream.fail(Status.INTERNAL.withDescription("FOO!").asException())
               case Scenario.ERROR_AFTER =>
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
-                    Status.INTERNAL.withDescription("FOO!").asRuntimeException()
+                    Status.INTERNAL.withDescription("FOO!").asException()
                   )
               case Scenario.DELAY       =>
                 ZStream(
@@ -65,7 +65,7 @@ package object server {
                   Response(out = "X2")
                 ) ++ ZStream.never
               case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
-              case _                    => ZStream.fail(Status.UNKNOWN.asRuntimeException())
+              case _                    => ZStream.fail(Status.UNKNOWN.asException())
             }
           }
 
@@ -80,8 +80,8 @@ package object server {
                 case Scenario.DELAY     => delayReceived.succeed(()) *> ZIO.never
                 case Scenario.DIE       => ZIO.die(new RuntimeException("foo"))
                 case Scenario.ERROR_NOW =>
-                  ZIO.fail((Status.INTERNAL.withDescription("InternalError").asRuntimeException()))
-                case _: Scenario        => ZIO.fail(Status.UNKNOWN.asRuntimeException())
+                  ZIO.fail((Status.INTERNAL.withDescription("InternalError").asException()))
+                case _: Scenario        => ZIO.fail(Status.UNKNOWN.asException())
               }
             )
             .map(r => Response(r.toString))
@@ -99,10 +99,10 @@ package object server {
               case Scenario.DELAY     => ZStream.never
               case Scenario.DIE       => ZStream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
-                ZStream.fail(Status.INTERNAL.withDescription("Intentional error").asRuntimeException())
+                ZStream.fail(Status.INTERNAL.withDescription("Intentional error").asException())
               case _                  =>
                 ZStream.fail(
-                  Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}").asRuntimeException()
+                  Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}").asException()
                 )
             }
           } ++ ZStream(Response("DONE")))

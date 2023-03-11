@@ -65,11 +65,11 @@ class UnaryClientCallListener[Res](
                        promise.succeed(ResponseContext(headers, message, trailers))
                      case Failure(errorMessage)              =>
                        promise.fail(
-                         Status.INTERNAL.withDescription(errorMessage).asRuntimeException()
+                         Status.INTERNAL.withDescription(errorMessage).asException()
                        )
                      case _                                  =>
                        promise.fail(
-                         Status.INTERNAL.withDescription("No data received").asRuntimeException()
+                         Status.INTERNAL.withDescription("No data received").asException()
                        )
                    }
           } yield ()

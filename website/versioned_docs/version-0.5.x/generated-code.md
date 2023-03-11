@@ -168,7 +168,7 @@ val clientManaged = ServiceNameClient.managed(channel)
 val myAppLogic = for {
   res <- clientManaged.use(
     client =>
-      client.unary(Request()).mapError(_.asRuntimeException)
+      client.unary(Request()).mapError(_.asException)
   )
 } yield res
 // myAppLogic: ZIO[Any with Any, Throwable, Response] = zio.ZIO$FlatMap@1a4cd330

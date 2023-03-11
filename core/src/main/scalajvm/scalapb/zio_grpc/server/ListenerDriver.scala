@@ -55,7 +55,7 @@ object ListenerDriver {
                   request.succeed(message).flatMap {
                     case false =>
                       completed
-                        .fail(Status.INTERNAL.withDescription("Too many requests").asRuntimeException())
+                        .fail(Status.INTERNAL.withDescription("Too many requests").asException())
                         .unit
                     case true  =>
                       ZIO.unit

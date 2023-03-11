@@ -20,7 +20,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
     def unary(request: Request, context: Context): ZIO[Any, StatusException, Response] =
       for {
         _ <- context.response.put(RequestIdKey, "1")
-        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
+        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
       } yield Response(context.user.name)
 
     def serverStreaming(
@@ -31,7 +31,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
         .fromZIO(
           for {
             _ <- context.response.put(RequestIdKey, "1")
-            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
+            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
           } yield ()
         )
         .drain ++
@@ -46,7 +46,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
     ): ZIO[Any, StatusException, Response] =
       for {
         _ <- context.response.put(RequestIdKey, "1")
-        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
+        _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
       } yield Response(context.user.name)
 
     def bidiStreaming(
@@ -57,7 +57,7 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
         .fromZIO(
           for {
             _ <- context.response.put(RequestIdKey, "1")
-            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asRuntimeException()).when(context.user.name == "Eve")
+            _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
           } yield ()
         )
         .drain ++ ZStream(Response(context.user.name))
@@ -70,10 +70,10 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
     rc.metadata.get(UserKey).flatMap {
       case Some("alice") =>
         ZIO.fail(
-          Status.PERMISSION_DENIED.withDescription("You are not allowed!").asRuntimeException()
+          Status.PERMISSION_DENIED.withDescription("You are not allowed!").asException()
         )
       case Some(name)    => ZIO.succeed(Context(User(name), rc.responseMetadata))
-      case None          => ZIO.fail(Status.UNAUTHENTICATED.asRuntimeException())
+      case None          => ZIO.fail(Status.UNAUTHENTICATED.asException())
     }
 
   val serviceLayer = ZLayer.succeed(ServiceWithConsole.transformContextZIO(parseUser(_)))

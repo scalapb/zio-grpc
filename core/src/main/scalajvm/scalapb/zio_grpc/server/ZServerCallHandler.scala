@@ -45,7 +45,7 @@ object ZServerCallHandler {
       .attempt(sys.props.get(queueSizeProp).map(_.toInt).getOrElse(16))
       .refineToOrDie[NumberFormatException]
       .catchAll { t =>
-        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}").asRuntimeException())
+        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}").asException())
       }
 
   def unaryInput[Req, Res](

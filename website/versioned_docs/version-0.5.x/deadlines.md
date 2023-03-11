@@ -99,7 +99,7 @@ val myAppLogic = for {
   res <- clientManaged.use(
     client =>
       client.withTimeoutMillis(3000).unary(Request())
-            .mapError(_.asRuntimeException)
+            .mapError(_.asException)
   )
 } yield res
 // myAppLogic: ZIO[Any with Any, Throwable, Response] = zio.ZIO$FlatMap@2be1bc9f
