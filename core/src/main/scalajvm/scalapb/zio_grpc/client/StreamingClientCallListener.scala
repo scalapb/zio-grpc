@@ -1,8 +1,7 @@
 package scalapb.zio_grpc.client
 
 import scalapb.zio_grpc.ResponseFrame
-import io.grpc.ClientCall
-import io.grpc.{Metadata, Status}
+import io.grpc.{ClientCall, Metadata, Status, StatusRuntimeException}
 import zio.stream.ZStream
 import zio._
 
@@ -33,12 +32,13 @@ class StreamingClientCallListener[Res](
       runtime.unsafe.run(queue.offer(ResponseFrame.Trailers(status, trailers)).unit).getOrThrowFiberFailure()
     }
 
-  def stream: ZStream[Any, Status, ResponseFrame[Res]] =
+  def stream: ZStream[Any, StatusRuntimeException, ResponseFrame[Res]] =
     ZStream
       .fromQueue(queue)
       .tap {
-        case ResponseFrame.Trailers(status, _) => queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(status))
-        case _                                 => ZIO.unit
+        case ResponseFrame.Trailers(status, trailers) =>
+          queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(new StatusRuntimeException(status, trailers)))
+        case _                                        => ZIO.unit
       }
 }
 

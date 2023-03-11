@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import io.grpc.inprocess.InProcessServerBuilder
 import scalapb.zio_grpc.testservice.Request
 import scalapb.zio_grpc.testservice.Response
@@ -31,15 +31,15 @@ object BackpressureSpec extends ZIOSpecDefault {
       new ZioTestservice.TestService {
         val responses = ZStream.iterate(0)(_ + 1).map(i => Response(i.toString)).take(100)
 
-        def bidiStreaming(request: zio.stream.Stream[Status, Request]): ZStream[Any with Any, Status, Response] =
+        def bidiStreaming(request: zio.stream.Stream[StatusRuntimeException, Request]): ZStream[Any with Any, StatusRuntimeException, Response] =
           request.drain ++ responses
 
-        def serverStreaming(request: Request): ZStream[Any with Any, Status, Response] =
+        def serverStreaming(request: Request): ZStream[Any with Any, StatusRuntimeException, Response] =
           responses
 
-        def clientStreaming(request: zio.stream.Stream[Status, Request]): ZIO[Any with Any, Status, Response] = ???
+        def clientStreaming(request: zio.stream.Stream[StatusRuntimeException, Request]): ZIO[Any with Any, StatusRuntimeException, Response] = ???
 
-        def unary(request: Request): ZIO[Any with Any, Status, Response] = ???
+        def unary(request: Request): ZIO[Any with Any, StatusRuntimeException, Response] = ???
       }
     }
 

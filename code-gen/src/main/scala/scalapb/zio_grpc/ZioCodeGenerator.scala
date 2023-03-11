@@ -56,23 +56,23 @@ class ZioFilePrinter(
 ) {
   import implicits._
 
-  val Channel             = "io.grpc.Channel"
-  val CallOptions         = "io.grpc.CallOptions"
-  val ClientCalls         = "scalapb.zio_grpc.client.ClientCalls"
-  val Duration            = "zio.Duration"
-  val SafeMetadata        = "scalapb.zio_grpc.SafeMetadata"
-  val Status              = "io.grpc.Status"
-  val Deadline            = "io.grpc.Deadline"
-  val methodDescriptor    = "io.grpc.MethodDescriptor"
-  val RequestContext      = "scalapb.zio_grpc.RequestContext"
-  val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
-  val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
-  val ZChannel            = "scalapb.zio_grpc.ZChannel"
-  val ZTransform          = "scalapb.zio_grpc.ZTransform"
-  val Transform           = "scalapb.zio_grpc.Transform"
-  val Nanos               = "java.util.concurrent.TimeUnit.NANOSECONDS"
-  val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
-  private val OuterObject =
+  val Channel                = "io.grpc.Channel"
+  val CallOptions            = "io.grpc.CallOptions"
+  val ClientCalls            = "scalapb.zio_grpc.client.ClientCalls"
+  val Duration               = "zio.Duration"
+  val SafeMetadata           = "scalapb.zio_grpc.SafeMetadata"
+  val StatusRuntimeException = "io.grpc.StatusRuntimeException"
+  val Deadline               = "io.grpc.Deadline"
+  val methodDescriptor       = "io.grpc.MethodDescriptor"
+  val RequestContext         = "scalapb.zio_grpc.RequestContext"
+  val ZClientCall            = "scalapb.zio_grpc.client.ZClientCall"
+  val ZManagedChannel        = "scalapb.zio_grpc.ZManagedChannel"
+  val ZChannel               = "scalapb.zio_grpc.ZChannel"
+  val ZTransform             = "scalapb.zio_grpc.ZTransform"
+  val Transform              = "scalapb.zio_grpc.Transform"
+  val Nanos                  = "java.util.concurrent.TimeUnit.NANOSECONDS"
+  val serverServiceDef       = "_root_.io.grpc.ServerServiceDefinition"
+  private val OuterObject    =
     file.scalaPackage / s"Zio${NameUtils.snakeCaseToCamelCase(baseName(file.getName), true)}"
 
   def scalaFileName =
@@ -673,13 +673,13 @@ class ZioFilePrinter(
 
   def stream(res: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.stream.Stream[$Status, $res]"
-      case r     => s"_root_.zio.stream.ZStream[$r, $Status, $res]"
+      case "Any" => s"_root_.zio.stream.Stream[$StatusRuntimeException, $res]"
+      case r     => s"_root_.zio.stream.ZStream[$r, $StatusRuntimeException, $res]"
     }
 
   def io(res: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.IO[$Status, $res]"
-      case r     => s"_root_.zio.ZIO[$r, $Status, $res]"
+      case "Any" => s"_root_.zio.IO[$StatusRuntimeException, $res]"
+      case r     => s"_root_.zio.ZIO[$r, $StatusRuntimeException, $res]"
     }
 }

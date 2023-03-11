@@ -3,11 +3,12 @@ package scalapb.zio_grpc
 import scalapb.zio_grpc.testservice.ZioTestservice.TestService
 import scalapb.zio_grpc.testservice.ZioTestservice.ZTestService
 import zio.ZIO
-import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import scalapb.zio_grpc.testservice.{Request, Response}
 import io.grpc.ServerBuilder
 import zio.test._
 import zio.IO
+import zio.stream.Stream
 
 object BindableServiceSpec extends ZIOSpecDefault {
   implicitly[ZBindableService[ZTestService[RequestContext]]]
@@ -17,16 +18,19 @@ object BindableServiceSpec extends ZIOSpecDefault {
 
   class UnimpTestService[C] extends ZTestService[C] {
 
-    override def unary(request: Request, context: C): IO[Status, Response] = ???
+    override def unary(request: Request, context: C): IO[StatusRuntimeException, Response] = ???
 
-    override def serverStreaming(request: Request, context: C): zio.stream.Stream[Status, Response] = ???
+    override def serverStreaming(request: Request, context: C): Stream[StatusRuntimeException, Response] = ???
 
-    override def clientStreaming(request: zio.stream.Stream[Status, Request], context: C): IO[Status, Response] = ???
+    override def clientStreaming(
+        request: Stream[StatusRuntimeException, Request],
+        context: C
+    ): IO[StatusRuntimeException, Response] = ???
 
     override def bidiStreaming(
-        request: zio.stream.Stream[Status, Request],
+        request: zio.stream.Stream[StatusRuntimeException, Request],
         context: C
-    ): zio.stream.Stream[Status, Response] = ???
+    ): Stream[StatusRuntimeException, Response] = ???
 
   }
 

@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status}
+import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status, StatusRuntimeException}
 import scalapb.zio_grpc.TestUtils._
 import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
@@ -228,7 +228,7 @@ object TestServiceSpec extends ZIOSpecDefault {
   case class BidiFixture[Req, Res](
       in: Queue[Res],
       out: Queue[Option[Req]],
-      fiber: Fiber[Status, Unit]
+      fiber: Fiber[StatusRuntimeException, Unit]
   ) {
     def send(r: Req) = out.offer(Some(r))
 
@@ -239,7 +239,7 @@ object TestServiceSpec extends ZIOSpecDefault {
 
   object BidiFixture {
     def apply[R, Req, Res](
-        call: Stream[Status, Req] => ZStream[R, Status, Res]
+        call: Stream[StatusRuntimeException, Req] => ZStream[R, StatusRuntimeException, Res]
     ): zio.URIO[R, BidiFixture[Req, Res]] =
       for {
         in    <- Queue.unbounded[Res]
@@ -296,7 +296,7 @@ object TestServiceSpec extends ZIOSpecDefault {
                                    ZStream(
                                      Request(Scenario.OK, in = 17)
                                    ) ++ ZStream.fromZIO(testServiceImpl.get.awaitReceived).drain
-                                     ++ ZStream.fail(Status.CANCELLED)
+                                     ++ ZStream.fail(Status.CANCELLED.asRuntimeException())
                                  )
                                ).fork
             _               <- testServiceImpl.get.awaitExit

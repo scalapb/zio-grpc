@@ -17,11 +17,11 @@ object ListenerDriverSpec extends ZIOSpecDefault {
           for {
             delay <- nextIntBetween(100, 200)
             _     <- ClockLive.sleep(delay.milliseconds)
-            _     <- ZIO.fail(Status.INVALID_ARGUMENT.withDescription(s"i=$i"))
+            _     <- ZIO.fail(Status.INVALID_ARGUMENT.withDescription(s"i=$i").asRuntimeException())
           } yield ()
         )
         .withParallelism(128)
-      assertZIO(effectWithInterruptAndFailure.exit map ListenerDriver.exitToStatus)(
+      assertZIO(effectWithInterruptAndFailure.exit.map(ListenerDriver.exitToStatus(_).asRuntimeException()))(
         hasStatusCode(Status.INVALID_ARGUMENT)
       )
     }

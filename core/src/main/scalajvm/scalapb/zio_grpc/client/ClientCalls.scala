@@ -1,6 +1,6 @@
 package scalapb.zio_grpc.client
 
-import io.grpc.{CallOptions, MethodDescriptor, Status}
+import io.grpc.{CallOptions, MethodDescriptor, StatusRuntimeException}
 import scalapb.zio_grpc.{ResponseContext, ResponseFrame, SafeMetadata, ZChannel}
 import zio.stream.ZStream
 import zio.{Exit, IO, ZIO}
@@ -12,7 +12,7 @@ object ClientCalls {
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
         req: Req
-    ): IO[Status, ResponseContext[Res]] =
+    ): IO[StatusRuntimeException, ResponseContext[Res]] =
       ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
         call.start(listener, headers) *>
           call.request(1) *>
@@ -27,7 +27,7 @@ object ClientCalls {
         options: CallOptions,
         headers: SafeMetadata,
         req: Req
-    ): IO[Status, ResponseContext[Res]] =
+    ): IO[StatusRuntimeException, ResponseContext[Res]] =
       channel
         .newCall(method, options)
         .flatMap(unaryCall(_, headers, req))
@@ -36,7 +36,7 @@ object ClientCalls {
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
         req: Req
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
+    ): ZStream[Any, StatusRuntimeException, ResponseFrame[Res]] =
       ZStream
         .acquireReleaseExitWith(
           StreamingClientCallListener.make[Res](call)
@@ -58,7 +58,7 @@ object ClientCalls {
         options: CallOptions,
         headers: SafeMetadata,
         req: Req
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
+    ): ZStream[Any, StatusRuntimeException, ResponseFrame[Res]] =
       ZStream
         .fromZIO(channel.newCall(method, options))
         .flatMap(serverStreamingCall(_, headers, req))
@@ -66,8 +66,8 @@ object ClientCalls {
     private def clientStreamingCall[Req, Res](
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): IO[Status, ResponseContext[Res]] =
+        req: ZStream[Any, StatusRuntimeException, Req]
+    ): IO[StatusRuntimeException, ResponseContext[Res]] =
       ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
         val callStream   = req.tap(call.sendMessage).drain ++ ZStream.fromZIO(call.halfClose()).drain
         val resultStream = ZStream.fromZIO(listener.getValue)
@@ -85,8 +85,8 @@ object ClientCalls {
         method: MethodDescriptor[Req, Res],
         options: CallOptions,
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): IO[Status, ResponseContext[Res]] =
+        req: ZStream[Any, StatusRuntimeException, Req]
+    ): IO[StatusRuntimeException, ResponseContext[Res]] =
       channel
         .newCall(method, options)
         .flatMap(
@@ -100,8 +100,8 @@ object ClientCalls {
     private def bidiCall[Req, Res](
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
+        req: ZStream[Any, StatusRuntimeException, Req]
+    ): ZStream[Any, StatusRuntimeException, ResponseFrame[Res]] =
       ZStream
         .acquireReleaseExitWith(
           StreamingClientCallListener.make[Res](call)
@@ -123,8 +123,8 @@ object ClientCalls {
         method: MethodDescriptor[Req, Res],
         options: CallOptions,
         headers: SafeMetadata,
-        req: ZStream[Any, Status, Req]
-    ): ZStream[Any, Status, ResponseFrame[Res]] =
+        req: ZStream[Any, StatusRuntimeException, Req]
+    ): ZStream[Any, StatusRuntimeException, ResponseFrame[Res]] =
       ZStream
         .fromZIO(
           channel.newCall(method, options)
@@ -134,7 +134,7 @@ object ClientCalls {
 
   def exitHandler[Req, Res](
       call: ZClientCall[Req, Res]
-  )(l: Any, ex: Exit[Status, Any]) = anyExitHandler(call)(l, ex)
+  )(l: Any, ex: Exit[StatusRuntimeException, Any]) = anyExitHandler(call)(l, ex)
 
   // less type safe
   def anyExitHandler[Req, Res](
@@ -151,7 +151,7 @@ object ClientCalls {
       options: CallOptions,
       headers: SafeMetadata,
       req: Req
-  ): IO[Status, Res] =
+  ): IO[StatusRuntimeException, Res] =
     withMetadata.unaryCall(channel, method, options, headers, req).map(_.response)
 
   def serverStreamingCall[Req, Res](
@@ -160,7 +160,7 @@ object ClientCalls {
       options: CallOptions,
       headers: SafeMetadata,
       req: Req
-  ): ZStream[Any, Status, Res] =
+  ): ZStream[Any, StatusRuntimeException, Res] =
     withMetadata
       .serverStreamingCall(channel, method, options, headers, req)
       .collect { case ResponseFrame.Message(x) => x }
@@ -170,8 +170,8 @@ object ClientCalls {
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[Any, Status, Req]
-  ): IO[Status, Res] =
+      req: ZStream[Any, StatusRuntimeException, Req]
+  ): IO[StatusRuntimeException, Res] =
     withMetadata.clientStreamingCall(channel, method, options, headers, req).map(_.response)
 
   def bidiCall[Req, Res](
@@ -179,8 +179,8 @@ object ClientCalls {
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[Any, Status, Req]
-  ): ZStream[Any, Status, Res] =
+      req: ZStream[Any, StatusRuntimeException, Req]
+  ): ZStream[Any, StatusRuntimeException, Res] =
     withMetadata
       .bidiCall(channel, method, options, headers, req)
       .collect { case ResponseFrame.Message(x) => x }

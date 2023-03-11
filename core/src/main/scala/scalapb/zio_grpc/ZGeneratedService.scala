@@ -2,8 +2,7 @@ package scalapb.zio_grpc
 
 import zio.UIO
 import zio.IO
-import io.grpc.ServerServiceDefinition
-import io.grpc.Status
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 trait ZGeneratedService[-C, S[-_]] {
   this: S[C] =>
@@ -12,7 +11,9 @@ trait ZGeneratedService[-C, S[-_]] {
 
   def transform(t: Transform): S[C] = transform[C](t.toZTransform[C])
 
-  def transformContextZIO[ContextOut](f: ContextOut => IO[Status, C]): S[ContextOut] = transform(ZTransform(f))
+  def transformContextZIO[ContextOut](f: ContextOut => IO[StatusRuntimeException, C]): S[ContextOut] = transform(
+    ZTransform(f)
+  )
 
   def transformContext[ContextOut](f: ContextOut => C): S[ContextOut] = transformContextZIO(c => zio.ZIO.succeed(f(c)))
 }

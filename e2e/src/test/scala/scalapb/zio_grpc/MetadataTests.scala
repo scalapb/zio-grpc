@@ -22,14 +22,15 @@ trait MetadataTests {
 
   val authClient   = clientLayer(Some("bob"))
   val unauthClient = clientLayer(Some("alice"))
+  val errorClient  = clientLayer(Some("Eve"))
   val unsetClient  = clientLayer(None)
 
-  val permissionDenied = fails(hasStatusCode(Status.PERMISSION_DENIED))
-  val unauthenticated  = fails(hasStatusCode(Status.UNAUTHENTICATED))
+  val permissionDenied  = fails(hasStatusCode(Status.PERMISSION_DENIED))
+  val unauthenticated   = fails(hasStatusCode(Status.UNAUTHENTICATED))
+  val errorWithTrailers = fails(hasStatusCode(Status.FAILED_PRECONDITION) && hasTrailerValue(RequestIdKey, "1"))
 
   val unaryEffect           = TestServiceClient.unary(Request())
-  val serverStreamingEffect =
-    TestServiceClient.serverStreaming(Request()).runCollect
+  val serverStreamingEffect = TestServiceClient.serverStreaming(Request()).runCollect
   val clientStreamingEffect = TestServiceClient.clientStreaming(ZStream.empty)
   val bidiEffect            = TestServiceClient.bidiStreaming(ZStream.empty).runCollect
 
@@ -150,10 +151,27 @@ trait MetadataTests {
       }
     ).provideLayer(clientMetadataLayer)
 
+  def errorWithTrailersSuite =
+    suite("errro response with trailers")(
+      test("unary") {
+        assertZIO(unaryEffect.exit)(errorWithTrailers)
+      },
+      test("server streaming") {
+        assertZIO(serverStreamingEffect.exit)(errorWithTrailers)
+      },
+      test("client streaming") {
+        assertZIO(clientStreamingEffect.exit)(errorWithTrailers)
+      },
+      test("bidi streaming") {
+        assertZIO(bidiEffect.exit)(errorWithTrailers)
+      }
+    ).provideLayer(errorClient)
+
   val specs = suite("Metadata")(
     permissionDeniedSuite,
     unauthenticatedSuite,
     authenticatedSuite,
+    errorWithTrailersSuite,
     metadataSuite
   ) @@ TestAspect.timeout(10.seconds)
 }
