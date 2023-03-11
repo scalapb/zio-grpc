@@ -20,7 +20,7 @@ Inside the object, for each service `MyService` that is defined in a `.proto` fi
 trait MyService {
   // methods for each RPC
   def sayHello(request: HelloRequest):
-    ZIO[Any, Status, HelloReply]
+    ZIO[Any, StatusRuntimeException, HelloReply]
 }
 ```
 
@@ -31,7 +31,7 @@ type parameter `Context`. The `Context` type parameter represents any domain obj
 
 ```scala
 object MyServiceImpl extends MyService {
-  def sayHello(request: HelloRequest): ZIO[Any, Status, HelloReply] = ???
+  def sayHello(request: HelloRequest): ZIO[Any, StatusRuntimeException, HelloReply] = ???
 }
 ```
 
@@ -67,13 +67,13 @@ object ServiceNameClient {
   trait ZService[Context] {
     // methods for use as a client
     def sayHello(request: HelloRequest):
-      ZIO[Context, Status, HelloReply]
+      ZIO[Context, StatusRuntimeException, HelloReply]
   }
   type Service = ZService[Any]
 
   // accessor methods
   def sayHello(request: HelloRequest):
-    ZIO[ServiceNameClient, Status, HelloReply]
+    ZIO[ServiceNameClient, StatusRuntimeException, HelloReply]
 
   def scoped[R](
       managedChannel: ZManagedChannel,
@@ -155,10 +155,8 @@ val clientManaged = ServiceNameClient.scoped(channel)
 val myAppLogic = ZIO.scoped {
   clientManaged.flatMap { client =>
     for {
-      res <- client.unary(Request()).mapError(_.asRuntimeException)
+      res <- client.unary(Request())
     } yield res
   }
 }
 ```
-
-Since the service acquistion can fail with a `Throwable`, and the RPC effects of ZIO gRPC can fail with `Status` (which is not a subtype of `Throwable`), we use `mapError` to map the RPC error to a `StatusRuntimeException`. This way, the resulting effect can fail with a `Throwable`.

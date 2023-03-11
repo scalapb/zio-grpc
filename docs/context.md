@@ -16,12 +16,12 @@ import zio.Console.printLine
 import scalapb.zio_grpc.RequestContext
 import myexample.testservice.ZioTestservice.ZSimpleService
 import myexample.testservice.{Request, Response}
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 
 case class User(name: String)
 
 object MyService extends ZSimpleService[User] {
-  def sayHello(req: Request, user: User): ZIO[Any, Status, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, StatusRuntimeException, Response] =
     for {
       _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
@@ -59,10 +59,11 @@ import scalapb.zio_grpc.{ServiceList, ServerMain}
 val UserKey = io.grpc.Metadata.Key.of(
   "user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-def findUser(rc: RequestContext): IO[Status, User] =
+def findUser(rc: RequestContext): IO[StatusRuntimeException, User] =
   rc.metadata.get(UserKey).flatMap {
     case Some(name) => ZIO.succeed(User(name))
-    case _          => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+    case _          => ZIO.fail(
+      Status.UNAUTHENTICATED.withDescription("No access!").asRuntimeException)
   }
 
 val rcService =
@@ -81,13 +82,13 @@ a `fetchUser` effect that retrieves users from a database. Here is how you can d
 
 ```scala mdoc
 trait UserDatabase {
-  def fetchUser(name: String): IO[Status, User]
+  def fetchUser(name: String): IO[StatusRuntimeException, User]
 }
 
 object UserDatabase {
   val layer = zio.ZLayer.succeed(
     new UserDatabase {
-      def fetchUser(name: String): IO[Status, User] =
+      def fetchUser(name: String): IO[StatusRuntimeException, User] =
         ZIO.succeed(User(name))
     })
 }
@@ -104,7 +105,7 @@ val myServiceAuthWithDatabase: ZIO[UserDatabase, Nothing, ZSimpleService[Request
       MyService.transformContextZIO {
         (rc: RequestContext) =>
             rc.metadata.get(UserKey)
-            .someOrFail(Status.UNAUTHENTICATED)
+            .someOrFail(Status.UNAUTHENTICATED.asRuntimeException)
             .flatMap(userDatabase.fetchUser(_))
       }
   )
@@ -193,7 +194,7 @@ trait DepB {
 }
 
 case class MyService2(depA: DepA, depB: DepB) extends ZSimpleService[User] {
-  def sayHello(req: Request, user: User): ZIO[Any, Status, Response] =
+  def sayHello(req: Request, user: User): ZIO[Any, StatusRuntimeException, Response] =
     for {
       num1 <- depA.methodA(user.name)
       num2 <- depB.methodB(12.3f)

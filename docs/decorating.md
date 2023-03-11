@@ -14,22 +14,24 @@ This can be used for pre- or post-processing of requests/responses and also for 
 We define decoration:
 
 ```scala mdoc
-import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import scalapb.zio_grpc.{ RequestContext, ZTransform }
 import zio._
 import zio.stream.ZStream
 
 class LoggingTransform extends ZTransform[Any, RequestContext] {
 
-  def logCause(rc: RequestContext, cause: Cause[Status]): UIO[Unit] = ???
+  def logCause(rc: RequestContext, cause: Cause[StatusRuntimeException]): UIO[Unit] = ???
 
   def accessLog(rc: RequestContext): UIO[Unit] = ???
 
-  override def effect[A](io: Any => ZIO[Any, Status, A]): RequestContext => ZIO[Any, Status, A] = {
+  override def effect[A](
+      io: Any => ZIO[Any, StatusRuntimeException, A]): RequestContext => ZIO[Any, StatusRuntimeException, A] = {
     rc => io(rc).zipLeft(accessLog(rc)).tapErrorCause(logCause(rc, _))
   }
 
-  override def stream[A](io: Any => ZStream[Any, Status, A]): RequestContext => ZStream[Any, Status, A] = {
+  override def stream[A](
+      io: Any => ZStream[Any, StatusRuntimeException, A]): RequestContext => ZStream[Any, StatusRuntimeException, A] = {
     rc => (io(rc) ++ ZStream.fromZIO(accessLog(rc)).drain).onError(logCause(rc, _))
   }
 }
@@ -42,7 +44,7 @@ import myexample.testservice.ZioTestservice._
 import myexample.testservice.{Request, Response}
 
 object MyService extends SimpleService {
-  def sayHello(req: Request): ZIO[Any, Status, Response] =
+  def sayHello(req: Request): ZIO[Any, StatusRuntimeException, Response] =
     ZIO.succeed(Response(s"Hello user"))
 }
 

@@ -92,7 +92,6 @@ val myAppLogic = ZIO.scoped {
     for {
       res <- client
                .withTimeoutMillis(3000).unary(Request())
-               .mapError(_.asRuntimeException)
     } yield res
   }
 }
