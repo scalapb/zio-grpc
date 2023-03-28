@@ -19,7 +19,18 @@ object ClientCalls {
         headers: SafeMetadata,
         req: Req
     ): IO[StatusException, ResponseContext[Res]] =
-      ZIO.fail(new StatusException(Status.INTERNAL.withDescription("Not supported")))
+      ZIO.async { callback =>
+        channel.channel.client.rpcCall[Req, Res](
+          channel.channel.baseUrl + "/" + method.fullName,
+          req,
+          scalajs.js.Dictionary[String](),
+          method.methodInfo,
+          (errorInfo: ErrorInfo, resp: Res) =>
+            if (errorInfo != null)
+              callback(ZIO.fail(new StatusException(Status.fromErrorInfo(errorInfo))))
+            else callback(ZIO.succeed(ResponseContext(null, resp, null)))
+        )
+      }
 
     def serverStreamingCall[Req, Res](
         channel: ZChannel,
@@ -28,7 +39,39 @@ object ClientCalls {
         headers: SafeMetadata,
         req: Req
     ): ZStream[Any, StatusException, ResponseFrame[Res]] =
-      ZStream.fail(new StatusException(Status.INTERNAL.withDescription("Not supported")))
+      ZStream.async[Any, StatusException, ResponseFrame[Res]] { cb =>
+        channel.channel.client
+          .serverStreaming[Req, Res](
+            channel.channel.baseUrl + "/" + method.fullName,
+            req,
+            scalajs.js.Dictionary[String](),
+            method.methodInfo
+          )
+          .on(
+            "data",
+            { (res: Res) =>
+              val _ = cb(ZIO.succeed(Chunk.single(ResponseFrame.Message(res))))
+            }
+          )
+          .on(
+            "error",
+            { (ei: ErrorInfo) =>
+              val _ = cb(ZIO.fail(Some(new StatusException(Status.fromErrorInfo(ei)))))
+            }
+          )
+          .on(
+            "end",
+            { () =>
+              val _ = cb(ZIO.fail(None))
+            }
+          )
+          .on(
+            "status",
+            (status: StatusInfo) =>
+              if (status.code != 0)
+                cb(ZIO.fail(Some(new StatusException(Status.fromStatusInfo(status)))))
+          )
+      }
 
     def clientStreamingCall[Req, Res](
         channel: ZChannel,
@@ -56,18 +99,7 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): IO[StatusException, Res] =
-    ZIO.async { callback =>
-      channel.channel.client.rpcCall[Req, Res](
-        channel.channel.baseUrl + "/" + method.fullName,
-        req,
-        scalajs.js.Dictionary[String](),
-        method.methodInfo,
-        (errorInfo: ErrorInfo, resp: Res) =>
-          if (errorInfo != null)
-            callback(ZIO.fail(new StatusException(Status.fromErrorInfo(errorInfo))))
-          else callback(ZIO.succeed(resp))
-      )
-    }
+    withMetadata.unaryCall(channel, method, options, headers, req).map(_.response)
 
   def serverStreamingCall[Req, Res](
       channel: ZChannel,
@@ -76,39 +108,9 @@ object ClientCalls {
       headers: SafeMetadata,
       req: Req
   ): ZStream[Any, StatusException, Res] =
-    ZStream.async[Any, StatusException, Res] { cb =>
-      channel.channel.client
-        .serverStreaming[Req, Res](
-          channel.channel.baseUrl + "/" + method.fullName,
-          req,
-          scalajs.js.Dictionary[String](),
-          method.methodInfo
-        )
-        .on(
-          "data",
-          { (res: Res) =>
-            val _ = cb(ZIO.succeed(Chunk.single(res)))
-          }
-        )
-        .on(
-          "error",
-          { (ei: ErrorInfo) =>
-            val _ = cb(ZIO.fail(Some(new StatusException(Status.fromErrorInfo(ei)))))
-          }
-        )
-        .on(
-          "end",
-          { () =>
-            val _ = cb(ZIO.fail(None))
-          }
-        )
-        .on(
-          "status",
-          (status: StatusInfo) =>
-            if (status.code != 0)
-              cb(ZIO.fail(Some(new StatusException(Status.fromStatusInfo(status)))))
-        )
-    }
+    withMetadata
+      .serverStreamingCall(channel, method, options, headers, req)
+      .collect { case ResponseFrame.Message(x) => x }
 
   def clientStreamingCall[Req, Res](
       channel: ZChannel,
