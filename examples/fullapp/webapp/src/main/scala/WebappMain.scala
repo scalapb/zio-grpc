@@ -6,7 +6,7 @@ import zio._
 import zio.Console._
 import examples.greeter.Request
 import scalapb.zio_grpc.ZManagedChannel
-import io.grpc.Status
+import io.grpc.StatusException
 
 object WebappMain extends ZIOAppDefault {
   val clientLayer = GreeterClient.live(
@@ -21,7 +21,7 @@ object WebappMain extends ZIOAppDefault {
       (GreeterClient
         .points(Request("Foo!"))
         .foreach(s => printLine(s"success: $s").orDie)
-        .catchAll { (s: Status) =>
+        .catchAll { (s: StatusException) =>
           printLine(s"Caught: $s")
         })
 

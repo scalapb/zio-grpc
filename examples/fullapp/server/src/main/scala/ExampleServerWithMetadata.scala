@@ -7,7 +7,7 @@ import zio.stream.Stream
 import io.grpc.Metadata
 import io.grpc.ServerBuilder
 import zio.Console._
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import scalapb.zio_grpc.Server
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.RequestContext
@@ -18,14 +18,15 @@ case class User(name: String)
 // UserRepo service, used to resolve the user id that is provided to us
 // by looking into a user database.
 trait UserRepo {
-  def findUser(name: String): ZIO[Any, Status, User]
+  def findUser(name: String): ZIO[Any, StatusException, User]
 }
 
 // This is our "real" implementation of the service.
 case class UserRepoImpl() extends UserRepo {
-  def findUser(name: String): ZIO[Any, Status, User] = name match {
+  def findUser(name: String): ZIO[Any, StatusException, User] = name match {
     case "john" => ZIO.succeed(User("John"))
-    case _ => ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+    case _ =>
+      ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!").asException)
   }
 }
 
@@ -36,12 +37,12 @@ object UserRepo {
 // GreetingsRepo is a service that returns an appropriate greeting to
 // any given user.
 trait GreetingsRepo {
-  def greetingForUser(user: User): ZIO[Any, Status, String]
+  def greetingForUser(user: User): ZIO[Any, StatusException, String]
 }
 
 // An implementation of the service.
 case class GreetingsRepoImpl() extends GreetingsRepo {
-  def greetingForUser(user: User): ZIO[Any, Status, String] =
+  def greetingForUser(user: User): ZIO[Any, StatusException, String] =
     ZIO.succeed("Hello ${user.name}")
 }
 
@@ -54,17 +55,18 @@ object GreeterServiceWithMetadata {
   // Each request gets a User as a context parameter. The service itself
   // depends on a GreetingsRepo service.
   case class GreeterImpl(greetingsRepo: GreetingsRepo) extends ZGreeter[User] {
-    def greet(req: Request, user: User): ZIO[Any, Status, Response] =
+    def greet(req: Request, user: User): ZIO[Any, StatusException, Response] =
       for {
         greeting <- greetingsRepo.greetingForUser(user)
       } yield Response(s"${greeting}, req: ${req}")
 
-    def points(request: Request, user: User): Stream[Status, Point] = ???
+    def points(request: Request, user: User): Stream[StatusException, Point] =
+      ???
 
     def bidi(
-        request: Stream[Status, Point],
+        request: Stream[StatusException, Point],
         user: User
-    ): Stream[Status, Response] = ???
+    ): Stream[StatusException, Response] = ???
   }
 
   val UserKey =
@@ -72,12 +74,17 @@ object GreeterServiceWithMetadata {
 
   // Fetches the user-key from the request's metadata and looks it up in the UserRepo.
   // We trust here that the user is who they claim to be...
-  def findUser(userRepo: UserRepo, rc: RequestContext): IO[Status, User] =
+  def findUser(
+      userRepo: UserRepo,
+      rc: RequestContext
+  ): IO[StatusException, User] =
     for {
       name <- rc.metadata
         .get(UserKey)
         .someOrFail(
-          Status.UNAUTHENTICATED.withDescription("No user-key header provided")
+          Status.UNAUTHENTICATED
+            .withDescription("No user-key header provided")
+            .asException
         )
       user <- userRepo.findUser(name)
     } yield user
