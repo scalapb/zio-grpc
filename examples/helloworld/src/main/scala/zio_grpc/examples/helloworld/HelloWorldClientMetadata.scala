@@ -2,13 +2,7 @@ package zio_grpc.examples.helloworld
 
 import io.grpc.examples.helloworld.helloworld.ZioHelloworld.GreeterClient
 import io.grpc.examples.helloworld.helloworld.HelloRequest
-import io.grpc.{
-  CallOptions,
-  ManagedChannelBuilder,
-  Metadata,
-  MethodDescriptor,
-  Status
-}
+import io.grpc.{CallOptions, ManagedChannelBuilder, Metadata, MethodDescriptor, Status}
 import zio.Console._
 import scalapb.zio_grpc.{SafeMetadata, ZClientInterceptor, ZManagedChannel}
 import zio._
@@ -22,7 +16,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   def userToMetadata(user: User): UIO[SafeMetadata] =
     for {
       metadata <- SafeMetadata.make
-      _ <- metadata.put(UserKey, user.name)
+      _        <- metadata.put(UserKey, user.name)
     } yield metadata
 
   // An effect that fetches a User from the environment and transforms it to
@@ -45,7 +39,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
         GreeterClient
           .withMetadataZIO(userToMetadata(User("user1")))
           .sayHello(HelloRequest("World"))
-      _ <- printLine(r1.message).orDie
+      _  <- printLine(r1.message).orDie
     } yield ()
 
   // Option 2: through a managed client
@@ -62,12 +56,12 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
           r1 <-
             client
               .sayHello(HelloRequest("World"))
-          _ <- printLine(r1.message)
+          _  <- printLine(r1.message)
           r2 <-
             client
               .withMetadataZIO(userToMetadata(User("user2")))
               .sayHello(HelloRequest("World"))
-          _ <- printLine(r2.message)
+          _  <- printLine(r2.message)
         } yield ()
       }
     }
