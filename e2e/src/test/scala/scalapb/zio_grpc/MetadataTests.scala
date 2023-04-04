@@ -2,6 +2,7 @@ package scalapb.zio_grpc
 
 import zio.test.{test, _}
 import zio.test.Assertion._
+import zio.test.TestAspect.nonFlaky
 import zio.stream.ZStream
 import io.grpc.Metadata
 import io.grpc.Status

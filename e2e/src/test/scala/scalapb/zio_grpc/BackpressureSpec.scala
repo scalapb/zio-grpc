@@ -11,6 +11,9 @@ import io.grpc.Attributes
 import io.grpc.ServerCall
 
 object BackpressureSpec extends ZIOSpecDefault {
+  def mockConfigProvider(value: String): ZLayer[Any, Nothing, Unit] =
+    Runtime.setConfigProvider(ConfigProvider.fromMap(Map(ZServerCallHandler.queueSizeProp -> value)))
+
   val spec =
     suite("Backpressure")(
       test("Die is propagated") {
@@ -30,18 +33,14 @@ object BackpressureSpec extends ZIOSpecDefault {
       },
       test("Gets queue size from config") {
         assertZIO(for {
-          _    <- ZIO.attempt(sys.props += ZServerCallHandler.queueSizeProp -> "32")
           size <- ZServerCallHandler.backpressureQueueSize
-          _    <- ZIO.attempt(sys.props -= ZServerCallHandler.queueSizeProp)
         } yield size)(equalTo(32))
-      },
+      }.provideLayer(mockConfigProvider("32")),
       test("Fails when queue size is malformatted") {
         assertZIO(for {
-          _    <- ZIO.attempt(sys.props += ZServerCallHandler.queueSizeProp -> " 32 ")
           size <- ZServerCallHandler.backpressureQueueSize.exit
-          _    <- ZIO.attempt(sys.props -= ZServerCallHandler.queueSizeProp)
         } yield size)(fails(anything))
-      },
+      }.provideLayer(mockConfigProvider(" 32 ")),
       test("Interruption is propagated") {
         assertZIO(for {
           sem  <- TSemaphore.make(1).commit

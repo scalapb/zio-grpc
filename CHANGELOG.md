@@ -4,6 +4,10 @@
 
 ### What changed?
 
+* Backpressure queue size is controlled by either
+  `ZIO_GRPC_BACKPRESSURE_QUEUE_SIZE` environment variable or
+  `zio_grpc.backpressure_queue_size` system property (previously the names
+  were hyphenated). Change was made for compatibility with ZIO Config.
 * Removed the `R` type parameter for generated services. Generated services now have a single
   type parameter for context. This simplifies the previous APIs and encourages the ZIO 2
   style that service dependencies are passed via constructors (see [service pattern](https://zio.dev/reference/service-pattern/))
