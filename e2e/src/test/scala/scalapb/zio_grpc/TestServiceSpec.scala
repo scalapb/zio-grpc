@@ -9,7 +9,7 @@ import scalapb.zio_grpc.testservice._
 import zio.{durationInt, Fiber, Queue, URIO, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
-import zio.test.TestAspect.{nonFlaky, timeout}
+import zio.test.TestAspect.{flaky, timeout, withLiveClock}
 import zio.test._
 
 object TestServiceSpec extends ZIOSpecDefault {
@@ -66,11 +66,16 @@ object TestServiceSpec extends ZIOSpecDefault {
         )
       },
       test("setting deadline interrupts the servers") {
+        // If the timeout is too short, gRPC may not make the call or send messages. While the
+        // timeout below is set to 1s, it can still get missed on CI.
+        // On the other hand, if we set it for too long it slows down the test. As a compromise,
+        // we mark it a flaky.
         for {
           r    <- TestServiceClient.withTimeoutMillis(1000).unary(Request(Request.Scenario.DELAY, in = 12)).exit
-          exit <- TestServiceImpl.awaitExit
-        } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.isInterrupted)(isTrue)
-      }
+          // The timeout below protects the test from getting hang if the call is discarded by grpc.
+          exit <- TestServiceImpl.awaitExit.timeout(3.seconds)
+        } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.get.isInterrupted)(isTrue)
+      } @@ flaky(100) @@ withLiveClock
     )
 
   def collectWithError[R, E, A](
@@ -200,7 +205,7 @@ object TestServiceSpec extends ZIOSpecDefault {
           _     <- fiber.interrupt
           exit  <- TestServiceImpl.awaitExit
         } yield exit)(isInterrupted)
-      } @@ nonFlaky,
+      },
       test("returns response on failures") {
         assertZIO(
           TestServiceClient
