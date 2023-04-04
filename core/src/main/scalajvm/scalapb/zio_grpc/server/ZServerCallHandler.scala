@@ -38,11 +38,11 @@ class ZServerCallHandler[Req, Res](
 }
 
 object ZServerCallHandler {
-  private[zio_grpc] val queueSizeProp = "backpressure_queue_size"
+  private[zio_grpc] val queueSizeProp = "zio_grpc.backpressure_queue_size"
 
   val backpressureQueueSize: IO[StatusException, Int] =
     ZIO
-      .config(zio.Config.int(queueSizeProp).nested("zio_grpc").withDefault(16))
+      .config(zio.Config.int("backpressure_queue_size").nested("zio_grpc").withDefault(16))
       .mapError { (e: zio.Config.Error) =>
         Status.INTERNAL.withDescription(s"$queueSizeProp: ${e.getMessage}").asException()
       }
