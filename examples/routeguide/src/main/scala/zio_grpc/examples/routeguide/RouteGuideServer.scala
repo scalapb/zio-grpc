@@ -1,6 +1,6 @@
 package zio_grpc.examples.routeguide
 
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
 import zio.{Ref, ZIO}
@@ -25,8 +25,8 @@ class RouteGuideService(
     *   the requested location for the feature.
     */
   // start: getFeature
-  def getFeature(request: Point): ZIO[Any, Status, Feature] =
-    ZIO.fromOption(findFeature(request)).orElseFail(Status.NOT_FOUND)
+  def getFeature(request: Point): ZIO[Any, StatusException, Feature] =
+    ZIO.fromOption(findFeature(request)).orElseFail(Status.NOT_FOUND.asException())
   // end: getFeature
 
   /** Streams all features contained within the given bounding {@link
@@ -36,7 +36,7 @@ class RouteGuideService(
     *   the bounding rectangle for the requested features.
     */
   // start: listFeatures
-  def listFeatures(request: Rectangle): ZStream[Any, Status, Feature] = {
+  def listFeatures(request: Rectangle): ZStream[Any, StatusException, Feature] = {
     val left = request.getLo.longitude min request.getHi.longitude
     val right = request.getLo.longitude max request.getHi.longitude
     val top = request.getLo.latitude max request.getHi.latitude
@@ -61,8 +61,8 @@ class RouteGuideService(
     */
   // start: recordRoute
   def recordRoute(
-      request: zio.stream.Stream[Status, Point]
-  ): ZIO[Any, Status, RouteSummary] =
+      request: zio.stream.Stream[StatusException, Point]
+  ): ZIO[Any, StatusException, RouteSummary] =
     // Zips each element with the previous element, initially accompanied by None.
     request.zipWithPrevious
       .runFold(RouteSummary()) {
@@ -86,8 +86,8 @@ class RouteGuideService(
 
   // start: routeChat
   def routeChat(
-      request: zio.stream.Stream[Status, RouteNote]
-  ): ZStream[Any, Status, RouteNote] =
+      request: zio.stream.Stream[StatusException, RouteNote]
+  ): ZStream[Any, StatusException, RouteNote] =
     request.flatMap { note =>
       // By using flatMap, we can map each RouteNote we receive to a stream with
       // the existing RouteNotes for that location, and those sub-streams are going

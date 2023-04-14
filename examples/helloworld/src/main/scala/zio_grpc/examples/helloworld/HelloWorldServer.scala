@@ -1,6 +1,6 @@
 package zio_grpc.examples.helloworld
 
-import io.grpc.Status
+import io.grpc.StatusException
 import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
 import zio._
@@ -12,7 +12,7 @@ import io.grpc.examples.helloworld.helloworld.{HelloReply, HelloRequest}
 object GreeterImpl extends Greeter {
   def sayHello(
       request: HelloRequest
-  ): ZIO[Any, Status, HelloReply] =
+  ): ZIO[Any, StatusException, HelloReply] =
     printLine(s"Got request: $request").orDie zipRight
       ZIO.succeed(HelloReply(s"Hello, ${request.name}"))
 }
