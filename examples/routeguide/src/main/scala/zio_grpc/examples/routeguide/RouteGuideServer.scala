@@ -26,7 +26,9 @@ class RouteGuideService(
     */
   // start: getFeature
   def getFeature(request: Point): ZIO[Any, StatusException, Feature] =
-    ZIO.fromOption(findFeature(request)).orElseFail(Status.NOT_FOUND.asException())
+    ZIO
+      .fromOption(findFeature(request))
+      .orElseFail(Status.NOT_FOUND.asException())
   // end: getFeature
 
   /** Streams all features contained within the given bounding {@link
@@ -36,7 +38,9 @@ class RouteGuideService(
     *   the bounding rectangle for the requested features.
     */
   // start: listFeatures
-  def listFeatures(request: Rectangle): ZStream[Any, StatusException, Feature] = {
+  def listFeatures(
+      request: Rectangle
+  ): ZStream[Any, StatusException, Feature] = {
     val left = request.getLo.longitude min request.getHi.longitude
     val right = request.getLo.longitude max request.getHi.longitude
     val top = request.getLo.latitude max request.getHi.latitude
