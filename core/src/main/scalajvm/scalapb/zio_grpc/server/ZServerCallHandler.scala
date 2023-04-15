@@ -38,14 +38,13 @@ class ZServerCallHandler[Req, Res](
 }
 
 object ZServerCallHandler {
-  private[zio_grpc] val queueSizeProp = "zio-grpc.backpressure-queue-size"
+  private[zio_grpc] val queueSizeProp = "zio_grpc.backpressure_queue_size"
 
   val backpressureQueueSize: IO[StatusException, Int] =
     ZIO
-      .attempt(sys.props.get(queueSizeProp).map(_.toInt).getOrElse(16))
-      .refineToOrDie[NumberFormatException]
-      .catchAll { t =>
-        ZIO.fail(Status.INTERNAL.withDescription(s"$queueSizeProp: ${t.getMessage}").asException())
+      .config(zio.Config.int("backpressure_queue_size").nested("zio_grpc").withDefault(16))
+      .mapError { (e: zio.Config.Error) =>
+        Status.INTERNAL.withDescription(s"$queueSizeProp: ${e.getMessage}").asException()
       }
 
   def unaryInput[Req, Res](

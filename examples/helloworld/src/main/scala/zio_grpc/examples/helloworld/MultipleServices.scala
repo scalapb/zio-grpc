@@ -1,6 +1,6 @@
 package zio_grpc.examples.helloworld
 
-import io.grpc.Status
+import io.grpc.StatusException
 import io.grpc.protobuf.services.ProtoReflectionService;
 import scalapb.zio_grpc.Server
 import scalapb.zio_grpc.ServerMain
@@ -16,7 +16,7 @@ import scalapb.zio_grpc.ServerLayer
 class WelcomerWithDatabase(database: UserDatabase) extends Welcomer {
   def welcome(
       request: HelloRequest
-  ): ZIO[Any, Status, HelloReply] =
+  ): ZIO[Any, StatusException, HelloReply] =
     database.fetchUser(request.name).map { user =>
       HelloReply(s"Welcome ${user.name}")
     }

@@ -1,6 +1,6 @@
 package zio_grpc.examples.helloworld
 
-import io.grpc.Status
+import io.grpc.StatusException
 import scalapb.zio_grpc.Server
 import scalapb.zio_grpc.ServerMain
 import scalapb.zio_grpc.ServiceList
@@ -14,12 +14,12 @@ import scalapb.zio_grpc.ServerLayer
 
 package object userdatabase {
   trait UserDatabase {
-    def fetchUser(name: String): IO[Status, User]
+    def fetchUser(name: String): IO[StatusException, User]
   }
 
   object UserDatabase {
     val layer = ZLayer.succeed(new UserDatabase {
-      def fetchUser(name: String): IO[Status, User] =
+      def fetchUser(name: String): IO[StatusException, User] =
         ZIO.succeed(User(name))
     })
   }
@@ -28,7 +28,7 @@ package object userdatabase {
 class GreeterWithDatabase(database: UserDatabase) extends Greeter {
   def sayHello(
       request: HelloRequest
-  ): ZIO[Any, Status, HelloReply] =
+  ): ZIO[Any, StatusException, HelloReply] =
     database.fetchUser(request.name).map { user =>
       HelloReply(s"Hello ${user.name}")
     }

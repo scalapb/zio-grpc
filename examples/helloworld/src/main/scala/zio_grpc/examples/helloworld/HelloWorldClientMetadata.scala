@@ -7,7 +7,7 @@ import io.grpc.{
   ManagedChannelBuilder,
   Metadata,
   MethodDescriptor,
-  Status
+  StatusException
 }
 import zio.Console._
 import scalapb.zio_grpc.{SafeMetadata, ZClientInterceptor, ZManagedChannel}
@@ -38,7 +38,7 @@ object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   // Option 1: through layer and accessors
   val clientLayer = GreeterClient.live(channel)
 
-  def appLogic1: ZIO[GreeterClient, Status, Unit] =
+  def appLogic1: ZIO[GreeterClient, StatusException, Unit] =
     for {
       // With client accessor
       r1 <-

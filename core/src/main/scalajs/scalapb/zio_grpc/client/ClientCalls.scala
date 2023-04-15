@@ -23,7 +23,7 @@ object ClientCalls {
         channel.channel.client.rpcCall[Req, Res](
           channel.channel.baseUrl + "/" + method.fullName,
           req,
-          scalajs.js.Dictionary[String](),
+          headers.metadata,
           method.methodInfo,
           (errorInfo: ErrorInfo, resp: Res) =>
             if (errorInfo != null)
@@ -44,7 +44,7 @@ object ClientCalls {
           .serverStreaming[Req, Res](
             channel.channel.baseUrl + "/" + method.fullName,
             req,
-            scalajs.js.Dictionary[String](),
+            headers.metadata,
             method.methodInfo
           )
           .on(

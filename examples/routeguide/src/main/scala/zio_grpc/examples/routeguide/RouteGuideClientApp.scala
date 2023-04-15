@@ -8,7 +8,7 @@ import zio.Random._
 import scalapb.zio_grpc.ZManagedChannel
 import io.grpc.Channel
 import zio._
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import zio.stream.ZStream
 import scala.io.Source
 import zio.Duration._
@@ -25,12 +25,12 @@ object RouteGuideClientApp extends ZIOAppDefault {
   def getFeature(
       lat: Int,
       lng: Int
-  ): ZIO[RouteGuideClient, Status, Unit] =
+  ): ZIO[RouteGuideClient, StatusException, Unit] =
     (for {
       f <- RouteGuideClient.getFeature(Point(lat, lng))
       _ <- printLine(s"""Found feature called "${f.name}".""").orDie
     } yield ()).catchSome {
-      case status if status == Status.NOT_FOUND =>
+      case status if status.getStatus() == Status.NOT_FOUND =>
         printLine(s"Feature not found: ${status.toString()}").orDie
     }
   // end: getFeature
