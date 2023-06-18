@@ -16,6 +16,7 @@ import zio.Exit.Success
 import scala.annotation.tailrec
 import zio.stream.ZSink
 import zio.stream.ZChannel
+import scalapb.zio_grpc.GIO
 
 class ZServerCallHandler[Req, Res](
     runtime: Runtime[Any],
@@ -112,11 +113,10 @@ object ZServerCallHandler {
     val backpressureSink = {
       def go: ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
         ZChannel.readWithCause(
-          (x: Chunk[Res]) =>
-            ZChannel.succeed {
-              x.foreach(call.call.sendMessage)
-            } *> ZChannel.suspend(if (call.call.isReady()) go else ZChannel.fromZIO(call.awaitReady) *> go),
-          (cause: Cause[StatusException]) => ZChannel.failCause(cause),
+          xs =>
+            ZChannel.fromZIO(GIO.attempt(xs.foreach(call.call.sendMessage))) *>
+              ZChannel.suspend(if (call.call.isReady()) go else ZChannel.fromZIO(call.awaitReady) *> go),
+          c => ZChannel.failCause(c),
           _ => ZChannel.unit
         )
 
