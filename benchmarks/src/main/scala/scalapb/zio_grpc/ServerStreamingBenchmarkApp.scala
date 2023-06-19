@@ -44,7 +44,7 @@ object ServerStreamingBenchmarkApp extends ZIOAppDefault {
                       for {
                         now     <- Clock.instant
                         started <- start.get
-                        _       <- ZIO.when(time.Duration.between(started, now).toSeconds() >= 10)(
+                        _       <- ZIO.when(time.Duration.between(started, now).getSeconds() >= 10)(
                                      start.set(now) *> cpt.get.flatMap(cpt => Console.printLine(s"Received $cpt messages"))
                                    )
                       } yield ()
