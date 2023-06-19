@@ -11,9 +11,6 @@ import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 import scalapb.zio_grpc.SafeMetadata
 import zio.stm.TSemaphore
-import zio.Exit.Failure
-import zio.Exit.Success
-import scala.annotation.tailrec
 import zio.stream.ZSink
 import zio.stream.ZChannel
 import scalapb.zio_grpc.GIO
