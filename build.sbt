@@ -10,6 +10,8 @@ val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
+ThisBuild / versionScheme := Some("early-semver")
+
 publish / skip := true
 
 sonatypeProfileName := "com.thesamet"
