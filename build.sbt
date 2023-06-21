@@ -65,7 +65,7 @@ lazy val core = projectMatrix
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0" % "test"
         ),
-        Compile / npmDependencies += "grpc-web" -> "1.2.1"
+        Compile / npmDependencies += "grpc-web" -> "1.4.2"
       )
   )
 
