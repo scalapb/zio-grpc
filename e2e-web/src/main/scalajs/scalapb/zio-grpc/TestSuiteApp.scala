@@ -7,7 +7,8 @@ import zio.test._
 
 object TestSuiteApp extends ZIOSpecDefault with CommonTestServiceSpec {
   def clientLayer =
-    TestServiceClient.live(ZManagedChannel(Channels.grpcwebChannel("http://localhost:8080")))
+    Server
+  TestServiceClient.live(ZManagedChannel(Channels.grpcwebChannel("http://localhost:8080")))
 
   def spec =
     suite("TestServiceSpec")(

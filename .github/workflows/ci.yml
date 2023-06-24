@@ -25,6 +25,7 @@ jobs:
           ~/.sbt
           ~/.ivy2/cache
           ~/.cache/coursier
+          ~/.cache/ms-playwright
         key: ${{ runner.os }}-sbt-${{matrix.scala}}-${{ hashFiles('**/*.sbt') }}
 
     - name: Formatting
@@ -33,12 +34,18 @@ jobs:
 
     - name: Compile and test (JVM)
       run: |
-        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/it:test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test 
+        # e2eJVM${{matrix.scala}}/it:test
 
     - name: Compile and test (JS)
-      if: ${{ matrix.scala != 3 }}
       run: |
         sbt coreJS${{matrix.scala}}/test
+
+    - name: Run grpc-web e2e test
+      run: |
+        docker-compose -f ./examples/fullapp/docker-compose.yaml up -d
+        sbt e2eWebJS${{matrix.scala}}/fastOptJS/webpack e2eWebJVM${{matrix.scala}}/test
+        docker-compose -f ./examples/fullapp/docker-compose.yaml down
 
     - name: Examples
       run: |

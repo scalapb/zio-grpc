@@ -140,7 +140,7 @@ package object server {
       } yield service
 
     val live: ZLayer[Any, Nothing, TestServiceImpl] =
-      ZLayer(makeFromEnv)
+      ZLayer.scoped(makeFromEnv)
 
     val any: ZLayer[TestServiceImpl, Nothing, TestServiceImpl] = ZLayer.environment
 
