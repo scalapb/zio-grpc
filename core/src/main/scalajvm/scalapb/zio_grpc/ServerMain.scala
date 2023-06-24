@@ -9,7 +9,7 @@ trait ServerMain extends zio.ZIOAppDefault {
   def port: Int = 9000
 
   def welcome: ZIO[Any, Throwable, Unit] =
-    printLine("Server is running. Press Ctrl-C to stop.")
+    printLine(s"Server is running on port ${port}. Press Ctrl-C to stop.")
 
   // Override this to add services. For example
   // def serviceList =

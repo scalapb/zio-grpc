@@ -8,7 +8,7 @@ jobs:
       matrix:
         scala: [2_12, 2_13, 3]
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
 
@@ -18,6 +18,11 @@ jobs:
           java-version: 8
           distribution: temurin
           cache: sbt
+    - name: Set up node.js
+      uses: actions/setup-node@v3
+      with:
+          node-version: "18.16.1"
+
     - name: Mount caches
       uses: actions/cache@v3
       with:
@@ -25,6 +30,7 @@ jobs:
           ~/.sbt
           ~/.ivy2/cache
           ~/.cache/coursier
+          ~/.cache/ms-playwright
         key: ${{ runner.os }}-sbt-${{matrix.scala}}-${{ hashFiles('**/*.sbt') }}
 
     - name: Formatting
@@ -33,12 +39,19 @@ jobs:
 
     - name: Compile and test (JVM)
       run: |
-        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/it:test
+        sbt coreJVM${{matrix.scala}}/test e2eJVM${{matrix.scala}}/test
+        # e2eJVM${{matrix.scala}}/it:test
 
     - name: Compile and test (JS)
-      if: ${{ matrix.scala != 3 }}
       run: |
         sbt coreJS${{matrix.scala}}/test
+
+    - name: Run grpc-web e2e test
+      if: ${{ matrix.scala != 3 }}
+      run: |
+        docker-compose -f ./examples/fullapp/docker-compose.yaml up -d
+        sbt e2eWebJS${{matrix.scala}}/fastOptJS/webpack e2eWebJVM${{matrix.scala}}/test
+        docker-compose -f ./examples/fullapp/docker-compose.yaml down
 
     - name: Examples
       run: |

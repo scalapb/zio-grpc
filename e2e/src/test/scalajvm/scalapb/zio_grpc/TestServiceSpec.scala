@@ -1,18 +1,18 @@
 package scalapb.zio_grpc
 
 import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status, StatusException}
-import scalapb.zio_grpc.TestUtils._
 import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
-import zio.{durationInt, Fiber, Queue, URIO, ZIO, ZLayer}
+import zio.{durationInt, Fiber, Queue, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.{flaky, timeout, withLiveClock}
 import zio.test._
+import TestUtils._
 
-object TestServiceSpec extends ZIOSpecDefault {
+object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.fromEnvironment[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
@@ -26,28 +26,8 @@ object TestServiceSpec extends ZIOSpecDefault {
       } yield client
     }
 
-  def unarySuite =
+  def unarySuiteJVM =
     suite("unary request")(
-      test("returns successful response") {
-        assertZIO(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)))(
-          equalTo(Response("Res12"))
-        )
-      },
-      test("returns successful response when the program is used repeatedly") {
-        // Must not capture an instance of ZClientCall, so call.start() should not be invoked twice
-        assertZIO(TestServiceClient.unary(Request(Request.Scenario.OK, in = 12)).repeatN(1))(
-          equalTo(Response("Res12"))
-        )
-      },
-      test("returns correct error response") {
-        assertZIO(
-          TestServiceClient
-            .unary(Request(Request.Scenario.ERROR_NOW, in = 12))
-            .exit
-        )(
-          fails(hasStatusCode(Status.INTERNAL))
-        )
-      },
       test("catches client interrupts") {
         for {
           fiber <- TestServiceClient
@@ -57,13 +37,6 @@ object TestServiceSpec extends ZIOSpecDefault {
           _     <- fiber.interrupt
           exit  <- TestServiceImpl.awaitExit
         } yield assert(exit.isInterrupted)(isTrue)
-      },
-      test("returns response on failures") {
-        assertZIO(
-          TestServiceClient.unary(Request(Request.Scenario.DIE, in = 12)).exit
-        )(
-          fails(hasStatusCode(Status.INTERNAL))
-        )
       },
       test("setting deadline interrupts the servers") {
         // If the timeout is too short, gRPC may not make the call or send messages. While the
@@ -78,59 +51,8 @@ object TestServiceSpec extends ZIOSpecDefault {
       } @@ flaky(100) @@ withLiveClock
     )
 
-  def collectWithError[R, E, A](
-      zs: ZStream[R, E, A]
-  ): URIO[R, (List[A], Option[E])] =
-    zs.either
-      .runFold((List.empty[A], Option.empty[E])) {
-        case ((l, _), Left(e))  => (l, Some(e))
-        case ((l, e), Right(a)) => (a :: l, e)
-      }
-      .map { case (la, oe) => (la.reverse, oe) }
-
-  def tuple[A, B](
-      assertionA: Assertion[A],
-      assertionB: Assertion[B]
-  ): Assertion[(A, B)] =
-    hasField[(A, B), A]("", _._1, assertionA) &&
-      hasField[(A, B), B]("", _._2, assertionB)
-
-  def serverStreamingSuite =
+  def serverStreamingSuiteJVM =
     suite("server streaming request")(
-      test("returns successful response") {
-        assertZIO(
-          collectWithError(
-            TestServiceClient.serverStreaming(
-              Request(Request.Scenario.OK, in = 12)
-            )
-          )
-        )(equalTo((List(Response("X1"), Response("X2")), None)))
-      },
-      test("returns correct error response") {
-        assertZIO(
-          collectWithError(
-            TestServiceClient.serverStreaming(
-              Request(Request.Scenario.ERROR_NOW, in = 12)
-            )
-          )
-        )(
-          tuple(isEmpty, isSome(hasStatusCode(Status.INTERNAL)))
-        )
-      },
-      test("returns correct error after two response") {
-        assertZIO(
-          collectWithError(
-            TestServiceClient.serverStreaming(
-              Request(Request.Scenario.ERROR_AFTER, in = 12)
-            )
-          )
-        )(
-          tuple(
-            hasSize(equalTo(2)),
-            isSome(hasStatusCode(Status.INTERNAL))
-          )
-        )
-      },
       test("catches client cancellations") {
         assertZIO(for {
           fb   <- TestServiceClient
@@ -143,17 +65,6 @@ object TestServiceSpec extends ZIOSpecDefault {
           _    <- fb.interrupt
           exit <- TestServiceImpl.awaitExit
         } yield exit)(fails(hasStatusCode(Status.CANCELLED)))
-      },
-      test("returns failure when failure") {
-        assertZIO(
-          collectWithError(
-            TestServiceClient.serverStreaming(
-              Request(Request.Scenario.DIE, in = 12)
-            )
-          )
-        )(
-          tuple(isEmpty, isSome(hasStatusCode(Status.INTERNAL)))
-        )
       }
     )
 
@@ -334,7 +245,9 @@ object TestServiceSpec extends ZIOSpecDefault {
   def spec =
     suite("TestServiceSpec")(
       unarySuite,
+      unarySuiteJVM,
       serverStreamingSuite,
+      serverStreamingSuiteJVM,
       clientStreamingSuite,
       bidiStreamingSuite
     ).provideLayer(layers.orDie)

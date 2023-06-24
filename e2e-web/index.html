@@ -1,0 +1,25 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>ZIO gRPC e2e test suite</title>
+  </head>
+  <body>
+    <pre id="log" data-testid="log"></pre>
+    <!-- Include Scala.js compiled code -->
+    <script>
+        var console = {
+            log: function(text) {
+                document.getElementById("log").appendChild(document.createTextNode(text + "\n"));
+            }
+        };
+        var scalaVersion = new URLSearchParams(window.location.search).get("scalaVersion")
+        if (/^\d(\.\d+)?$/.test(scalaVersion)) {
+            var scriptElement = document.createElement("script");
+            scriptElement.src = "./target/js-" + scalaVersion + "/scalajs-bundler/main/e2eweb-fastopt-bundle.js";
+            document.body.appendChild(scriptElement);
+        } else {
+            document.body.innerHTML = "scalaVersion query parameter is invalid.";
+        }
+    </script>
+  </body>
+</html>

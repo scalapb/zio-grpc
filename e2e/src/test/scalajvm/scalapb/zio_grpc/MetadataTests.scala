@@ -2,10 +2,9 @@ package scalapb.zio_grpc
 
 import zio.test.{test, _}
 import zio.test.Assertion._
-import zio.test.TestAspect.nonFlaky
 import zio.stream.ZStream
 import io.grpc.Metadata
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import TestUtils._
 import scalapb.zio_grpc.testservice._
 import scalapb.zio_grpc.testservice.ZioTestservice._
@@ -17,6 +16,9 @@ trait MetadataTests {
   ): ZLayer[Server, Nothing, TestServiceClient]
 
   def clientMetadataLayer: ZLayer[Server, Nothing, TestServiceClientWithResponseMetadata]
+
+  def hasTrailerValue[T](key: Metadata.Key[T], value: T) =
+    hasField[StatusException, T]("trailers", e => Status.trailersFromThrowable(e).get(key), equalTo(value))
 
   val RequestIdKey =
     Metadata.Key.of("request-id", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
