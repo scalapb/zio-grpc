@@ -34,12 +34,15 @@ object BackpressureSpec extends ZIOSpecDefault {
         def bidiStreaming(request: zio.stream.Stream[StatusException, Request]): ZStream[Any with Any, StatusException, Response] =
           request.drain ++ responses
 
-        def serverStreaming(request: Request): ZStream[Any with Any, StatusException, Response] =
-          responses
+        def serverStreaming(request: Request): ZStream[Any with Any, StatusException, Response] = responses
+
+        def serverStreamingTypeMapped(request: Request): ZStream[Any with Any, StatusException, WrappedString] = ???
 
         def clientStreaming(request: zio.stream.Stream[StatusException, Request]): ZIO[Any with Any, StatusException, Response] = ???
 
-        def unary(request: Request): ZIO[Any with Any, StatusException, Response] = ???
+        def unary(request: Request): ZIO[Any, StatusException, Response] = ???
+
+        def unaryTypeMapped(request: Request): ZIO[Any, StatusException, WrappedString] = ???
       }
     }
 

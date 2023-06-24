@@ -23,6 +23,8 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
         _ <- ZIO.fail(Status.FAILED_PRECONDITION.asException()).when(context.user.name == "Eve")
       } yield Response(context.user.name)
 
+    def unaryTypeMapped(request: Request, context: Context): IO[StatusException, WrappedString] = ???
+
     def serverStreaming(
         request: Request,
         context: Context
@@ -39,6 +41,9 @@ object EnvSpec extends ZIOSpecDefault with MetadataTests {
           Response(context.user.name),
           Response(context.user.name)
         )
+
+    def serverStreamingTypeMapped(request: Request, context: Context): ZStream[Any, StatusException, WrappedString] =
+      ???
 
     def clientStreaming(
         request: ZStream[Any, StatusException, Request],

@@ -24,7 +24,7 @@ object ClientCalls {
           channel.channel.baseUrl + "/" + method.fullName,
           req,
           headers.metadata,
-          method.methodInfo,
+          method.toGrpcWeb,
           (errorInfo: ErrorInfo, resp: Res) =>
             if (errorInfo != null)
               callback(ZIO.fail(new StatusException(Status.fromErrorInfo(errorInfo))))
@@ -45,7 +45,7 @@ object ClientCalls {
             channel.channel.baseUrl + "/" + method.fullName,
             req,
             headers.metadata,
-            method.methodInfo
+            method.toGrpcWeb
           )
           .on(
             "data",

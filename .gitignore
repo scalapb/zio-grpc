@@ -2,6 +2,7 @@
 *.log
 target
 .bsp
+.sbt
 .idea
 .metals
 .bloop

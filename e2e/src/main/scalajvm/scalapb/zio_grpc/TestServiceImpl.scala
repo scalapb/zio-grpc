@@ -35,6 +35,9 @@ package object server {
           case _                  => ZIO.fail(Status.UNKNOWN.asException())
         })).onExit(exit.succeed(_))
 
+      def unaryTypeMapped(request: Request): ZIO[Any, StatusException, WrappedString] =
+        unary(request).map(r => WrappedString(r.out))
+
       def serverStreaming(
           request: Request
       ): ZStream[Any, StatusException, Response] =
@@ -68,6 +71,9 @@ package object server {
               case _                    => ZStream.fail(Status.UNKNOWN.asException())
             }
           }
+
+      def serverStreamingTypeMapped(request: Request): ZStream[Any, StatusException, WrappedString] =
+        serverStreaming(request).map(r => WrappedString(r.out))
 
       def clientStreaming(
           request: Stream[StatusException, Request]

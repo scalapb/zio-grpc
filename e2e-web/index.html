@@ -1,0 +1,18 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>ZIO gRPC e2e test suite</title>
+  </head>
+  <body>
+    <pre id="log" data-testid="log"></pre>
+    <!-- Include Scala.js compiled code -->
+    <script>
+        var console = {
+            log: function(text) {
+                document.getElementById("log").appendChild(document.createTextNode(text + "\n"));
+            }
+        };
+    </script>
+    <script type="text/javascript" src="./target/js-2.13/scalajs-bundler/main/e2eweb-fastopt-bundle.js"></script>
+  </body>
+</html>

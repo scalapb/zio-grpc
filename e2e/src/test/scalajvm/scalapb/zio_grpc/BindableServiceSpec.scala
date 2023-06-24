@@ -20,7 +20,11 @@ object BindableServiceSpec extends ZIOSpecDefault {
 
     override def unary(request: Request, context: C): IO[StatusException, Response] = ???
 
+    override def unaryTypeMapped(request: Request, context: C): IO[StatusException, WrappedString] = ???
+
     override def serverStreaming(request: Request, context: C): Stream[StatusException, Response] = ???
+
+    override def serverStreamingTypeMapped(request: Request, context: C): Stream[StatusException, WrappedString] = ???
 
     override def clientStreaming(
         request: Stream[StatusException, Request],

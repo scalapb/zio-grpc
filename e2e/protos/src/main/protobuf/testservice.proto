@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package scalapb.zio_grpc;
 
+import "scalapb/scalapb.proto";
+
 message Request {
     enum Scenario {
         OK = 0;
@@ -18,10 +20,20 @@ message Response {
     string out = 1;
 }
 
+message ResponseTypeMapped {
+    option (scalapb.message).type = "scalapb.zio_grpc.WrappedString";
+
+    string out = 1;
+}
+
 service TestService {
     rpc Unary(Request) returns (Response);
 
+    rpc UnaryTypeMapped(Request) returns (ResponseTypeMapped);
+
     rpc ServerStreaming(Request) returns (stream Response);
+
+    rpc ServerStreamingTypeMapped(Request) returns (stream ResponseTypeMapped);
 
     rpc ClientStreaming(stream Request) returns (Response);
 

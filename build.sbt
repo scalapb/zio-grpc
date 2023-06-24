@@ -1,4 +1,5 @@
 import Settings.stdSettings
+import org.scalajs.linker.interface.ModuleInitializer
 
 val Scala3 = "3.3.0"
 
@@ -62,7 +63,7 @@ lazy val core = projectMatrix
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
       .settings(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7",
+          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7+0-e65b5515+20230622-2037-SNAPSHOT",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.4.2"
@@ -98,18 +99,68 @@ lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
     }
   )
 
-lazy val e2e =
+lazy val e2eProtos =
   projectMatrix
-    .in(file("e2e"))
+    .in(file("e2e") / "protos")
     .dependsOn(core)
     .defaultAxes()
     .enablePlugins(LocalCodeGenPlugin)
-    .jvmPlatform(ScalaVersions)
-    .configs(IntegrationTest)
+    .jvmPlatform(
+      ScalaVersions,
+      settings = Seq(
+        libraryDependencies ++= Seq(
+          "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion
+        )
+      )
+    )
+    .jsPlatform(
+      ScalaVersions,
+      settings = Seq(
+        libraryDependencies ++= Seq(
+          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7+0-e65b5515+20230622-2037-SNAPSHOT",
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0"
+        )
+      )
+    )
     .settings(stdSettings)
     .settings(
       Defaults.itSettings,
       crossScalaVersions   := Seq(Scala212, Scala213),
+      publish / skip       := true,
+      Compile / PB.targets := Seq(
+        scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
+        genModule(
+          "scalapb.zio_grpc.ZioCodeGenerator$"
+        )                        -> (Compile / sourceManaged).value
+      ),
+      libraryDependencies ++= Seq(
+        "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+      ),
+      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value
+    )
+
+lazy val e2e =
+  projectMatrix
+    .in(file("e2e"))
+    .dependsOn(core, e2eProtos)
+    .defaultAxes()
+    .jvmPlatform(ScalaVersions)
+    .customRow(
+      true,
+      ScalaVersions,
+      Seq(VirtualAxis.js),
+      _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+        .settings(
+          scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
+          Compile / npmDependencies += "grpc-web" -> "1.4.2",
+          scalaJSUseMainModuleInitializer         := true
+          // Compile / scalaJSMainModuleInitializer := Some(ModuleInitializer.mainMethod("scalapb.zio_grpc.BrowserTestRunner", "main"))
+        )
+    )
+    .configs(IntegrationTest)
+    .settings(stdSettings)
+    .settings(
+      Defaults.itSettings,
       publish / skip       := true,
       libraryDependencies ++= Seq(
         "dev.zio"              %% "zio-test"             % Version.zio % "test,it",
@@ -117,14 +168,43 @@ lazy val e2e =
         "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
         "io.grpc"               % "grpc-netty"           % Version.grpc
       ),
-      Compile / PB.targets := Seq(
-        scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
-        genModule(
-          "scalapb.zio_grpc.ZioCodeGenerator$"
-        )                        -> (Compile / sourceManaged).value
-      ),
-      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value,
+      Compile / run / fork := true,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    )
+
+lazy val e2eWeb =
+  projectMatrix
+    .in(file("e2e-web"))
+    .dependsOn(e2eProtos, e2e % "compile->test")
+    .defaultAxes()
+    .jvmPlatform(
+      scalaVersions = ScalaVersions,
+      settings = Seq(
+        libraryDependencies ++= Seq(
+          "com.microsoft.playwright" % "playwright"   % "1.31.0"    % Test,
+          "dev.zio"                %%% "zio-test"     % Version.zio % Test,
+          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
+        )
+      )
+    )
+    .customRow(
+      true,
+      ScalaVersions,
+      Seq(VirtualAxis.js),
+      _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+        .settings(
+          scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
+          Compile / npmDependencies += "grpc-web" -> "1.4.2",
+          scalaJSUseMainModuleInitializer         := true,
+          libraryDependencies ++= Seq(
+            "dev.zio" %%% "zio-test" % Version.zio
+          )
+          // Compile / scalaJSMainModuleInitializer := Some(ModuleInitializer.mainMethod("scalapb.zio_grpc.BrowserTestRunner", "main"))
+        )
+    )
+    .settings(stdSettings)
+    .settings(
+      publish / skip := true
     )
 
 lazy val benchmarks =
