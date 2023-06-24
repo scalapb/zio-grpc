@@ -63,7 +63,7 @@ lazy val core = projectMatrix
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
       .settings(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7+0-e65b5515+20230622-2037-SNAPSHOT",
+          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.4.2"
@@ -117,7 +117,7 @@ lazy val e2eProtos =
       ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.6.7+0-e65b5515+20230622-2037-SNAPSHOT",
+          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0"
         )
       )
