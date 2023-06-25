@@ -34,7 +34,7 @@ private[zio_grpc] class ServerImpl(underlying: io.grpc.Server) extends Server {
   def shutdownNow: Task[Unit] = ZIO.attempt(underlying.shutdownNow()).unit
 
   def toManaged: ZIO[Scope, Throwable, Server] =
-    start.as(this).withFinalizer(_ => this.shutdown.ignore)
+    start.as(this).withFinalizer(_ => (this.shutdown *> this.awaitTermination).ignore)
 }
 
 object Server {
