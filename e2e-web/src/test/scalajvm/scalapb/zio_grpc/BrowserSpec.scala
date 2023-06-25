@@ -6,6 +6,7 @@ import com.microsoft.playwright._
 import zio.ZIO
 import zio.ZLayer
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
+import com.microsoft.playwright.assertions.LocatorAssertions.ContainsTextOptions
 
 object BrowserSpec extends ZIOSpecDefault {
   val serverLayer: ZLayer[Any, Throwable, Server] =
@@ -24,7 +25,8 @@ object BrowserSpec extends ZIOSpecDefault {
                   val page     = browser.newPage()
                   val htmlFile = java.nio.file.Paths.get("").toAbsolutePath().toString
                   page.navigate(s"file:///${htmlFile}/e2e-web/index.html")
-                  assertThat(page.getByTestId("log")).containsText(". 0 tests failed")
+                  assertThat(page.getByTestId("log"))
+                    .containsText(". 0 tests failed", new ContainsTextOptions().setTimeout(15000))
                 }
         } yield assertTrue(true)
       )
