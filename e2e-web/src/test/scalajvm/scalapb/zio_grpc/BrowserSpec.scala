@@ -20,7 +20,7 @@ object BrowserSpec extends ZIOSpecDefault {
         for {
           pw <- ZIO.service[Playwright]
           _  <- ZIO.attemptBlocking {
-                  val browser  = pw.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false))
+                  val browser  = pw.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true))
                   val page     = browser.newPage()
                   val htmlFile = java.nio.file.Paths.get("").toAbsolutePath().toString
                   page.navigate(s"file:///${htmlFile}/e2e-web/index.html")
