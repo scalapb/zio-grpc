@@ -12,7 +12,14 @@
                 document.getElementById("log").appendChild(document.createTextNode(text + "\n"));
             }
         };
+        var scalaVersion = new URLSearchParams(window.location.search).get("scalaVersion")
+        if (/^\d(\.\d+)?$/.test(scalaVersion)) {
+            var scriptElement = document.createElement("script");
+            scriptElement.src = "./target/js-" + scalaVersion + "/scalajs-bundler/main/e2eweb-fastopt-bundle.js";
+            document.body.appendChild(scriptElement);
+        } else {
+            document.body.innerHTML = "scalaVersion query parameter is invalid.";
+        }
     </script>
-    <script type="text/javascript" src="./target/js-2.13/scalajs-bundler/main/e2eweb-fastopt-bundle.js"></script>
   </body>
 </html>

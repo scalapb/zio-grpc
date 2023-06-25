@@ -154,7 +154,6 @@ lazy val e2e =
           scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
           Compile / npmDependencies += "grpc-web" -> "1.4.2",
           scalaJSUseMainModuleInitializer         := true
-          // Compile / scalaJSMainModuleInitializer := Some(ModuleInitializer.mainMethod("scalapb.zio_grpc.BrowserTestRunner", "main"))
         )
     )
     .configs(IntegrationTest)
@@ -177,15 +176,19 @@ lazy val e2eWeb =
     .in(file("e2e-web"))
     .dependsOn(e2eProtos, e2e % "compile->test")
     .defaultAxes()
+    .enablePlugins(BuildInfoPlugin)
     .jvmPlatform(
       scalaVersions = ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
           "com.microsoft.playwright" % "playwright"   % "1.31.0"    % Test,
           "dev.zio"                %%% "zio-test"     % Version.zio % Test,
-          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
-        )
-      )
+          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test,
+        ),
+        buildInfoKeys := Seq(
+            scalaBinaryVersion
+        ),
+      ),
     )
     .customRow(
       true,
@@ -201,7 +204,6 @@ lazy val e2eWeb =
           ),
           webpack / version                       := "5.88.0",
           startWebpackDevServer / version         := "4.15.1"
-          // Compile / scalaJSMainModuleInitializer := Some(ModuleInitializer.mainMethod("scalapb.zio_grpc.BrowserTestRunner", "main"))
         )
     )
     .settings(stdSettings)
