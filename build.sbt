@@ -199,8 +199,8 @@ lazy val e2eWeb =
           libraryDependencies ++= Seq(
             "dev.zio" %%% "zio-test" % Version.zio
           ),
-          webpack / version := "5.88.0",
-          startWebpackDevServer / version := "4.15.1"
+          webpack / version                       := "5.88.0",
+          startWebpackDevServer / version         := "4.15.1"
           // Compile / scalaJSMainModuleInitializer := Some(ModuleInitializer.mainMethod("scalapb.zio_grpc.BrowserTestRunner", "main"))
         )
     )
