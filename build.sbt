@@ -183,12 +183,12 @@ lazy val e2eWeb =
         libraryDependencies ++= Seq(
           "com.microsoft.playwright" % "playwright"   % "1.31.0"    % Test,
           "dev.zio"                %%% "zio-test"     % Version.zio % Test,
-          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test,
+          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
         ),
         buildInfoKeys := Seq(
-            scalaBinaryVersion
-        ),
-      ),
+          scalaBinaryVersion
+        )
+      )
     )
     .customRow(
       true,
