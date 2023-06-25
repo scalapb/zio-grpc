@@ -2,13 +2,9 @@ package scalapb.zio_grpc
 
 import io.grpc.ServerBuilder
 import zio.test._
-import zio.test.Assertion._
-import zio.test.Assertion._
 import com.microsoft.playwright._
 import zio.ZIO
-import zio.Console._
 import zio.ZLayer
-import zio.Scope
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 
 object BrowserSpec extends ZIOSpecDefault {
