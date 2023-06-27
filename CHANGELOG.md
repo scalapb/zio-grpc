@@ -8,14 +8,16 @@
   `ZIO_GRPC_BACKPRESSURE_QUEUE_SIZE` environment variable or
   `zio_grpc.backpressure_queue_size` system property (previously the names
   were hyphenated). Change was made for compatibility with ZIO Config.
-* Removed the `R` type parameter for generated services. Generated services now have a single
-  type parameter for context. This simplifies the previous APIs and encourages the ZIO 2
+* GeneratedServices no longer have a `R` type parameter for generated services. This simplifies the previous APIs and encourages the ZIO 2
   style that service dependencies are passed via constructors (see [service pattern](https://zio.dev/reference/service-pattern/))
+* Added `E` type parameter that represents the error type.
 * Context is now received as a second parameter for each handler. For
   convenience, there is a trait that only takes one parameter (the request
   type).
-* Simplified ZTransform. Introduce Transform for effectful transformations for
-  services that do not have context.
+* Introduce Transform for effectful transformations for services that do not have context.
+* Introduce GTransform for effectful transformations over both context and error type.
+* `ZTransform[ContextIn, ContextOut]` is now a type alias to GTransform that
+  fixes the error channel to StatusException.
 * Classes and methods with suffix ClientWithMetadata have been renamed to ClientWithResponseMetadata.
 * Removed the `R` type parameter in most APIs.
 * ManagedServer renamed to ScopedServer.
