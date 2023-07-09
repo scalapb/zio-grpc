@@ -9,12 +9,12 @@ import scala.annotation.implicitNotFound
 /** Provides a way to bind a ZIO gRPC service implementations to a server. */
 @implicitNotFound("""Could not find an implicit ZBindableService[${S}].
 
-Typically, ${S} should extend GenericGeneratedService[C] for some type C which
-represents the context provided for each request.
+Typically, ${S} should extend GenericGeneratedService[C, E] for some type C which
+represents the context provided for each request, and type E which represents an error.
 
 When a ZBindableService could not be found, it is most likely that the context type
- is not Any, SafeMetadata, or RequestContext, or some other type T which has an implicit
-  instance of CanBind[T] available.
+ is not Any, SafeMetadata, or RequestContext, or some other type C which has an implicit
+  instance of CanBind[C] available.
 """)
 trait ZBindableService[S] {
 

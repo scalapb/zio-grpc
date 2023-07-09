@@ -8,10 +8,10 @@ trait CanBind[C] {
 }
 
 trait CanBindLowPriority {
-  implicit val canBindRC: CanBind[RequestContext] = identity
+  implicit val canBindRC: CanBind[RequestContext] = identity(_)
   implicit val canBindMD: CanBind[SafeMetadata]   = t => t.metadata
 }
 
 object CanBind extends CanBindLowPriority {
-  implicit val canBindAny: CanBind[Any] = identity
+  implicit val canBindAny: CanBind[Any] = identity(_)
 }
