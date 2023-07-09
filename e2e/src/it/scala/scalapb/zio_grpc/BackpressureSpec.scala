@@ -31,14 +31,18 @@ object BackpressureSpec extends ZIOSpecDefault {
       new ZioTestservice.TestService {
         val responses = ZStream.iterate(0)(_ + 1).map(i => Response(i.toString)).take(100)
 
-        def bidiStreaming(request: zio.stream.Stream[StatusException, Request]): ZStream[Any with Any, StatusException, Response] =
+        def bidiStreaming(
+            request: zio.stream.Stream[StatusException, Request]
+        ): ZStream[Any with Any, StatusException, Response] =
           request.drain ++ responses
 
         def serverStreaming(request: Request): ZStream[Any with Any, StatusException, Response] = responses
 
         def serverStreamingTypeMapped(request: Request): ZStream[Any with Any, StatusException, WrappedString] = ???
 
-        def clientStreaming(request: zio.stream.Stream[StatusException, Request]): ZIO[Any with Any, StatusException, Response] = ???
+        def clientStreaming(
+            request: zio.stream.Stream[StatusException, Request]
+        ): ZIO[Any with Any, StatusException, Response] = ???
 
         def unary(request: Request): ZIO[Any, StatusException, Response] = ???
 

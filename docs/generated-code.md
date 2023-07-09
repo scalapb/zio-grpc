@@ -27,7 +27,7 @@ trait MyService {
 The trait `MyService` is to be extended when implementing a server for this service.
 
 It is common that services need to extract information from the request context, for example the caller's identity. To accomplish that, there is another trait `ZMyService` which takes one
-type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to receive.  Later on, we will see how to convert between a `RequestContext` which represents the underlying context of the requset with your domain model.
+type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to receive.  Later on, we will see how to convert between a `RequestContext` which represents the underlying context of the request with your domain model.
 
 ```scala
 object MyServiceImpl extends MyService {
