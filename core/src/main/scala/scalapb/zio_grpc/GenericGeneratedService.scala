@@ -19,9 +19,11 @@ trait GenericGeneratedService[-C, +E, S[-_, +_]] {
   def transformContext[ContextOut](f: ContextOut => C): S[ContextOut, E] =
     transformContextZIO(c => zio.ZIO.succeed(f(c)))
 
-  def mapError[E1](f: E => E1) = transform(GTransform.mapError[C, E, E1](f))
+  // Transform the error type of the service by applying the given function.
+  def mapError[E1](f: E => E1): S[C, E1] = transform(GTransform.mapError[C, E, E1](f))
 
-  def mapErrorZIO[E1](f: E => UIO[E1]) = transform(GTransform.mapErrorZIO[C, E, E1](f))
+  // Effectfully transforms the error type of the service by applying the given function.
+  def mapErrorZIO[E1](f: E => UIO[E1]): S[C, E1] = transform(GTransform.mapErrorZIO[C, E, E1](f))
 }
 
 trait GeneratedService {

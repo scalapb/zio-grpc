@@ -26,14 +26,18 @@ trait MyService {
 
 The trait `MyService` is to be extended when implementing a server for this service.
 
-It is common that services need to extract information from the request context, for example the caller's identity. To accomplish that, there is another trait `ZMyService` which takes one
-type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to receive.  Later on, we will see how to convert between a `RequestContext` which represents the underlying context of the request with your domain model.
-
 ```scala
 object MyServiceImpl extends MyService {
   def sayHello(request: HelloRequest): ZIO[Any, StatusException, HelloReply] = ???
 }
 ```
+
+It is common that services need to extract information from the request context, for example the caller's identity. To accomplish that, there is another trait `ZMyService` which takes one
+type parameter `Context`. The `Context` type parameter represents any domain object that you would like your RPC methods to receive.  Later on, we will see how to convert between a `RequestContext` which represents the underlying context of the request with your domain model.
+
+The most generic type is called `GMyService`. It takes two type parameters: `Context` and `Error`. The context is the same as before, and the error could be any type you would like your server implementatino to use
+an error. Before you use this service with the rest of zio-grpc API, you would need to convert the error type
+to `StatusException` by using either `mapError` or `mapErrorZIO`.
 
 Learn more about using [context and dependencies](context.md) in the next section.
 
