@@ -35,37 +35,46 @@ object MapErrorSpec extends ZIOSpecDefault {
     ): zio.stream.Stream[CustomError, Response] = ???
   }
 
-  val mappedServer = ServerWithCustomError.mapError(ce => new StatusException(Status.fromCodeValue(ce.code)))
-
-  def spec = suite("MapErrorSpec")(
+  def withServer(name: String, server: ZioTestservice.ZTestService[Any]) = suite(name)(
     test("maps errors for unary requests")(
-      assertZIO(mappedServer.unary(Request(in = 4), 0).exit)(fails(TestUtils.hasStatusCode(Status.fromCodeValue(4))))
+      assertZIO(server.unary(Request(in = 4), 0).exit)(fails(TestUtils.hasStatusCode(Status.fromCodeValue(4))))
     ),
     test("maps errors for unary type mapped requests requests")(
-      assertZIO(mappedServer.unaryTypeMapped(Request(in = 5), 0).exit)(
+      assertZIO(server.unaryTypeMapped(Request(in = 5), 0).exit)(
         fails(TestUtils.hasStatusCode(Status.fromCodeValue(5)))
       )
     ),
     test("maps errors for server streaming requests")(
-      assertZIO(mappedServer.serverStreaming(Request(in = 6), 0).either.run(ZSink.collectAll))(
+      assertZIO(server.serverStreaming(Request(in = 6), 0).either.run(ZSink.collectAll))(
         hasAt(0)(isRight(equalTo(Response("1")))) &&
           hasAt(1)(isRight(equalTo(Response("2")))) &&
           hasAt(2)(isLeft(TestUtils.hasStatusCode(Status.fromCodeValue(6))))
       )
     ),
     test("maps errors for server streaming requests")(
-      assertZIO(mappedServer.serverStreaming(Request(in = 6), 0).either.run(ZSink.collectAll))(
+      assertZIO(server.serverStreaming(Request(in = 6), 0).either.run(ZSink.collectAll))(
         hasAt(0)(isRight(equalTo(Response("1")))) &&
           hasAt(1)(isRight(equalTo(Response("2")))) &&
           hasAt(2)(isLeft(TestUtils.hasStatusCode(Status.fromCodeValue(6))))
       )
     ),
     test("maps errors for type mapped streaming requests")(
-      assertZIO(mappedServer.serverStreamingTypeMapped(Request(in = 6), 0).either.run(ZSink.collectAll))(
+      assertZIO(server.serverStreamingTypeMapped(Request(in = 6), 0).either.run(ZSink.collectAll))(
         hasAt(0)(isRight(equalTo(WrappedString("1")))) &&
           hasAt(1)(isRight(equalTo(WrappedString("2")))) &&
           hasAt(2)(isLeft(TestUtils.hasStatusCode(Status.fromCodeValue(6))))
       )
+    )
+  )
+
+  def spec = suite("Map error spec")(
+    withServer(
+      "using mapError",
+      ServerWithCustomError.mapError(c => new StatusException(Status.fromCodeValue(c.code)))
+    ),
+    withServer(
+      "using mapErrorZIO",
+      ServerWithCustomError.mapErrorZIO(c => ZIO.succeed(new StatusException(Status.fromCodeValue(c.code))))
     )
   )
 }

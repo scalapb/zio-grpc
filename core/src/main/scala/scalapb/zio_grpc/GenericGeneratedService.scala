@@ -20,6 +20,8 @@ trait GenericGeneratedService[-C, +E, S[-_, +_]] {
     transformContextZIO(c => zio.ZIO.succeed(f(c)))
 
   def mapError[E1](f: E => E1) = transform(GTransform.mapError[C, E, E1](f))
+
+  def mapErrorZIO[E1](f: E => UIO[E1]) = transform(GTransform.mapErrorZIO[C, E, E1](f))
 }
 
 trait GeneratedService {
