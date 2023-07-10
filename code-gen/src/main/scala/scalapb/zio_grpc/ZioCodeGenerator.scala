@@ -406,7 +406,10 @@ class ZioFilePrinter(
           s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsWithResponseMetadataClassName.name}] {"
         )
         .indented(
-          _.print(service.getMethods().asScala.toVector)(printAccessorWithResponseMetadata)
+          _.add(
+            s"def this(callOptionsFunc: $CallOptions => $CallOptions, metadataFunc: $SafeMetadata => zio.UIO[$SafeMetadata]) = this($ClientTransform.mapCallOptions(callOptionsFunc).andThen($ClientTransform.mapMetadataZIO(metadataFunc)))"
+          )
+            .print(service.getMethods().asScala.toVector)(printAccessorWithResponseMetadata)
             .add(
               s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${accessorsWithResponseMetadataClassName.name} = new ${accessorsWithResponseMetadataClassName.name}(transforms.andThen(t))"
             )
@@ -477,7 +480,10 @@ class ZioFilePrinter(
           s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsClassName.name}] {"
         )
         .indented(
-          _.print(service.getMethods().asScala.toVector)(printAccessor)
+          _.add(
+            s"def this(callOptionsFunc: $CallOptions => $CallOptions, metadataFunc: $SafeMetadata => zio.UIO[$SafeMetadata]) = this($ClientTransform.mapCallOptions(callOptionsFunc).andThen($ClientTransform.mapMetadataZIO(metadataFunc)))"
+          )
+            .print(service.getMethods().asScala.toVector)(printAccessor)
             .add(
               s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${accessorsClassName.name} = new ${accessorsClassName.name}(transforms.andThen(t))"
             )
