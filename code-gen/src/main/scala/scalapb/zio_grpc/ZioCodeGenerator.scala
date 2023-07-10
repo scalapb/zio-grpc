@@ -66,6 +66,7 @@ class ZioFilePrinter(
   val methodDescriptor    = "io.grpc.MethodDescriptor"
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
   val ClientCallContext   = "scalapb.zio_grpc.ClientCallContext"
+  val ClientTransform     = "scalapb.zio_grpc.ClientTransform"
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
@@ -436,19 +437,34 @@ class ZioFilePrinter(
             printClientWithResponseMetadataImpl
           )
             .add(
-              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, transforms.andThen(t))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, t.andThen(transforms))"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext]): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
         )
         .add("  channel => new ServiceStub(channel, transforms)")
         .add("}")
+        .add(
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          s"  scoped(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
+        )
         .add("")
         .add(
-          s"def live[Context](managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] = zio.ZLayer.scoped(scoped(managedChannel, transforms))"
+          s"def live[Context](managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext]): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          "  zio.ZLayer.scoped(scoped(managedChannel, transforms))"
+        )
+        .add(
+          s"def live[Context](managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          "  zio.ZLayer.scoped(scoped(managedChannel, options, metadata))"
         )
         .outdent
         .add("}")
@@ -508,11 +524,29 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, transforms).map(client => new ServiceStub(client))"
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext]): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, transforms).map(client => new ServiceStub(client))"
+        )
+        .add(
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientServiceName.name}.scoped(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
         )
         .add("")
         .add(
-          s"def live(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.live(managedChannel, transforms).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
+          s"def live(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext]): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientWithResponseMetadataServiceName.name}.live(managedChannel, transforms).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
+        )
+        .add(
+          s"def live(managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientServiceName.name}.live(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
         )
         .outdent
         .add("}")
