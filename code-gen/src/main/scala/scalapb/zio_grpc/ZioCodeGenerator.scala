@@ -402,7 +402,7 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor with metadata methods")
         .add(
-          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsWithResponseMetadataClassName.name}] {"
+          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsWithResponseMetadataClassName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(printAccessorWithResponseMetadata)
@@ -413,7 +413,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.ClientMethods[${clientWithResponseMetadataServiceName.name}] {"
+          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.GeneratedServiceClient[${clientWithResponseMetadataServiceName.name}] {"
         )
         .indented(
           _.add("self =>")
@@ -458,7 +458,7 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor methods")
         .add(
-          s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsClassName.name}] {"
+          s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsClassName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(printAccessor)
@@ -469,7 +469,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.ClientMethods[${clientServiceName.name}] with scalapb.zio_grpc.TransformableClient[${clientServiceName.name}] {"
+          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.GeneratedServiceClient[${clientServiceName.name}] {"
         )
         .indented(
           _.add("self =>")
