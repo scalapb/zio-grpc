@@ -577,11 +577,11 @@ class ZioFilePrinter(
         case StreamType.Unary | StreamType.ClientStreaming         => "effect"
         case StreamType.ServerStreaming | StreamType.Bidirectional => "stream"
       }
-      val metadata        = method.streamType match {
+      val makeMetadata    = method.streamType match {
         case StreamType.Unary | StreamType.ClientStreaming         =>
-          s"context.metadata.flatMap"
+          s"$SafeMetadata.make"
         case StreamType.ServerStreaming | StreamType.Bidirectional =>
-          s"zio.stream.ZStream.fromZIO(context.metadata).flatMap"
+          s"zio.stream.ZStream.fromZIO($SafeMetadata.make)"
       }
       fp.add(
         clientWithResponseMetadataSignature(
@@ -589,9 +589,9 @@ class ZioFilePrinter(
           envOutType = "Any"
         ) + s" ="
       ).indent
-        .add(s"transforms.$transformMethod { context => ")
+        .add(s"$makeMetadata.flatMap { metadata =>")
         .indented(
-          _.add(s"$metadata { headers =>")
+          _.add(s"transforms.$transformMethod { context => ")
             .indented(
               _.add(
                 s"$clientCall("
@@ -600,14 +600,14 @@ class ZioFilePrinter(
                   _.add(s"channel,")
                     .add(s"context.method.asInstanceOf[$methodDescriptor[$Req, $Res]],")
                     .add("context.options,")
-                    .add("headers,")
+                    .add("context.metadata,")
                     .add("request")
                 )
                 .add(")")
             )
-            .add("}")
+            .add(s"}($ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, metadata))")
         )
-        .add(s"}($ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, $SafeMetadata.make))")
+        .add("}")
         .outdent
     }
 

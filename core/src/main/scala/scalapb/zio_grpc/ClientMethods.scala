@@ -17,7 +17,7 @@ trait ClientMethods[Repr] extends TransformableClient[Repr] {
   // Returns new instance with modified metadata
   def mapMetadataZIO(f: SafeMetadata => UIO[SafeMetadata]): Repr =
     transform(ZTransform[ClientCallContext, ClientCallContext] { context =>
-      ZIO.succeed(context.copy(metadata = context.metadata.flatMap(f)))
+      f(context.metadata).map(metadata => context.copy(metadata = metadata))
     })
 
   // Returns new instance with the metadata set to the one provide
