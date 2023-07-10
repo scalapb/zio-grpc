@@ -13,4 +13,6 @@ package object zio_grpc {
 
   @deprecated("Use ScopedServer instead of ManagedServer", "0.6.0")
   val ManagedServer = scalapb.zio_grpc.ScopedServer
+
+  type ZTransform[ContextIn, ContextOut] = GTransform[ContextIn, StatusException, ContextOut, StatusException]
 }

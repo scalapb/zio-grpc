@@ -68,7 +68,7 @@ class ZioFilePrinter(
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
-  val ZTransform          = "scalapb.zio_grpc.ZTransform"
+  val GTransform          = "scalapb.zio_grpc.GTransform"
   val Transform           = "scalapb.zio_grpc.Transform"
   val Nanos               = "java.util.concurrent.TimeUnit.NANOSECONDS"
   val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
@@ -101,45 +101,47 @@ class ZioFilePrinter(
   class ServicePrinter(service: ServiceDescriptor) {
 
     private val traitName  = OuterObject / service.name
-    private val ztraitName = OuterObject / ("Z" + service.name)
+    private val gtraitName = OuterObject / ("G" + service.name)
 
     private val clientServiceName                      = OuterObject / (service.name + "Client")
     private val clientWithResponseMetadataServiceName  = OuterObject / (service.name + "ClientWithResponseMetadata")
     private val accessorsClassName                     = OuterObject / (service.name + "Accessors")
     private val accessorsWithResponseMetadataClassName = OuterObject / (service.name + "WithResponseMetadataAccessors")
 
-    def methodInType(method: MethodDescriptor): String = {
+    def methodInType(method: MethodDescriptor, errorType: String): String = {
       val scalaInType = method.inputType.scalaType
 
       method.streamType match {
         case StreamType.Unary           =>
           scalaInType
         case StreamType.ClientStreaming =>
-          stream(scalaInType, "Any")
+          stream(scalaInType, errorType, "Any")
         case StreamType.ServerStreaming =>
           scalaInType
         case StreamType.Bidirectional   =>
-          stream(scalaInType, "Any")
+          stream(scalaInType, errorType, "Any")
       }
     }
 
     def methodSignature(
         method: MethodDescriptor,
-        contextType: Option[String]
+        contextType: Option[String],
+        errorType: Option[String]
     ): String = {
-      val reqType      = methodInType(method)
       val scalaOutType = method.outputType.scalaType
       val contextParam = contextType.fold("")(ctx => s""", context: $ctx""")
+      val errorParam   = errorType.getOrElse("Error")
+      val reqType      = methodInType(method, StatusException)
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary           =>
-          s"(request: $reqType$contextParam): ${io(scalaOutType, "Any")}"
+          s"(request: $reqType$contextParam): ${io(scalaOutType, errorParam, "Any")}"
         case StreamType.ClientStreaming =>
-          s"(request: $reqType$contextParam): ${io(scalaOutType, "Any")}"
+          s"(request: $reqType$contextParam): ${io(scalaOutType, errorParam, "Any")}"
         case StreamType.ServerStreaming =>
-          s"(request: $reqType$contextParam): ${stream(scalaOutType, "Any")}"
+          s"(request: $reqType$contextParam): ${stream(scalaOutType, errorParam, "Any")}"
         case StreamType.Bidirectional   =>
-          s"(request: $reqType$contextParam): ${stream(scalaOutType, "Any")}"
+          s"(request: $reqType$contextParam): ${stream(scalaOutType, errorParam, "Any")}"
       })
     }
 
@@ -160,18 +162,18 @@ class ZioFilePrinter(
         method: MethodDescriptor,
         contextType: String
     ): String = {
-      val reqType      = methodInType(method)
+      val reqType      = methodInType(method, StatusException)
       val scalaOutType = method.outputType.scalaType
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary           =>
-          s"(request: $reqType): ${io(scalaOutType, contextType)}"
+          s"(request: $reqType): ${io(scalaOutType, StatusException, contextType)}"
         case StreamType.ClientStreaming =>
-          s"(request: $reqType): ${io(scalaOutType, contextType)}"
+          s"(request: $reqType): ${io(scalaOutType, StatusException, contextType)}"
         case StreamType.ServerStreaming =>
-          s"(request: $reqType): ${stream(scalaOutType, contextType)}"
+          s"(request: $reqType): ${stream(scalaOutType, StatusException, contextType)}"
         case StreamType.Bidirectional   =>
-          s"(request: $reqType): ${stream(scalaOutType, contextType)}"
+          s"(request: $reqType): ${stream(scalaOutType, StatusException, contextType)}"
       })
     }
 
@@ -179,25 +181,26 @@ class ZioFilePrinter(
         method: MethodDescriptor,
         envOutType: String
     ): String = {
-      val reqType       = methodInType(method)
+      val reqType       = methodInType(method, StatusException)
       val scalaOutType  = method.outputType.scalaType
       val ioOutType     = s"scalapb.zio_grpc.ResponseContext[$scalaOutType]"
       val streamOutType = s"scalapb.zio_grpc.ResponseFrame[$scalaOutType]"
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary           =>
-          s"(request: $reqType): ${io(ioOutType, envOutType)}"
+          s"(request: $reqType): ${io(ioOutType, StatusException, envOutType)}"
         case StreamType.ClientStreaming =>
-          s"(request: $reqType): ${io(ioOutType, envOutType)}"
+          s"(request: $reqType): ${io(ioOutType, StatusException, envOutType)}"
         case StreamType.ServerStreaming =>
-          s"(request: $reqType): ${stream(streamOutType, envOutType)}"
+          s"(request: $reqType): ${stream(streamOutType, StatusException, envOutType)}"
         case StreamType.Bidirectional   =>
-          s"(request: $reqType): ${stream(streamOutType, envOutType)}"
+          s"(request: $reqType): ${stream(streamOutType, StatusException, envOutType)}"
       })
     }
 
     def printMethodSignature(
-        contextType: Option[String]
+        contextType: Option[String],
+        errorType: Option[String]
     )(
         fp: FunctionalPrinter,
         method: MethodDescriptor
@@ -205,7 +208,8 @@ class ZioFilePrinter(
       fp.add(
         methodSignature(
           method,
-          contextType
+          contextType,
+          errorType
         )
       )
 
@@ -234,7 +238,8 @@ class ZioFilePrinter(
       fp.add(
         methodSignature(
           method,
-          contextType = Some("Context1")
+          contextType = Some("Context1"),
+          errorType = Some("Error1")
         ) + " = " + newImpl
       )
     }
@@ -285,9 +290,9 @@ class ZioFilePrinter(
       )
     }
 
-    def printZTransformMethod(fp: FunctionalPrinter): FunctionalPrinter =
+    def printGTransformMethod(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"def transform[Context1](f: $ZTransform[Context, Context1]): ${ztraitName.fullName}[Context1] = new ${ztraitName.fullName}[Context1] {"
+        s"def transform[Context1, Error1](f: $GTransform[Context, Error, Context1, Error1]): ${gtraitName.fullName}[Context1, Error1] = new ${gtraitName.fullName}[Context1, Error1] {"
       ).indented(
         _.print(service.getMethods().asScala.toVector)(
           printServerTransform
@@ -330,39 +335,51 @@ class ZioFilePrinter(
 
     def print(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"trait ${ztraitName.name}[-Context] extends scalapb.zio_grpc.ZGeneratedService[Context, ${ztraitName.name}] {"
+        s"trait ${gtraitName.name}[-Context, +Error] extends scalapb.zio_grpc.GenericGeneratedService[Context, Error, ${gtraitName.name}] {"
       ).indented(
         _.add("self =>")
           .print(service.getMethods().asScala.toVector)(
             printMethodSignature(
-              contextType = Some("Context")
+              contextType = Some("Context"),
+              errorType = Some("Error")
             )
           )
           .add("")
-          .call(printZTransformMethod)
+          .call(printGTransformMethod)
       ).add("}")
+        .add("")
+        .add(
+          s"type Z${traitName.name}[Context] = ${gtraitName.name}[Context, $StatusException]",
+          s"type RC${traitName.name} = ${gtraitName.name}[$RequestContext, $StatusException]"
+        )
         .add("")
         .add(
           s"trait ${traitName.name} extends scalapb.zio_grpc.GeneratedService {"
         )
         .indented(
           _.add("self =>")
-            .add(s"type WithContext[-C] = ${ztraitName.name}[C]")
+            .add(s"type Generic[-C, +E] = ${gtraitName.name}[C, E]")
             .print(service.getMethods().asScala.toVector)(
-              printMethodSignature(contextType = None)
+              printMethodSignature(contextType = None, errorType = Some(StatusException))
             )
             .add("")
-            .add(s"override def withContext: ${ztraitName.name}[Any] = new ${ztraitName.name}[Any] {")
+            .add(
+              s"override def asGeneric: ${gtraitName.name}[Any, $StatusException] = new ${gtraitName.name}[Any, $StatusException] {"
+            )
             .indented(
               _.print(service.getMethods().asScala.toVector) { (fp, method) =>
                 (
-                  fp.add(s"${methodSignature(method, contextType = Some("Any"))} = self.${method.name}(request)")
+                  fp.add(
+                    s"${methodSignature(method, contextType = Some("Any"), errorType = Some(StatusException))} = self.${method.name}(request)"
+                  )
                 )
               }
             )
             .add("}")
-            .add(s"def transform(z: $Transform): ${ztraitName.name}[Any] = withContext.transform(z)")
-            .add(s"def transform[C](z: $ZTransform[Any, C]): ${ztraitName.name}[C] = withContext.transform(z)")
+            .add(s"def transform(z: $Transform): ${gtraitName.name}[Any, $StatusException] = asGeneric.transform(z)")
+            .add(
+              s"def transform[C, E](z: $GTransform[Any, $StatusException, C, E]): ${gtraitName.name}[C, E] = asGeneric.transform(z)"
+            )
         )
         .add("}")
         .add("")
@@ -373,24 +390,21 @@ class ZioFilePrinter(
           )
             .indented(
               _.add(
-                s"""def bind(serviceImpl: ${traitName.fullName}): zio.UIO[$serverServiceDef] = ${ztraitName.fullName}.genericBindable.bind(serviceImpl.withContext)"""
+                s"""def bind(serviceImpl: ${traitName.fullName}): zio.UIO[$serverServiceDef] = ${gtraitName.fullName}.genericBindable.bind(serviceImpl.asGeneric)"""
               )
             )
             .add("}")
         )
         .add("}")
-        .add(
-          s"type RC${traitName.name} = ${ztraitName.name}[$RequestContext]"
-        )
         .add("")
-        .add(s"object ${ztraitName.name} {")
+        .add(s"object ${gtraitName.name} {")
         .indented(
           _.add(
-            s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}[$RequestContext]] = new scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}[$RequestContext]] {"
+            s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${gtraitName.fullName}[$RequestContext, $StatusException]] = new scalapb.zio_grpc.GenericBindable[${gtraitName.fullName}[$RequestContext, $StatusException]] {"
           )
             .indented(
               _.add(
-                s"""def bind(serviceImpl: ${ztraitName.fullName}[$RequestContext]): zio.UIO[$serverServiceDef] ="""
+                s"""def bind(serviceImpl: ${gtraitName.fullName}[$RequestContext, $StatusException]): zio.UIO[$serverServiceDef] ="""
               ).indent
                 .add("zio.ZIO.runtime[Any].map {")
                 .indent
@@ -671,15 +685,15 @@ class ZioFilePrinter(
     }
   }
 
-  def stream(res: String, envType: String) =
+  def stream(res: String, errType: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.stream.Stream[$StatusException, $res]"
-      case r     => s"_root_.zio.stream.ZStream[$r, $StatusException, $res]"
+      case "Any" => s"_root_.zio.stream.Stream[$errType, $res]"
+      case r     => s"_root_.zio.stream.ZStream[$r, $errType, $res]"
     }
 
-  def io(res: String, envType: String) =
+  def io(res: String, errType: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.IO[$StatusException, $res]"
-      case r     => s"_root_.zio.ZIO[$r, $StatusException, $res]"
+      case "Any" => s"_root_.zio.IO[$errType, $res]"
+      case r     => s"_root_.zio.ZIO[$r, $errType, $res]"
     }
 }

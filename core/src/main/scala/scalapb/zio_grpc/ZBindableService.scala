@@ -1,6 +1,7 @@
 package scalapb.zio_grpc
 
 import io.grpc.ServerServiceDefinition
+import io.grpc.StatusException
 import zio.UIO
 import zio.Tag
 import scala.annotation.implicitNotFound
@@ -8,12 +9,12 @@ import scala.annotation.implicitNotFound
 /** Provides a way to bind a ZIO gRPC service implementations to a server. */
 @implicitNotFound("""Could not find an implicit ZBindableService[${S}].
 
-Typically, ${S} should extend ZGeneratedService[C] for some type C which
-represents the context provided for each request.
+Typically, ${S} should extend GenericGeneratedService[C, E] for some type C which
+represents the context provided for each request, and type E which represents an error.
 
 When a ZBindableService could not be found, it is most likely that the context type
- is not Any, SafeMetadata, or RequestContext, or some other type T which has an implicit
-  instance of CanBind[T] available.
+ is not Any, SafeMetadata, or RequestContext, or some other type C which has an implicit
+  instance of CanBind[C] available.
 """)
 trait ZBindableService[S] {
 
@@ -30,10 +31,10 @@ object ZBindableService {
   )(implicit bs: ZBindableService[S]): UIO[ServerServiceDefinition] =
     bs.bindService(serviceImpl)
 
-  implicit def fromZGeneratedService[C, S[-_], T](implicit
-      ev1: T <:< ZGeneratedService[C, S],
-      ev2: T <:< S[C],
-      ev3: GenericBindable[S[RequestContext]],
+  implicit def fromGenericGeneratedService[C, S[-_, +_], T](implicit
+      ev1: T <:< GenericGeneratedService[C, StatusException, S],
+      ev2: T <:< S[C, StatusException],
+      ev3: GenericBindable[S[RequestContext, StatusException]],
       ev4: CanBind[C],
       ev6: Tag[C]
   ): ZBindableService[T] =
