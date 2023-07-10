@@ -80,6 +80,12 @@ trait GTransform[+ContextIn, -ErrorIn, -ContextOut, +ErrorOut] {
 }
 
 object GTransform {
+
+  def identity[C, E]: GTransform[C, E, C, E] = new GTransform[C, E, C, E] {
+    def effect[A](io: C => ZIO[Any, E, A]): C => ZIO[Any, E, A]         = io
+    def stream[A](io: C => ZStream[Any, E, A]): C => ZStream[Any, E, A] = io
+  }
+
   // Returns a GTransform that effectfully transforms the context parameter
   def apply[ContextIn, Error, ContextOut](
       f: ContextOut => ZIO[Any, Error, ContextIn]
