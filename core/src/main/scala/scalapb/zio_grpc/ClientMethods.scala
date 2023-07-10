@@ -10,13 +10,13 @@ import zio.ZIO
 trait ClientMethods[Repr] extends TransformableClient[Repr] {
   // Returns new instance with modified call options
   def mapCallOptions(f: CallOptions => CallOptions): Repr =
-    transform(ZTransform[CallContext, CallContext] { context =>
+    transform(ZTransform[ClientCallContext, ClientCallContext] { context =>
       ZIO.succeed(context.copy(options = f(context.options)))
     })
 
   // Returns new instance with modified metadata
   def mapMetadataZIO(f: SafeMetadata => UIO[SafeMetadata]): Repr =
-    transform(ZTransform[CallContext, CallContext] { context =>
+    transform(ZTransform[ClientCallContext, ClientCallContext] { context =>
       ZIO.succeed(context.copy(metadata = context.metadata.flatMap(f)))
     })
 
@@ -38,7 +38,7 @@ trait ClientMethods[Repr] extends TransformableClient[Repr] {
 }
 
 trait TransformableClient[Repr] {
-  def transform(t: Transform): Repr = transform(t.toGTransform[CallContext])
+  def transform(t: Transform): Repr = transform(t.toGTransform[ClientCallContext])
 
-  def transform(t: ZTransform[CallContext, CallContext]): Repr
+  def transform(t: ZTransform[ClientCallContext, ClientCallContext]): Repr
 }

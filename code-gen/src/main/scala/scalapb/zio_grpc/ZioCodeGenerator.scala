@@ -65,7 +65,7 @@ class ZioFilePrinter(
   val Deadline            = "io.grpc.Deadline"
   val methodDescriptor    = "io.grpc.MethodDescriptor"
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
-  val CallContext         = "scalapb.zio_grpc.CallContext"
+  val ClientCallContext   = "scalapb.zio_grpc.ClientCallContext"
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
@@ -402,12 +402,12 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor with metadata methods")
         .add(
-          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsWithResponseMetadataClassName.name}] {"
+          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsWithResponseMetadataClassName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(printAccessorWithResponseMetadata)
             .add(
-              s"override def transform(t: $ZTransform[$CallContext, $CallContext]): ${accessorsWithResponseMetadataClassName.name} = new ${accessorsWithResponseMetadataClassName.name}(transforms.andThen(t))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${accessorsWithResponseMetadataClassName.name} = new ${accessorsWithResponseMetadataClassName.name}(transforms.andThen(t))"
             )
         )
         .add("}")
@@ -428,7 +428,7 @@ class ZioFilePrinter(
         )
         .indent
         .add(
-          s"private[this] class ServiceStub(channel: $ZChannel, transforms: $ZTransform[$CallContext, $CallContext])"
+          s"private[this] class ServiceStub(channel: $ZChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext])"
         )
         .add(s"    extends ${clientWithResponseMetadataServiceName.name} {")
         .indented(
@@ -436,19 +436,19 @@ class ZioFilePrinter(
             printClientWithResponseMetadataImpl
           )
             .add(
-              s"override def transform(t: $ZTransform[$CallContext, $CallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, transforms.andThen(t))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, transforms.andThen(t))"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
         )
         .add("  channel => new ServiceStub(channel, transforms)")
         .add("}")
         .add("")
         .add(
-          s"def live[Context](managedChannel: $ZManagedChannel, transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] = zio.ZLayer.scoped(scoped(managedChannel, transforms))"
+          s"def live[Context](managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] = zio.ZLayer.scoped(scoped(managedChannel, transforms))"
         )
         .outdent
         .add("}")
@@ -458,12 +458,12 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor methods")
         .add(
-          s"class ${accessorsClassName.name}(transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsClassName.name}] {"
+          s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.ClientMethods[${accessorsClassName.name}] {"
         )
         .indented(
           _.print(service.getMethods().asScala.toVector)(printAccessor)
             .add(
-              s"override def transform(t: $ZTransform[$CallContext, $CallContext]): ${accessorsClassName.name} = new ${accessorsClassName.name}(transforms.andThen(t))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${accessorsClassName.name} = new ${accessorsClassName.name}(transforms.andThen(t))"
             )
         )
         .add("}")
@@ -502,17 +502,17 @@ class ZioFilePrinter(
             .add(
               "// Returns a client that gives access to headers and trailers from server's response",
               s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name} = underlying",
-              s"override def transform(t: $ZTransform[$CallContext, $CallContext]): ${clientServiceName.name} = new ServiceStub(underlying.transform(t))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientServiceName.name} = new ServiceStub(underlying.transform(t))"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, transforms).map(client => new ServiceStub(client))"
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, transforms).map(client => new ServiceStub(client))"
         )
         .add("")
         .add(
-          s"def live(managedChannel: $ZManagedChannel, transforms: $ZTransform[$CallContext, $CallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.live(managedChannel, transforms).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
+          s"def live(managedChannel: $ZManagedChannel, transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] = ${clientWithResponseMetadataServiceName.name}.live(managedChannel, transforms).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
         )
         .outdent
         .add("}")
@@ -607,7 +607,7 @@ class ZioFilePrinter(
             )
             .add("}")
         )
-        .add(s"}($CallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, $SafeMetadata.make))")
+        .add(s"}($ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, $SafeMetadata.make))")
         .outdent
     }
 
