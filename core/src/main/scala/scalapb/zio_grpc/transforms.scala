@@ -38,6 +38,8 @@ trait Transform {
     def stream[A](io: ZStream[Any, StatusException, A]): ZStream[Any, StatusException, A] =
       other.stream(self.stream(io))
   }
+
+  def compose(other: Transform): Transform = other.andThen(self)
 }
 
 object Transform {
@@ -77,6 +79,10 @@ trait GTransform[+ContextIn, -ErrorIn, -ContextOut, +ErrorOut] {
       ): ContextOut2 => ZStream[Any, ErrorOut2, A] =
         other.stream(self.stream(io))
     }
+
+  def compose[ContextIn2, ErrorIn2, ContextOut2 >: ContextIn, ErrorOut2 <: ErrorIn](
+      other: GTransform[ContextIn2, ErrorIn2, ContextOut2, ErrorOut2]
+  ): GTransform[ContextIn2, ErrorIn2, ContextOut, ErrorOut] = other.andThen(self)
 }
 
 object GTransform {

@@ -440,7 +440,7 @@ class ZioFilePrinter(
             printClientWithResponseMetadataImpl
           )
             .add(
-              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, t.andThen(transforms))"
+              s"override def transform(t: $ZTransform[$ClientCallContext, $ClientCallContext]): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, transforms.compose(t))"
             )
         )
         .add("}")
