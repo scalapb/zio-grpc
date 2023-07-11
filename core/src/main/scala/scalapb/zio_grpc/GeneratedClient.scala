@@ -5,7 +5,7 @@ import io.grpc.Deadline
 import zio.Duration
 import zio.UIO
 
-trait GeneratedServiceClient[S] {
+trait GeneratedClient[S] {
   this: S =>
 
   def transform(t: ZTransform[ClientCallContext, ClientCallContext]): S

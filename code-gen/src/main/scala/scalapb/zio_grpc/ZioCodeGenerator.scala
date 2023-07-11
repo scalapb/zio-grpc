@@ -403,7 +403,7 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor with metadata methods")
         .add(
-          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsWithResponseMetadataClassName.name}] {"
+          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedClient[${accessorsWithResponseMetadataClassName.name}] {"
         )
         .indented(
           _.add(
@@ -417,7 +417,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.GeneratedServiceClient[${clientWithResponseMetadataServiceName.name}] {"
+          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.GeneratedClient[${clientWithResponseMetadataServiceName.name}] {"
         )
         .indented(
           _.add("self =>")
@@ -477,7 +477,7 @@ class ZioFilePrinter(
         .add("")
         .add("// accessor methods")
         .add(
-          s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedServiceClient[${accessorsClassName.name}] {"
+          s"class ${accessorsClassName.name}(transforms: $ZTransform[$ClientCallContext, $ClientCallContext] = $GTransform.identity) extends scalapb.zio_grpc.GeneratedClient[${accessorsClassName.name}] {"
         )
         .indented(
           _.add(
@@ -491,7 +491,7 @@ class ZioFilePrinter(
         .add("}")
         .add("")
         .add(
-          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.GeneratedServiceClient[${clientServiceName.name}] {"
+          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.GeneratedClient[${clientServiceName.name}] {"
         )
         .indented(
           _.add("self =>")
