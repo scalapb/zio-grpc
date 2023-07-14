@@ -15,4 +15,6 @@ package object zio_grpc {
   val ManagedServer = scalapb.zio_grpc.ScopedServer
 
   type ZTransform[ContextIn, ContextOut] = GTransform[ContextIn, StatusException, ContextOut, StatusException]
+
+  type ClientTransform = ZTransform[ClientCallContext, ClientCallContext]
 }
