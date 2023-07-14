@@ -24,6 +24,14 @@ final class SafeMetadata private (
 
   def wrapZIO[R, E, A](f: Metadata => ZIO[R, E, A]): ZIO[R, E, A] =
     sem.withPermit(f(metadata))
+
+  def +=[T](keyValue: (Metadata.Key[T], T)): UIO[SafeMetadata] = updated(keyValue._1, keyValue._2)
+
+  def updated[T](key: Metadata.Key[T], value: T): UIO[SafeMetadata] =
+    put(key, value).as(this)
+
+  def updatedZIO[R, E, T](key: Metadata.Key[T], value: ZIO[R, E, T]): ZIO[R, E, SafeMetadata] =
+    value.flatMap(updated(key, _))
 }
 
 object SafeMetadata {

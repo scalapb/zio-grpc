@@ -43,7 +43,7 @@ object ClientTransformSpec extends ZIOSpecDefault {
                         ClientTransform
                           .withDeadline(deadline)
                           .andThen(
-                            ClientTransform.mapMetadataZIO(metadata => metadata.put(metadataKey, "42").as(metadata))
+                            ClientTransform.mapMetadataZIO(_ += (metadataKey -> "42"))
                           )
                       )
       } yield assert(contextOut.options.getDeadline())(equalTo(deadline)) &&
@@ -56,7 +56,7 @@ object ClientTransformSpec extends ZIOSpecDefault {
                           .withDeadline(deadline)
                           .compose(
                             ClientTransform.withMetadataZIO(
-                              SafeMetadata.make.flatMap(metadata => metadata.put(metadataKey, "42").as(metadata))
+                              SafeMetadata.make.flatMap(_ += (metadataKey -> "42"))
                             )
                           )
                       )
