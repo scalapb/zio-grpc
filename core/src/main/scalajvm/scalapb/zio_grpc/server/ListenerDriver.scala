@@ -18,7 +18,6 @@ object ListenerDriver {
 
   def unaryInputListener[Req](
       runtime: Runtime[Any],
-      scope: Scope.Closeable,
       call: ZServerCall[_],
       completed: Promise[StatusException, Unit],
       request: Promise[Nothing, Req],
@@ -30,10 +29,13 @@ object ListenerDriver {
         completed.await *>
         call.sendHeaders(new Metadata) *>
         request.await flatMap writeResponse
-    ).onExit(ex =>
-      call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore *> scope.close(ex)
-    ).ignore
-      .forkIn(scope)
+    ).onExit(ex => call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
+      .ignore
+      // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
+      // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
+      // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
+      // service.
+      .forkDaemon
       .map(fiber =>
         new Listener[Req] {
           override def onCancel(): Unit =
@@ -89,10 +91,8 @@ object ListenerDriver {
     for {
       completed <- Promise.make[StatusException, Unit]
       request   <- Promise.make[Nothing, Req]
-      scope     <- Scope.make
       listener  <- unaryInputListener(
                      runtime,
-                     scope,
                      zioCall,
                      completed,
                      request,
