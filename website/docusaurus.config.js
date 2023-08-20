@@ -96,10 +96,12 @@ module.exports = {
           // Please change this to your repo.
           // editUrl: 'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
           path: '../zio-grpc-docs/target/mdoc',
+          lastVersion: 'current',
 
           versions: {
               current: {
-                  label: '0.6.x'
+                  label: '0.6.x',
+                  path: '0.6.x'
               },
               '0.5.x': {
                   label: '0.5.x'
