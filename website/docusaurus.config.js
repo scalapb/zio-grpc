@@ -99,7 +99,7 @@ module.exports = {
 
           versions: {
               current: {
-                  label: '0.6.x (WIP)'
+                  label: '0.6.x'
               },
               '0.5.x': {
                   label: '0.5.x'
