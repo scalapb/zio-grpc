@@ -100,11 +100,11 @@ module.exports = {
 
           versions: {
               current: {
-                  label: '0.6.x',
-                  path: '0.6.x'
+                  label: '0.6.x'
               },
               '0.5.x': {
-                  label: '0.5.x'
+                  label: '0.5.x',
+                  path: '0.5.x'
               }
           }
         },
