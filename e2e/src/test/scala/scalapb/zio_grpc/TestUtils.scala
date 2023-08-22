@@ -1,6 +1,6 @@
 package scalapb.zio_grpc
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.collection.JavaConverters._
 
 import zio.test.Assertion._
 import io.grpc.{Status, StatusException}

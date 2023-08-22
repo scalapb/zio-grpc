@@ -3,7 +3,8 @@ package scalapb.zio_grpc
 import scalapb.zio_grpc.testservice.Request
 import zio.{Clock, Console, Exit, Promise, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
-import io.grpc.{Status, StatusException}
+import io.grpc.Metadata.BinaryMarshaller
+import io.grpc.{Metadata, Status, StatusException}
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.stream.{Stream, ZStream}
 import zio.ZEnvironment
@@ -29,7 +30,18 @@ package object server {
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>
-            ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException())
+            ZIO.succeed {
+              val metadataKey = Metadata.Key.of("foo-bin", new BinaryMarshaller[String] {
+                override def toBytes(value: String): Array[Byte] = value.getBytes
+
+                override def parseBytes(serialized: Array[Byte]): String = new String(serialized)
+              })
+              val metadata = new Metadata()
+              metadata.put(metadataKey, "bar")
+              metadata
+            }.flatMap { metadata =>
+              ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException(metadata))
+            }
           case Scenario.DELAY     => ZIO.never
           case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
           case _                  => ZIO.fail(Status.UNKNOWN.asException())
