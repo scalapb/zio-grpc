@@ -29,7 +29,8 @@ object ListenerDriver {
         completed.await *>
         call.sendHeaders(new Metadata) *>
         request.await flatMap writeResponse
-    ).onExit(ex => call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
+    ).tapError(statusException => requestContext.responseMetadata.wrap(_.merge(statusException.getTrailers)).ignore)
+      .onExit(ex => call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
       .ignore
       // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
       // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java

@@ -3,7 +3,8 @@ package scalapb.zio_grpc
 import scalapb.zio_grpc.testservice.Request
 import zio.{Clock, Console, Exit, Promise, ZIO, ZLayer}
 import scalapb.zio_grpc.testservice.Response
-import io.grpc.{Status, StatusException}
+import io.grpc.Metadata.BinaryMarshaller
+import io.grpc.{Metadata, Status, StatusException}
 import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.stream.{Stream, ZStream}
 import zio.ZEnvironment
@@ -17,11 +18,11 @@ package object server {
   object TestServiceImpl {
 
     class Service(
-        requestReceived: zio.Promise[Nothing, Unit],
-        delayReceived: zio.Promise[Nothing, Unit],
-        exit: zio.Promise[Nothing, Exit[StatusException, Response]]
-    )(clock: Clock, console: Console)
-        extends testservice.ZioTestservice.TestService {
+                   requestReceived: zio.Promise[Nothing, Unit],
+                   delayReceived: zio.Promise[Nothing, Unit],
+                   exit: zio.Promise[Nothing, Exit[StatusException, Response]]
+                 )(clock: Clock, console: Console)
+      extends testservice.ZioTestservice.TestService {
       def unary(request: Request): ZIO[Any, StatusException, Response] =
         (requestReceived.succeed(()) *> (request.scenario match {
           case Scenario.OK        =>
@@ -29,18 +30,29 @@ package object server {
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>
-            ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException())
-          case Scenario.DELAY     => ZIO.never
-          case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
-          case _                  => ZIO.fail(Status.UNKNOWN.asException())
+            ZIO.succeed {
+              val metadataKey = Metadata.Key.of("foo-bin", new BinaryMarshaller[String] {
+                override def toBytes(value: String): Array[Byte] = value.getBytes
+
+                override def parseBytes(serialized: Array[Byte]): String = new String(serialized)
+              })
+              val metadata = new Metadata()
+              metadata.put(metadataKey, "bar")
+              metadata
+            }.flatMap { metadata =>
+              ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException(metadata))
+            }
+          case Scenario.DELAY => ZIO.never
+          case Scenario.DIE => ZIO.die(new RuntimeException("FOO"))
+          case _ => ZIO.fail(Status.UNKNOWN.asException())
         })).onExit(exit.succeed(_))
 
       def unaryTypeMapped(request: Request): ZIO[Any, StatusException, WrappedString] =
         unary(request).map(r => WrappedString(r.out))
 
       def serverStreaming(
-          request: Request
-      ): ZStream[Any, StatusException, Response] =
+                           request: Request
+                         ): ZStream[Any, StatusException, Response] =
         ZStream
           .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
             ex.foldExit(
@@ -53,22 +65,22 @@ package object server {
           }
           .flatMap { _ =>
             request.scenario match {
-              case Scenario.OK          =>
+              case Scenario.OK =>
                 ZStream(Response(out = "X1"), Response(out = "X2"))
-              case Scenario.ERROR_NOW   =>
+              case Scenario.ERROR_NOW =>
                 ZStream.fail(Status.INTERNAL.withDescription("FOO!").asException())
               case Scenario.ERROR_AFTER =>
                 ZStream(Response(out = "X1"), Response(out = "X2")) ++ ZStream
                   .fail(
                     Status.INTERNAL.withDescription("FOO!").asException()
                   )
-              case Scenario.DELAY       =>
+              case Scenario.DELAY =>
                 ZStream(
                   Response(out = "X1"),
                   Response(out = "X2")
                 ) ++ ZStream.never
-              case Scenario.DIE         => ZStream.die(new RuntimeException("FOO"))
-              case _                    => ZStream.fail(Status.UNKNOWN.asException())
+              case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
+              case _ => ZStream.fail(Status.UNKNOWN.asException())
             }
           }
 
@@ -76,37 +88,37 @@ package object server {
         serverStreaming(request).map(r => WrappedString(r.out))
 
       def clientStreaming(
-          request: Stream[StatusException, Request]
-      ): ZIO[Any, StatusException, Response] =
+                           request: Stream[StatusException, Request]
+                         ): ZIO[Any, StatusException, Response] =
         requestReceived.succeed(()) *>
           request
             .runFoldZIO(0)((state, req) =>
               req.scenario match {
-                case Scenario.OK        => ZIO.succeed(state + req.in)
-                case Scenario.DELAY     => delayReceived.succeed(()) *> ZIO.never
-                case Scenario.DIE       => ZIO.die(new RuntimeException("foo"))
+                case Scenario.OK => ZIO.succeed(state + req.in)
+                case Scenario.DELAY => delayReceived.succeed(()) *> ZIO.never
+                case Scenario.DIE => ZIO.die(new RuntimeException("foo"))
                 case Scenario.ERROR_NOW =>
                   ZIO.fail((Status.INTERNAL.withDescription("InternalError").asException()))
-                case _: Scenario        => ZIO.fail(Status.UNKNOWN.asException())
+                case _: Scenario => ZIO.fail(Status.UNKNOWN.asException())
               }
             )
             .map(r => Response(r.toString))
             .onExit(exit.succeed(_))
 
       def bidiStreaming(
-          request: Stream[StatusException, Request]
-      ): Stream[StatusException, Response] =
+                         request: Stream[StatusException, Request]
+                       ): Stream[StatusException, Response] =
         (ZStream.fromZIO(requestReceived.succeed(())).drain ++
           (request.flatMap { r =>
             r.scenario match {
-              case Scenario.OK        =>
+              case Scenario.OK =>
                 ZStream(Response(r.in.toString))
                   .repeat(Schedule.recurs(r.in - 1))
-              case Scenario.DELAY     => ZStream.never
-              case Scenario.DIE       => ZStream.die(new RuntimeException("FOO"))
+              case Scenario.DELAY => ZStream.never
+              case Scenario.DIE => ZStream.die(new RuntimeException("FOO"))
               case Scenario.ERROR_NOW =>
                 ZStream.fail(Status.INTERNAL.withDescription("Intentional error").asException())
-              case _                  =>
+              case _ =>
                 ZStream.fail(
                   Status.INVALID_ARGUMENT.withDescription(s"Got request: ${r.toProtoString}").asException()
                 )
@@ -123,9 +135,9 @@ package object server {
     }
 
     def make(
-        clock: Clock,
-        console: Console
-    ): zio.IO[Nothing, TestServiceImpl.Service] =
+              clock: Clock,
+              console: Console
+            ): zio.IO[Nothing, TestServiceImpl.Service] =
       for {
         p1 <- Promise.make[Nothing, Unit]
         p2 <- Promise.make[Nothing, Unit]
@@ -134,7 +146,7 @@ package object server {
 
     def makeFromEnv: ZIO[Any, Nothing, Service] =
       for {
-        clock   <- ZIO.clock
+        clock <- ZIO.clock
         console <- ZIO.console
         service <- make(clock, console)
       } yield service
