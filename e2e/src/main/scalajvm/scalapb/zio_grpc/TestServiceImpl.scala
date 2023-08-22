@@ -30,18 +30,18 @@ package object server {
               Response(out = "Res" + request.in.toString)
             )
           case Scenario.ERROR_NOW =>
-            ZIO.succeed {
-              val metadataKey = Metadata.Key.of("foo-bin", new BinaryMarshaller[String] {
+            val metadataKey = Metadata.Key.of(
+              "foo-bin",
+              new BinaryMarshaller[String] {
                 override def toBytes(value: String): Array[Byte] = value.getBytes
 
                 override def parseBytes(serialized: Array[Byte]): String = new String(serialized)
-              })
-              val metadata = new Metadata()
-              metadata.put(metadataKey, "bar")
-              metadata
-            }.flatMap { metadata =>
-              ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException(metadata))
-            }
+              }
+            )
+            ZIO
+              .succeed(new Metadata())
+              .tap(m => ZIO.succeed(m.put(metadataKey, "bar")))
+              .flatMap(metadata => ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException(metadata)))
           case Scenario.DELAY     => ZIO.never
           case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
           case _                  => ZIO.fail(Status.UNKNOWN.asException())
