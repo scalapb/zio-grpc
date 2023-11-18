@@ -22,10 +22,10 @@ object RequestContext {
 
   def fromMetadata(md: SafeMetadata): UIO[RequestContext] = for {
     maybeValue <- md.get(ServeErrorKey)
-    value = maybeValue.getOrElse("") match {
-      case "1" | "true" => true
-      case _            => false
-    }
+    value       = maybeValue.getOrElse("") match {
+                    case "1" | "true" => true
+                    case _            => false
+                  }
   } yield RequestContext(value)
 }
 
