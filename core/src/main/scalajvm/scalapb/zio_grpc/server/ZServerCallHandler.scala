@@ -122,7 +122,7 @@ object ZServerCallHandler {
 
     for {
       queueSize <- backpressureQueueSize
-      _         <- stream.buffer(queueSize).run(backpressureSink)
+      _         <- (if (queueSize > 0) stream.buffer(queueSize) else stream).run(backpressureSink)
     } yield ()
   }
 }
