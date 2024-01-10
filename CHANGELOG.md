@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased - 0.6.0](https://github.com/ScalaPB/zio-grpc/tree/HEAD)
+## 0.6.1
+* Only buffer stream if queue size is positive (#578, #580)
+
+## 0.6.0
 
 ### What changed?
 
