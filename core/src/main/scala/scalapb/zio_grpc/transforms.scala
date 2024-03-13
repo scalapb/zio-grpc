@@ -131,6 +131,14 @@ object GTransform {
   }
 }
 
+/** Describes a transformation for all effects and streams of a generic service.
+ *
+ * Instances of this class can be used to apply a transformation to all methods of a service to generate a new
+ * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
+ *
+ * [[RTransform]] is different from [[GTransform]] in that users can access to the request body
+ * while decorating service using [[RTransform]]. This is especially useful for request / resposne logging.
+ */
 trait RTransform[+ContextIn, -ErrorIn, -ContextOut, +ErrorOut] {
   self =>
   def effect[Req, Resp](
@@ -168,7 +176,7 @@ object RTransform {
     def stream[Req, Resp](io: (Req, C) => ZStream[Any, E, Resp]): (Req, C) => ZStream[Any, E, Resp] = io
   }
 
-  // Returns a GTransform that effectfully transforms the context parameter
+  // Returns a RTransform that effectfully transforms the context parameter
   def apply[ContextIn, Error, ContextOut](
       f: ContextOut => ZIO[Any, Error, ContextIn]
   ): RTransform[ContextIn, Error, ContextOut, Error] =
@@ -186,7 +194,7 @@ object RTransform {
       }
     }
 
-  // Returns a GTransform that maps the error parameter.
+  // Returns a RTransform that maps the error parameter.
   def mapError[C, E1, E2](f: E1 => E2): RTransform[C, E1, C, E2] = new RTransform[C, E1, C, E2] {
     def effect[Req, Resp](io: (Req, C) => zio.ZIO[Any, E1, Resp]): (Req, C) => zio.ZIO[Any, E2, Resp] = { (req, ctx) =>
       io(req, ctx).mapError(f)
@@ -199,7 +207,7 @@ object RTransform {
     }
   }
 
-  // Returns a GTransform that effectfully maps the error parameter.
+  // Returns a RTransform that effectfully maps the error parameter.
   def mapErrorZIO[C, E1, E2](f: E1 => zio.UIO[E2]): RTransform[C, E1, C, E2] = new RTransform[C, E1, C, E2] {
     def effect[Req, Resp](io: (Req, C) => zio.ZIO[Any, E1, Resp]): (Req, C) => zio.ZIO[Any, E2, Resp] = { (req, ctx) =>
       io(req, ctx).flatMapError(f)
