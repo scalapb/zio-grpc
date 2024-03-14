@@ -92,7 +92,7 @@ object GreeterServiceWithMetadata {
   val layer
       : ZLayer[UserRepo with GreetingsRepo, Nothing, ZGreeter[RequestContext]] =
     ZLayer.fromFunction((userRepo: UserRepo, greetingsRepo: GreetingsRepo) =>
-      GreeterImpl(greetingsRepo).transformContextZIO(findUser(userRepo, _))
+      GreeterImpl(greetingsRepo).transformContextZIO(findUser(userRepo, _)).transform(LoggingTransform)
     )
 }
 

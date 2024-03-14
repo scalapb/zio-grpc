@@ -75,6 +75,6 @@ object GreeterService extends ZGreeter[RequestContext] {
 
 object ExampleServer extends ServerMain {
   def services = ServiceList.add(
-    GreeterService.transformContextZIO(RequestContext.fromMetadata(_))
+    GreeterService.transformContextZIO(RequestContext.fromMetadata).transform(LoggingTransform)
   )
 }

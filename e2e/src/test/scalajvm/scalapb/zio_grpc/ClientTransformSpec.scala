@@ -19,7 +19,10 @@ object ClientTransformSpec extends ZIOSpecDefault {
     for {
       metadata <- SafeMetadata.make
       context  <-
-        transform.effect(ZIO.succeed(_))(ClientCallContext(TestServiceGrpc.METHOD_UNARY, CallOptions.DEFAULT, metadata))
+        transform.effect((_: Any, c) => ZIO.succeed(c))(
+          (),
+          ClientCallContext(TestServiceGrpc.METHOD_UNARY, CallOptions.DEFAULT, metadata)
+        )
     } yield context
 
   def spec = suite("ClientTransformSpec")(

@@ -233,9 +233,9 @@ class ZioFilePrinter(
       val delegate = s"self.${method.name}"
       val newImpl  = method.streamType match {
         case StreamType.Unary | StreamType.ClientStreaming         =>
-          s"f.effect($delegate(request, _))(context)"
+          s"f.effect($delegate)(request, context)"
         case StreamType.ServerStreaming | StreamType.Bidirectional =>
-          s"f.stream($delegate(request, _))(context)"
+          s"f.stream($delegate)(request, context)"
       }
       fp.add(
         methodSignature(
@@ -630,7 +630,7 @@ class ZioFilePrinter(
       ).indent
         .add(s"$makeMetadata.flatMap { metadata =>")
         .indented(
-          _.add(s"transforms.$transformMethod { context => ")
+          _.add(s"transforms.$transformMethod { (_: Any, context) => ")
             .indented(
               _.add(
                 s"$clientCall("
@@ -644,7 +644,7 @@ class ZioFilePrinter(
                 )
                 .add(")")
             )
-            .add(s"}($ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, metadata))")
+            .add(s"}(request, $ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, metadata))")
         )
         .add("}")
         .outdent
