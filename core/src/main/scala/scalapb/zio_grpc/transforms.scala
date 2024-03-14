@@ -132,13 +132,13 @@ object GTransform {
 }
 
 /** Describes a transformation for all effects and streams of a generic service.
- *
- * Instances of this class can be used to apply a transformation to all methods of a service to generate a new
- * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
- *
- * [[RTransform]] is different from [[GTransform]] in that users can access to the request body
- * while decorating service using [[RTransform]]. This is especially useful for request / resposne logging.
- */
+  *
+  * Instances of this class can be used to apply a transformation to all methods of a service to generate a new
+  * "decorated" service. This can be used for pre- or post-processing of requests/response or to transform the context.
+  *
+  * [[RTransform]] is different from [[GTransform]] in that users can access to the request body while decorating
+  * service using [[RTransform]]. This is especially useful for request / resposne logging.
+  */
 trait RTransform[+ContextIn, -ErrorIn, -ContextOut, +ErrorOut] {
   self =>
   def effect[Req, Resp](
