@@ -40,7 +40,7 @@ object ListenerDriver {
         new Listener[Req] {
           override def onCancel(): Unit =
             Unsafe.unsafe { implicit u =>
-              runtime.unsafe.run(fiber.interrupt.unit).getOrThrowFiberFailure()
+              runtime.unsafe.run(fiber.interruptFork.unit).getOrThrowFiberFailure()
             }
 
           override def onHalfClose(): Unit =
@@ -122,7 +122,7 @@ object ListenerDriver {
         new Listener[Req] {
           override def onCancel(): Unit =
             Unsafe.unsafe { implicit u =>
-              runtime.unsafe.run(fiber.interrupt.unit).getOrThrowFiberFailure()
+              runtime.unsafe.run(fiber.interruptFork.unit).getOrThrowFiberFailure()
             }
 
           override def onHalfClose(): Unit =
