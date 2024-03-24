@@ -1,5 +1,7 @@
 package scalapb.zio_grpc
 
+import scala.collection.JavaConverters._
+
 import zio.test.Assertion._
 import io.grpc.{Status, StatusException}
 import io.grpc.Status.Code
@@ -16,6 +18,13 @@ object TestUtils {
       "description",
       e => Option(e.getStatus().getDescription()).getOrElse("GotNull"),
       equalTo(d)
+    )
+
+  def hasMetadataKey(key: String) =
+    hasField[StatusException, Iterable[String]](
+      "metadataKey",
+      e => e.getTrailers.keys.asScala,
+      contains(key)
     )
 
   def collectWithError[R, E, A](

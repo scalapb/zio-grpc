@@ -29,7 +29,7 @@ trait CommonTestServiceSpec {
             .unary(Request(Request.Scenario.ERROR_NOW, in = 12))
             .exit
         )(
-          fails(hasStatusCode(Status.INTERNAL))
+          fails(hasStatusCode(Status.INTERNAL) && hasMetadataKey("foo-bin"))
         )
       },
       test("returns response on failures") {
