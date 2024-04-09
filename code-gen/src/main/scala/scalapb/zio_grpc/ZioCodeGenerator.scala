@@ -431,7 +431,7 @@ class ZioFilePrinter(
         )
         .indent
         .add(
-          s"private[this] class ServiceStub(channel: $ZChannel, transforms: $ClientTransform)"
+          s"private class ServiceStub(channel: $ZChannel, transforms: $ClientTransform)"
         )
         .add(s"    extends ${clientWithResponseMetadataServiceName.name} {")
         .indented(
@@ -513,7 +513,7 @@ class ZioFilePrinter(
         .indent
         .add("")
         .add(
-          s"private[this] class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
+          s"private class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
         )
         .add(s"    extends ${clientServiceName.name} {")
         .indented(
