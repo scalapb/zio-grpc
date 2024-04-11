@@ -181,7 +181,7 @@ lazy val e2eWeb =
       scalaVersions = ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
-          "com.microsoft.playwright" % "playwright"   % "1.42.0"    % Test,
+          "com.microsoft.playwright" % "playwright"   % "1.43.0"    % Test,
           "dev.zio"                %%% "zio-test"     % Version.zio % Test,
           "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
         ),
