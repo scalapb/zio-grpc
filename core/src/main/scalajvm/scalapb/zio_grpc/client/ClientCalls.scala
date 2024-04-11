@@ -74,7 +74,7 @@ object ClientCalls {
 
         call.start(listener, headers) *>
           call.request(1) *>
-          processRequestStream *>
+          processRequestStream &>
           getResult
       }
 
@@ -99,10 +99,11 @@ object ClientCalls {
           StreamingClientCallListener.make[Res](call)
         )(anyExitHandler(call))
         .flatMap { (listener: StreamingClientCallListener[Res]) =>
-          val init                 = call.start(listener, headers) *> call.request(1)
-          val finish               = call.halfClose()
-          val processRequestStream = init *> req.runForeach(call.sendMessage) *> finish
-          ZStream.unwrapScoped(processRequestStream.forkScoped.as(listener.stream))
+          val init              = call.start(listener, headers) *> call.request(1)
+          val process           = req.runForeach(call.sendMessage)
+          val finish            = call.halfClose()
+          val sendRequestStream = ZStream.fromZIO(init *> process *> finish).drain
+          sendRequestStream.merge(listener.stream, ZStream.HaltStrategy.Right)
         }
 
     def bidiCall[Req, Res](
