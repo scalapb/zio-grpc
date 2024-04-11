@@ -102,7 +102,7 @@ object ClientCalls {
           val init              = call.start(listener, headers) *> call.request(1)
           val process           = req.runForeach(call.sendMessage)
           val finish            = call.halfClose()
-          val sendRequestStream = ZStream.fromZIO(init *> process *> finish).drain
+          val sendRequestStream = ZStream.execute(init *> process *> finish)
           sendRequestStream.merge(listener.stream, ZStream.HaltStrategy.Right)
         }
 
