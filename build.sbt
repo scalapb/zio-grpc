@@ -13,6 +13,8 @@ ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 ThisBuild / versionScheme := Some("early-semver")
 
+ThisBuild / version := "0.6.1"
+
 publish / skip := true
 
 sonatypeProfileName := "com.thesamet"
