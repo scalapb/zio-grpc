@@ -2,17 +2,17 @@ resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.6")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.7")
 
-val zioGrpcVersion = "0.6.1"
+val zioGrpcVersion = "0.6.2"
 
 libraryDependencies ++= Seq(
   "com.thesamet.scalapb.zio-grpc" %% "zio-grpc-codegen" % zioGrpcVersion,
-  "com.thesamet.scalapb" %% "compilerplugin" % "0.11.7"
+  "com.thesamet.scalapb" %% "compilerplugin" % "0.11.15"
 )
 
 // For Scala.js:
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.0")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.16.0")
 
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.2.0")
 
