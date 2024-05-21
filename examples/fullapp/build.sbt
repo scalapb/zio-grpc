@@ -1,12 +1,12 @@
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
-ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / scalaVersion := "2.13.14"
 
 ThisBuild / cancelable := true
 
 ThisBuild / connectInput := true
 
-val grpcVersion = "1.50.1"
+val grpcVersion = "1.64.0"
 
 lazy val protos = crossProject(JSPlatform, JVMPlatform)
   .in(file("protos"))
