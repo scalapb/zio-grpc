@@ -144,7 +144,15 @@ lazy val e2e =
     .in(file("e2e"))
     .dependsOn(core, e2eProtos)
     .defaultAxes()
-    .jvmPlatform(ScalaVersions)
+    .jvmPlatform(
+      ScalaVersions,
+      settings = Seq(
+        libraryDependencies ++= Seq(
+          "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
+          "io.grpc"               % "grpc-netty"           % Version.grpc
+        )
+      )
+    )
     .customRow(
       true,
       ScalaVersions,
@@ -162,10 +170,8 @@ lazy val e2e =
       Defaults.itSettings,
       publish / skip       := true,
       libraryDependencies ++= Seq(
-        "dev.zio"              %% "zio-test"             % Version.zio % "test,it",
-        "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test,it",
-        "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-        "io.grpc"               % "grpc-netty"           % Version.grpc
+        "dev.zio" %%% "zio-test"     % Version.zio % "test,it",
+        "dev.zio" %%% "zio-test-sbt" % Version.zio % "test,it"
       ),
       Compile / run / fork := true,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
