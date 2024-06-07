@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.3
+* Delay sending response headers until the first message is ready.
+
 ## 0.6.1
 * Only buffer stream if queue size is positive (#578, #580)
 
