@@ -114,17 +114,17 @@ object ZServerCallHandler {
       stream: ZStream[Any, StatusException, Res]
   ): ZIO[Any, StatusException, Unit] = {
     val backpressureSink = {
-      def go(sendHeaders: Boolean): ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
+      def go(metadata: Option[Metadata]): ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
         ZChannel.readWithCause(
           xs =>
-            ZChannel.fromZIO(call.sendHeaders(new Metadata).when(sendHeaders)) *>
+            ZChannel.fromZIO(ZIO.foreachDiscard(metadata)(call.sendHeaders)) *>
               ZChannel.fromZIO(GIO.attempt(xs.foreach(call.call.sendMessage))) *>
-              ZChannel.suspend(if (call.call.isReady()) go(false) else ZChannel.fromZIO(call.awaitReady) *> go(false)),
+              ZChannel.suspend(if (call.call.isReady()) go(None) else ZChannel.fromZIO(call.awaitReady) *> go(None)),
           c => ZChannel.failCause(c),
           _ => ZChannel.unit
         )
 
-      ZSink.fromChannel(go(true))
+      ZSink.fromChannel(go(Some(new Metadata)))
     }
 
     for {
