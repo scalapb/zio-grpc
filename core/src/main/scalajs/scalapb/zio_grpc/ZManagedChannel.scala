@@ -1,14 +1,14 @@
 package scalapb.zio_grpc
 
-import zio.ZManaged
 import io.grpc.ManagedChannel
+import zio.ZIO
 
 object ZManagedChannel {
-  def apply[R](
+  def apply(
       channel: ManagedChannel,
-      interceptors: Seq[ZClientInterceptor[R]] = Nil
-  ): ZManagedChannel[R] =
-    ZManaged.succeed(new ZChannel[R](channel, interceptors))
+      interceptors: Seq[ZClientInterceptor]
+  ): ZManagedChannel =
+    ZIO.succeed(new ZChannel(channel, interceptors))
 
-  def apply(channel: ManagedChannel): ZManagedChannel[Any] = apply(channel, Nil)
+  def apply(channel: ManagedChannel): ZManagedChannel = apply(channel, Nil)
 }

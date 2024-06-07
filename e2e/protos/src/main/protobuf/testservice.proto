@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package scalapb.zio_grpc;
+
+import "scalapb/scalapb.proto";
+
+message Request {
+    enum Scenario {
+        OK = 0;
+        ERROR_NOW = 1; // fail with an error
+        ERROR_AFTER = 2; // for server streaming, error after two responses
+        DELAY = 3; // do not return a response. for testing cancellations
+        DIE = 4; // fail
+        UNAVAILABLE = 5; // fail with UNAVAILABLE, to test client retries
+    }
+    Scenario scenario = 1;
+    int32 in = 2;
+}
+
+message Response {
+    string out = 1;
+}
+
+message ResponseTypeMapped {
+    option (scalapb.message).type = "scalapb.zio_grpc.WrappedString";
+
+    string out = 1;
+}
+
+service TestService {
+    rpc Unary(Request) returns (Response);
+
+    rpc UnaryTypeMapped(Request) returns (ResponseTypeMapped);
+
+    rpc ServerStreaming(Request) returns (stream Response);
+
+    rpc ServerStreamingTypeMapped(Request) returns (stream ResponseTypeMapped);
+
+    rpc ClientStreaming(stream Request) returns (Response);
+
+    rpc BidiStreaming(stream Request) returns (stream Response);
+}

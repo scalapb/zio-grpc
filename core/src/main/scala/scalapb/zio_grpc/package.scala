@@ -1,17 +1,20 @@
 package scalapb
 
-import io.grpc.Status
-import zio.IO
+import io.grpc.StatusException
 import zio.stream.Stream
-import zio.Managed
-import zio.Has
+import zio.{IO, Scope, ZIO}
 
 package object zio_grpc {
-  type GIO[A] = IO[Status, A]
+  type GIO[A] = IO[StatusException, A]
 
-  type GStream[A] = Stream[Status, A]
+  type GStream[A] = Stream[StatusException, A]
 
-  type Server = Has[Server.Service]
+  type ZManagedChannel = ZIO[Scope, Throwable, ZChannel]
 
-  type ZManagedChannel[R] = Managed[Throwable, ZChannel[R]]
+  @deprecated("Use ScopedServer instead of ManagedServer", "0.6.0")
+  val ManagedServer = scalapb.zio_grpc.ScopedServer
+
+  type ZTransform[ContextIn, ContextOut] = GTransform[ContextIn, StatusException, ContextOut, StatusException]
+
+  type ClientTransform = ZTransform[ClientCallContext, ClientCallContext]
 }

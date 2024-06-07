@@ -5,42 +5,38 @@ custom_edit_url: https://github.com/scalapb/zio-grpc/edit/master/docs/context.md
 ---
 
 When implementing a server, ZIO gRPC allows you to specify that your service
-depends on an environment of type `R` and a context of type `Context`.
+methods depend depends on a context of type `Context` which can be any Scala type.
 
-`Context` and `R` can be of any Scala type, however when they are not `Any` they have to be wrapped in an `Has[]`. This allows ZIO gRPC to combine two values (`Context with R`) when providing the values at effect execution time.
-
-For example, we can define a service for which the effects depend on `Console`, and for each request we expect to get a context of type `User`. Note that `Console` is a type-alias to `Has[Console.Service]` so there is no need wrap it once more in an `Has`.
+For example, we can define a service with handlers that expect a context of type `User` for each request:
 
 ```scala mdoc
-import zio.{Has, ZIO}
-import zio.console._
+import zio.ZIO
+import zio.Console
+import zio.Console.printLine
 import scalapb.zio_grpc.RequestContext
 import myexample.testservice.ZioTestservice.ZSimpleService
 import myexample.testservice.{Request, Response}
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 
 case class User(name: String)
 
-object MyService extends ZSimpleService[Console, Has[User]] {
-  def sayHello(req: Request): ZIO[Console with Has[User], Status, Response] =
+object MyService extends ZSimpleService[User] {
+  def sayHello(req: Request, user: User): ZIO[Any, StatusException, Response] =
     for {
-      user <- ZIO.service[User]
-      _ <- putStrLn("I am here!").orDie
+      _ <- printLine("I am here!").orDie
     } yield Response(s"Hello, ${user.name}")
 }
 ```
-
-As you can see above, we can access both the `User` and the `Console` in our effects. If one of the methods does not need to access the dependencies or context, the returned type from the method can be cleaned up to reflect that certain things are not needed.
 
 ## Context transformations
 
 In order to be able to bind our service to a gRPC server, we need to have the
 service's Context type to be one of the supported types:
-* `Has[scalapb.zio_grpc.RequestContext]`
-* `Has[scalapb.zio_grpc.SafeMetadata]`
+* `scalapb.zio_grpc.RequestContext`
+* `scalapb.zio_grpc.SafeMetadata`
 * `Any`
 
-The service `MyService` as defined above expects `Has[User]` as a context. In order to be able to bind it, we will transform it into a service that depends on a context of type `Has[RequestContext]`. To do this, we need to provide the function to produce a `User` out of a `RequestContext`. This way, when a request comes in, ZIO gRPC can take the `RequestContext` (which is request metadata such as headers and options), and use our function to construct a `User` and provide it into the environment of our original service.
+The service `MyService` as defined above expects `User` as a context. In order to be able to bind it, we will transform it into a service that depends on a context of type `RequestContext`. To do this, we need to provide the function to produce a `User` out of a `RequestContext`. This way, when a request comes in, ZIO gRPC can take the `RequestContext` (which is request metadata such as headers and options), and use our function to construct a `User` and provide it into the environment of our original service.
 
 In many typical cases, we may need to retrieve the user from a database, and thus we are using an effectful function `RequestContext => IO[Status, User]` to find the user.
 
@@ -48,10 +44,10 @@ For example, we can provide a function that returns an effect that always succee
 
 ```scala mdoc
 val fixedUserService =
-  MyService.transformContextM((rc: RequestContext) => ZIO.succeed(User("foo")))
+  MyService.transformContextZIO((rc: RequestContext) => ZIO.succeed(User("foo")))
 ```
 
-and we got our service, which still depends on an environment of type `Console`, however the context is now `Has[RequestContext]` so it can be bound to a gRPC server.
+and we got our service with context of type `RequestContext` so it can be bound to a gRPC server.
 
 ### Accessing metadata
 
@@ -63,88 +59,176 @@ import scalapb.zio_grpc.{ServiceList, ServerMain}
 val UserKey = io.grpc.Metadata.Key.of(
   "user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-def findUser(rc: RequestContext): IO[Status, User] =
+def findUser(rc: RequestContext): IO[StatusException, User] =
   rc.metadata.get(UserKey).flatMap {
-    case Some(name) => IO.succeed(User(name))
-    case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
+    case Some(name) => ZIO.succeed(User(name))
+    case _          => ZIO.fail(
+      Status.UNAUTHENTICATED.withDescription("No access!").asException)
   }
 
 val rcService =
-  MyService.transformContextM(findUser)
+  MyService.transformContextZIO(findUser)
 
 object MyServer extends ServerMain {
   def services = ServiceList.add(rcService)
 }
 ```
 
-### Depending on a service
+### Context transformations that depends on a service
 
 A context transformation may introduce a dependency on another service. For example, you
 may want to organize your code such that there is a `UserDatabase` service that provides
 a `fetchUser` effect that retrieves users from a database. Here is how you can do this:
 
 ```scala mdoc
-type UserDatabase = Has[UserDatabase.Service]
+trait UserDatabase {
+  def fetchUser(name: String): IO[StatusException, User]
+}
+
 object UserDatabase {
-  trait Service {
-    def fetchUser(name: String): IO[Status, User]
-  }
-
-  // accessor
-  def fetchUser(name: String): ZIO[UserDatabase, Status, User] =
-    ZIO.accessM[UserDatabase](_.get.fetchUser(name))
-
-  val live = zio.ZLayer.succeed(
-    new Service {
-      def fetchUser(name: String): IO[Status, User] =
-        IO.succeed(User(name))
+  val layer = zio.ZLayer.succeed(
+    new UserDatabase {
+      def fetchUser(name: String): IO[StatusException, User] =
+        ZIO.succeed(User(name))
     })
 }
 ```
 
-Now,
-The context transformation effect we apply may introduce an additional environmental dependency to our service. For example:
+Now, The context transformation effect we apply may introduce an additional environmental dependency to our service. For example:
 ```scala mdoc
-import zio.clock._
-import zio.duration._
+import zio.Clock._
+import zio.Duration._
 
-val myServiceAuthWithDatabase  =
-  MyService.transformContextM {
-    (rc: RequestContext) =>
-        rc.metadata.get(UserKey)
-        .someOrFail(Status.UNAUTHENTICATED)
-        .flatMap(UserDatabase.fetchUser)
-  }
+val myServiceAuthWithDatabase: ZIO[UserDatabase, Nothing, ZSimpleService[RequestContext]] =
+  ZIO.serviceWith[UserDatabase](
+    userDatabase =>
+      MyService.transformContextZIO {
+        (rc: RequestContext) =>
+            rc.metadata.get(UserKey)
+            .someOrFail(Status.UNAUTHENTICATED.asException)
+            .flatMap(userDatabase.fetchUser(_))
+      }
+  )
 ```
 
-And now our service not only depends on a `Console`, but also on a `UserDatabase`.
-
-## Using a service as ZLayer
-We can turn our service into a ZLayer:
+Now our service can be built from an effect that depends on `UserDatabase`. This effect can be
+added to a `ServiceList` using `addZIO`:
 
 ```scala mdoc
-val myServiceLive = myServiceAuthWithDatabase.toLayer
-```
-
-notice how the dependencies moved to the input side of the `Layer` and the resulting layer is of
-type `ZSimpleService[Any, Has[RequestContext]]]`, which means no environment is expected, and it assumes
-a `Has[RequestContext]` context. To use this layer in an app, we can wire it like so:
-
-```scala mdoc
-import scalapb.zio_grpc.ServerLayer
-
-val serverLayer =
-    ServerLayer.fromServiceLayer(
-        io.grpc.ServerBuilder.forPort(9000)
-    )(myServiceLive)
-
-val ourApp = (UserDatabase.live ++ Console.any) >>>
-    serverLayer
-
-object LayeredApp extends zio.App {
-    def run(args: List[String]) = ourApp.build.useForever.exitCode
+object MyServer2 extends ServerMain {
+  def services = ServiceList
+    .addZIO(myServiceAuthWithDatabase)
+    .provide(UserDatabase.layer)
 }
 ```
 
-`serverLayer` wraps around our service layer to produce a server. Then, `ourApp` layer is constructed such that it takes `UserDatabase.live` in conjuction to a passthrough layer for `Console` to satisfy the two input requirements of `serverLayer`. The outcome, `ourApp`, is a `ZLayer` that can produce a `Server` from a `Console`. In the `run` method we build the layer and run it. Note that we are directly using a `zio.App` rather than `ServerMain` which does
-not support this use case yet.
+## Using a service as ZLayer
+
+If you require more flexibility than provided through `ServerMain`, you can construct
+the server directly.
+
+We first turn our service into a ZLayer:
+
+```scala mdoc
+val myServiceLayer = zio.ZLayer(myServiceAuthWithDatabase)
+```
+
+Notice how the dependencies moved to the input side of the `ZLayer` and the resulting layer is of
+type `ZSimpleService[RequestContext]`.
+
+To use this layer in an app, we can wire it like so:
+
+```scala mdoc
+import scalapb.zio_grpc.ServerLayer
+import scalapb.zio_grpc.Server
+import zio.ZLayer
+
+val serviceList = ServiceList
+  .addFromEnvironment[ZSimpleService[RequestContext]]
+
+val serverLayer =
+    ServerLayer.fromServiceList(
+        io.grpc.ServerBuilder.forPort(9000),
+        serviceList
+    )
+
+val ourApp =
+    ZLayer.make[Server](
+      serverLayer,
+      myServiceLayer,
+      UserDatabase.layer
+    )
+
+object LayeredApp extends zio.ZIOAppDefault {
+    def run = ourApp.launch.exitCode
+}
+```
+
+`serverLayer` creates a `Server` from a `ZSimpleService` layer and still depends on a `UserDatabase`. Then, `ourApp` feeds a `UserDatabase.layer` into `serverLayer` to produce
+a `Server` that doesn't depend on anything. In the `run` method we launch the server layer.
+
+## Implementing a service with dependencies
+
+In this scenario, your service depends on two additional services, `DepA` and `DepB`.  Following [ZIO's service pattern](https://zio.dev/reference/service-pattern/), we accept the (interaces of the ) dependencies as constructor parameters.
+
+```scala mdoc
+
+trait DepA {
+  def methodA(param: String): ZIO[Any, Nothing, Int]
+}
+
+object DepA {
+  val layer = ZLayer.succeed[DepA](new DepA {
+    def methodA(param: String) = ???
+  })
+}
+
+object DepB {
+  val layer = ZLayer.succeed[DepB](new DepB {
+    def methodB(param: Float) = ???
+  })
+}
+
+trait DepB {
+  def methodB(param: Float): ZIO[Any, Nothing, Double]
+}
+
+case class MyService2(depA: DepA, depB: DepB) extends ZSimpleService[User] {
+  def sayHello(req: Request, user: User): ZIO[Any, StatusException, Response] =
+    for {
+      num1 <- depA.methodA(user.name)
+      num2 <- depB.methodB(12.3f)
+      _ <- printLine("I am here $num1 $num2!").orDie
+    } yield Response(s"Hello, ${user.name}")
+}
+
+object MyService2 {
+  val layer: ZLayer[DepA with DepB, Nothing, ZSimpleService[RequestContext]] =
+    ZLayer.fromFunction {
+      (depA: DepA, depB: DepB) =>
+        MyService2(depA, depB).transformContextZIO(findUser(_))
+  }
+}
+```
+
+Our service layer now depends on the `DepA` and `DepB` interfaces. A server can be created like this:
+
+```scala mdoc
+object MyServer3 extends zio.ZIOAppDefault {
+
+  val serverLayer =
+    ServerLayer.fromServiceList(
+      io.grpc.ServerBuilder.forPort(9000),
+      ServiceList.addFromEnvironment[ZSimpleService[RequestContext]]
+    )
+
+  val appLayer = ZLayer.make[Server](
+    serverLayer,
+    DepA.layer,
+    DepB.layer,
+    MyService2.layer
+  )
+
+  def run = ourApp.launch.exitCode
+}
+```

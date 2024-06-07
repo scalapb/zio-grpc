@@ -1,13 +1,12 @@
 module.exports = {
   title: 'ZIO gRPC',
   tagline: 'Build gRPC clients and servers with ZIO',
-  url: 'https://scalapb.github.io/zio-grpc/',
+  url: 'https://scalapb.github.io',
   baseUrl: '/zio-grpc/',
   favicon: 'img/favicon.ico',
   organizationName: 'scalapb', // Usually your GitHub org/user name.
   projectName: 'zio-grpc', // Usually your repo name.
   themeConfig: {
-    sidebarCollapsible: false,
     image: 'https://scalapb.github.io/zio-grpc/img/zio-grpc-social-light.png',
     navbar: {
       title: ' ',
@@ -23,6 +22,10 @@ module.exports = {
           position: 'left',
         },
         // {to: 'blog', label: 'Blog', position: 'left'},
+        {
+            'type': 'docsVersionDropdown',
+            'position': 'right'
+        },
         {
           href: 'https://github.com/scalapb/zio-grpc',
           label: 'GitHub',
@@ -78,12 +81,9 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} <a href="https://www.linkedin.com/in/nadav-samet/">Nadav Samet</a>`,
     },
     prism: {
-      additionalLanguages: ['scala', 'protobuf'],
+      additionalLanguages: ['java', 'protobuf', 'scala'],
       theme: require('prism-react-renderer/themes/nightOwlLight'),
       darkTheme: require('prism-react-renderer/themes/dracula')
-    },
-    googleAnalytics: {
-      trackingID: 'UA-346180-20'
     }
   },
   presets: [
@@ -91,12 +91,22 @@ module.exports = {
       '@docusaurus/preset-classic',
       {
         docs: {
-          // It is recommended to set document id as docs home page (`docs/` path).
-          homePageId: 'intro',
           sidebarPath: require.resolve('./sidebars.js'),
+          sidebarCollapsible: false,
           // Please change this to your repo.
           // editUrl: 'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
-          path: '../zio-grpc-docs/target/mdoc'
+          path: '../zio-grpc-docs/target/mdoc',
+          lastVersion: 'current',
+
+          versions: {
+              current: {
+                  label: '0.6.x'
+              },
+              '0.5.x': {
+                  label: '0.5.x',
+                  path: '0.5.x'
+              }
+          }
         },
         blog: {
           showReadingTime: true,
@@ -107,7 +117,10 @@ module.exports = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+        googleAnalytics: {
+          trackingID: 'UA-346180-20'
+        },
       },
-    ],
+    ]
   ]
 };

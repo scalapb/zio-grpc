@@ -1,44 +1,52 @@
 package scalapb.zio_grpc
 
 import io.grpc.ServerServiceDefinition
-import zio.URIO
-import zio.ZIO
+import io.grpc.StatusException
+import zio.UIO
+import zio.Tag
+import scala.annotation.implicitNotFound
 
 /** Provides a way to bind a ZIO gRPC service implementations to a server. */
-trait ZBindableService[-R, S] {
+@implicitNotFound("""Could not find an implicit ZBindableService[${S}].
+
+Typically, ${S} should extend GenericGeneratedService[C, E] for some type C which
+represents the context provided for each request, and type E which represents an error.
+
+When a ZBindableService could not be found, it is most likely that the context type
+ is not Any, SafeMetadata, or RequestContext, or some other type C which has an implicit
+  instance of CanBind[C] available.
+""")
+trait ZBindableService[S] {
 
   /** Effectfully returns a [[io.grpc.ServerServiceDefinition]] for the given service instance */
-  def bindService(serviceImpl: S): URIO[R, ServerServiceDefinition]
+  def bindService(serviceImpl: S): UIO[ServerServiceDefinition]
 }
+
 object ZBindableService {
 
-  def apply[R, S](implicit ev: ZBindableService[R, S]) = ev
+  def apply[S](implicit ev: ZBindableService[S]) = ev
 
-  def serviceDefinition[R, S](
+  def serviceDefinition[S](
       serviceImpl: S
-  )(implicit bs: ZBindableService[R, S]): URIO[R, ServerServiceDefinition] =
+  )(implicit bs: ZBindableService[S]): UIO[ServerServiceDefinition] =
     bs.bindService(serviceImpl)
 
-  implicit def fromZGeneratedService1[R <: zio.Has[_], C, S[-_, -_], T](implicit
-      ev1: T <:< ZGeneratedService[R, C, S],
-      ev2: T <:< S[R, C],
-      ev3: GenericBindable[S],
+  implicit def fromGenericGeneratedService[C, S[-_, +_], T](implicit
+      ev1: T <:< GenericGeneratedService[C, StatusException, S],
+      ev2: T <:< S[C, StatusException],
+      ev3: GenericBindable[S[RequestContext, StatusException]],
       ev4: CanBind[C],
-      ev5: zio.Has.Union[R, C]
-  ): ZBindableService[R, T] =
-    new ZBindableService[R, T] {
-      def bindService(s: T): zio.URIO[R, ServerServiceDefinition] =
-        ZIO.accessM[R](r => ev3.bind(s, t => ev5.union(r, ev4.bind(t))))
+      ev6: Tag[C]
+  ): ZBindableService[T] =
+    new ZBindableService[T] {
+      def bindService(s: T): zio.UIO[ServerServiceDefinition] =
+        ev3.bind(s.transformContext[RequestContext](ev4.bind(_)))
     }
 
-  implicit def fromZGeneratedService2[C, S[-_, -_], T](implicit
-      ev1: T <:< ZGeneratedService[Any, C, S],
-      ev2: T <:< S[Any, C],
-      ev3: GenericBindable[S],
-      ev4: CanBind[C]
-  ): ZBindableService[Any, T] =
-    new ZBindableService[Any, T] {
-      def bindService(s: T): zio.URIO[Any, ServerServiceDefinition] =
-        ZIO.accessM[Any](_ => ev3.bind(s, t => ev4.bind(t)))
+  implicit def fromGeneratedService[T <: GeneratedService](implicit
+      ev: GenericBindable[T]
+  ): ZBindableService[T] =
+    new ZBindableService[T] {
+      def bindService(serviceImpl: T): UIO[ServerServiceDefinition] = ev.bind(serviceImpl)
     }
 }

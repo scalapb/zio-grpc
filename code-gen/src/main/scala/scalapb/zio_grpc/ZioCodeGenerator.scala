@@ -17,6 +17,7 @@ import protocgen.CodeGenRequest
 import scalapb.compiler.NameUtils
 
 import scala.jdk.CollectionConverters._
+import scala.util.chaining._
 
 object ZioCodeGenerator extends CodeGenApp {
   override def registerExtensions(registry: ExtensionRegistry): Unit =
@@ -58,16 +59,19 @@ class ZioFilePrinter(
   val Channel             = "io.grpc.Channel"
   val CallOptions         = "io.grpc.CallOptions"
   val ClientCalls         = "scalapb.zio_grpc.client.ClientCalls"
-  val Duration            = "zio.duration.Duration"
+  val Duration            = "zio.Duration"
   val SafeMetadata        = "scalapb.zio_grpc.SafeMetadata"
-  val Status              = "io.grpc.Status"
+  val StatusException     = "io.grpc.StatusException"
   val Deadline            = "io.grpc.Deadline"
   val methodDescriptor    = "io.grpc.MethodDescriptor"
   val RequestContext      = "scalapb.zio_grpc.RequestContext"
+  val ClientCallContext   = "scalapb.zio_grpc.ClientCallContext"
+  val ClientTransform     = "scalapb.zio_grpc.ClientTransform"
   val ZClientCall         = "scalapb.zio_grpc.client.ZClientCall"
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
-  val ZBindableService    = "scalapb.zio_grpc.ZBindableService"
+  val GTransform          = "scalapb.zio_grpc.GTransform"
+  val Transform           = "scalapb.zio_grpc.Transform"
   val Nanos               = "java.util.concurrent.TimeUnit.NANOSECONDS"
   val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
   private val OuterObject =
@@ -80,8 +84,6 @@ class ZioFilePrinter(
     val fp = new FunctionalPrinter()
     fp.add(
       s"package ${file.scalaPackage.fullName}",
-      "",
-      "import scala.language.implicitConversions",
       "",
       s"object ${OuterObject.name} {"
     ).indent
@@ -101,83 +103,51 @@ class ZioFilePrinter(
   class ServicePrinter(service: ServiceDescriptor) {
 
     private val traitName  = OuterObject / service.name
-    private val ztraitName = OuterObject / ("Z" + service.name)
+    private val gtraitName = OuterObject / ("G" + service.name)
 
-    private val clientServiceName  = OuterObject / (service.name + "Client")
-    private val accessorsClassName = OuterObject / (service.name + "Accessors")
+    private val clientServiceName                      = OuterObject / (service.name + "Client")
+    private val clientWithResponseMetadataServiceName  = OuterObject / (service.name + "ClientWithResponseMetadata")
+    private val accessorsClassName                     = OuterObject / (service.name + "Accessors")
+    private val accessorsWithResponseMetadataClassName = OuterObject / (service.name + "WithResponseMetadataAccessors")
 
-    def methodInType(method: MethodDescriptor, inEnvType: String): String = {
+    def methodInType(method: MethodDescriptor, errorType: String): String = {
       val scalaInType = method.inputType.scalaType
 
       method.streamType match {
         case StreamType.Unary           =>
           scalaInType
         case StreamType.ClientStreaming =>
-          stream(scalaInType, inEnvType)
+          stream(scalaInType, errorType, "Any")
         case StreamType.ServerStreaming =>
           scalaInType
         case StreamType.Bidirectional   =>
-          stream(scalaInType, inEnvType)
+          stream(scalaInType, errorType, "Any")
       }
     }
 
     def methodSignature(
         method: MethodDescriptor,
-        inEnvType: String,
-        outEnvType: String
+        contextType: Option[String],
+        errorType: Option[String]
     ): String = {
-      val reqType      = methodInType(method, inEnvType)
       val scalaOutType = method.outputType.scalaType
+      val contextParam = contextType.fold("")(ctx => s""", context: $ctx""")
+      val errorParam   = errorType.getOrElse("Error")
+      val reqType      = methodInType(method, StatusException)
 
       s"def ${method.name}" + (method.streamType match {
         case StreamType.Unary           =>
-          s"(request: $reqType): ${io(scalaOutType, outEnvType)}"
+          s"(request: $reqType$contextParam): ${io(scalaOutType, errorParam, "Any")}"
         case StreamType.ClientStreaming =>
-          s"(request: $reqType): ${io(scalaOutType, outEnvType)}"
+          s"(request: $reqType$contextParam): ${io(scalaOutType, errorParam, "Any")}"
         case StreamType.ServerStreaming =>
-          s"(request: $reqType): ${stream(scalaOutType, outEnvType)}"
+          s"(request: $reqType$contextParam): ${stream(scalaOutType, errorParam, "Any")}"
         case StreamType.Bidirectional   =>
-          s"(request: $reqType): ${stream(scalaOutType, outEnvType)}"
+          s"(request: $reqType$contextParam): ${stream(scalaOutType, errorParam, "Any")}"
       })
     }
-
-    def clientMethodSignature(
-        method: MethodDescriptor,
-        inEnvType: String,
-        outEnvType: String
-    ): String = {
-      val reqType      = methodInType(method, inEnvType)
-      val scalaOutType = method.outputType.scalaType
-
-      s"def ${method.name}" + (method.streamType match {
-        case StreamType.Unary           =>
-          s"(request: $reqType): ${io(scalaOutType, outEnvType)}"
-        case StreamType.ClientStreaming =>
-          s"[${inEnvType}](request: $reqType): ${io(scalaOutType, outEnvType + " with " + inEnvType)}"
-        case StreamType.ServerStreaming =>
-          s"(request: $reqType): ${stream(scalaOutType, outEnvType)}"
-        case StreamType.Bidirectional   =>
-          s"[${inEnvType}](request: $reqType): ${stream(scalaOutType, outEnvType + " with " + inEnvType)}"
-      })
-    }
-
-    def printMethodSignature(
-        inEnvType: String,
-        outEnvType: String
-    )(
-        fp: FunctionalPrinter,
-        method: MethodDescriptor
-    ): FunctionalPrinter =
-      fp.add(
-        methodSignature(
-          method,
-          inEnvType,
-          outEnvType
-        )
-      )
 
     def printClientMethodSignature(
-        inEnvType: String,
         outEnvType: String
     )(
         fp: FunctionalPrinter,
@@ -186,8 +156,73 @@ class ZioFilePrinter(
       fp.add(
         clientMethodSignature(
           method,
-          inEnvType,
           outEnvType
+        )
+      )
+
+    def clientMethodSignature(
+        method: MethodDescriptor,
+        contextType: String
+    ): String = {
+      val reqType      = methodInType(method, StatusException)
+      val scalaOutType = method.outputType.scalaType
+
+      s"def ${method.name}" + (method.streamType match {
+        case StreamType.Unary           =>
+          s"(request: $reqType): ${io(scalaOutType, StatusException, contextType)}"
+        case StreamType.ClientStreaming =>
+          s"(request: $reqType): ${io(scalaOutType, StatusException, contextType)}"
+        case StreamType.ServerStreaming =>
+          s"(request: $reqType): ${stream(scalaOutType, StatusException, contextType)}"
+        case StreamType.Bidirectional   =>
+          s"(request: $reqType): ${stream(scalaOutType, StatusException, contextType)}"
+      })
+    }
+
+    def clientWithResponseMetadataSignature(
+        method: MethodDescriptor,
+        envOutType: String
+    ): String = {
+      val reqType       = methodInType(method, StatusException)
+      val scalaOutType  = method.outputType.scalaType
+      val ioOutType     = s"scalapb.zio_grpc.ResponseContext[$scalaOutType]"
+      val streamOutType = s"scalapb.zio_grpc.ResponseFrame[$scalaOutType]"
+
+      s"def ${method.name}" + (method.streamType match {
+        case StreamType.Unary           =>
+          s"(request: $reqType): ${io(ioOutType, StatusException, envOutType)}"
+        case StreamType.ClientStreaming =>
+          s"(request: $reqType): ${io(ioOutType, StatusException, envOutType)}"
+        case StreamType.ServerStreaming =>
+          s"(request: $reqType): ${stream(streamOutType, StatusException, envOutType)}"
+        case StreamType.Bidirectional   =>
+          s"(request: $reqType): ${stream(streamOutType, StatusException, envOutType)}"
+      })
+    }
+
+    def printMethodSignature(
+        contextType: Option[String],
+        errorType: Option[String]
+    )(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter =
+      fp.add(
+        methodSignature(
+          method,
+          contextType,
+          errorType
+        )
+      )
+
+    def printClientWithResponseMetadataMethodSignature(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter =
+      fp.add(
+        clientWithResponseMetadataSignature(
+          method,
+          "Any"
         )
       )
 
@@ -198,15 +233,38 @@ class ZioFilePrinter(
       val delegate = s"self.${method.name}"
       val newImpl  = method.streamType match {
         case StreamType.Unary | StreamType.ClientStreaming         =>
-          s"f.effect($delegate(request))"
+          s"f.effect($delegate(request, _))(context)"
         case StreamType.ServerStreaming | StreamType.Bidirectional =>
-          s"f.stream($delegate(request))"
+          s"f.stream($delegate(request, _))(context)"
       }
       fp.add(
         methodSignature(
           method,
-          inEnvType = "Any",
-          outEnvType = "R1 with Context1"
+          contextType = Some("Context1"),
+          errorType = Some("Error1")
+        ) + " = " + newImpl
+      )
+    }
+
+    def printClientWithResponseMetadataTransform(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      val delegate = s"self.${method.name}"
+      val newImpl  = method.streamType match {
+        case StreamType.Unary           =>
+          s"f.effect($delegate(request))"
+        case StreamType.ServerStreaming =>
+          s"f.stream($delegate(request))"
+        case StreamType.ClientStreaming =>
+          s"f.effect($delegate(request))"
+        case StreamType.Bidirectional   =>
+          s"f.stream($delegate(request))"
+      }
+      fp.add(
+        clientWithResponseMetadataSignature(
+          method,
+          "Any"
         ) + " = " + newImpl
       )
     }
@@ -222,79 +280,99 @@ class ZioFilePrinter(
         case StreamType.ServerStreaming =>
           s"f.stream($delegate(request))"
         case StreamType.ClientStreaming =>
-          s"""zio.ZIO.fail($Status.INTERNAL.withDescription("Transforming client-side client-streaming calls is not supported"))"""
+          s"f.effect($delegate(request))"
         case StreamType.Bidirectional   =>
-          s"""zio.stream.ZStream.fail($Status.INTERNAL.withDescription("Transforming client-side bidi calls is not supported"))"""
+          s"f.stream($delegate(request))"
       }
       fp.add(
         clientMethodSignature(
           method,
-          inEnvType = "RR",
-          outEnvType = "R1 with Context1"
+          contextType = "Any"
         ) + " = " + newImpl
       )
     }
 
-    def serverTranformableService(fp: FunctionalPrinter): FunctionalPrinter =
+    def printGTransformMethod(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[${ztraitName.name}] = new scalapb.zio_grpc.TransformableService[${ztraitName.name}] {"
+        s"def transform[Context1, Error1](f: $GTransform[Context, Error, Context1, Error1]): ${gtraitName.fullName}[Context1, Error1] = new ${gtraitName.fullName}[Context1, Error1] {"
       ).indented(
-        _.add(
-          s"def transform[R, Context, R1, Context1](self: ${ztraitName.name}[R, Context], f: scalapb.zio_grpc.ZTransform[R with Context, $Status, R1 with Context1]): ${ztraitName.fullName}[R1, Context1] = new ${ztraitName.fullName}[R1, Context1] {"
-        ).indented(
-          _.print(service.getMethods().asScala.toVector)(
-            printServerTransform
-          )
-        ).add("}")
-      ).add("}")
-
-    def clientTranformableService(fp: FunctionalPrinter): FunctionalPrinter =
-      fp.add(
-        s"implicit val transformableService: scalapb.zio_grpc.TransformableService[ZService] = new scalapb.zio_grpc.TransformableService[ZService] {"
-      ).indented(
-        _.add(
-          s"def transform[R, Context, R1, Context1](self: ZService[R, Context], f: scalapb.zio_grpc.ZTransform[R with Context, $Status, R1 with Context1]): ZService[R1, Context1] = new ZService[R1, Context1] {"
-        ).indented(
-          _.print(service.getMethods().asScala.toVector)(
-            printClientTransform
-          )
-            .add(
-              "// Returns a copy of the service with new default metadata",
-              s"def mapCallOptionsM(cf: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.mapCallOptionsM(cf), f)",
-              s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R1, C] = ??? // transform[R, Context, R1, C](self.withMetadataM(headersEffect), f)",
-              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R1, Context1] = transform[R, Context, R1, Context1](self.withCallOptionsM(callOptions), f)"
-            )
-        ).add("}")
+        _.print(service.getMethods().asScala.toVector)(
+          printServerTransform
+        )
       ).add("}")
 
     def print(fp: FunctionalPrinter): FunctionalPrinter =
       fp.add(
-        s"trait ${ztraitName.name}[-R, -Context] extends scalapb.zio_grpc.ZGeneratedService[R, Context, ${ztraitName.name}] {"
+        s"trait ${gtraitName.name}[-Context, +Error] extends scalapb.zio_grpc.GenericGeneratedService[Context, Error, ${gtraitName.name}] {"
       ).indented(
         _.add("self =>")
           .print(service.getMethods().asScala.toVector)(
             printMethodSignature(
-              inEnvType = "Any",
-              outEnvType = "R with Context"
+              contextType = Some("Context"),
+              errorType = Some("Error")
             )
           )
+          .add("")
+          .call(printGTransformMethod)
       ).add("}")
+        .add("")
         .add(
-          s"type ${traitName.name} = ${ztraitName.name}[Any, Any]",
-          s"type R${traitName.name}[R] = ${ztraitName.name}[R, Any]",
-          s"type RC${traitName.name}[R] = ${ztraitName.name}[R, zio.Has[$RequestContext]]"
+          s"type Z${traitName.name}[Context] = ${gtraitName.name}[Context, $StatusException]",
+          s"type RC${traitName.name} = ${gtraitName.name}[$RequestContext, $StatusException]"
         )
         .add("")
-        .add(s"object ${ztraitName.name} {")
+        .add(
+          s"trait ${traitName.name} extends scalapb.zio_grpc.GeneratedService {"
+        )
         .indented(
-          _.call(serverTranformableService)
+          _.add("self =>")
+            .add(s"type Generic[-C, +E] = ${gtraitName.name}[C, E]")
+            .print(service.getMethods().asScala.toVector)(
+              printMethodSignature(contextType = None, errorType = Some(StatusException))
+            )
+            .add("")
             .add(
-              s"implicit def ops[R, C](service: ${ztraitName.fullName}[R, C]): scalapb.zio_grpc.TransformableService.TransformableServiceOps[${ztraitName.fullName}, R, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[${ztraitName.fullName}, R, C](service)",
-              s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}] = new scalapb.zio_grpc.GenericBindable[${ztraitName.fullName}] {"
+              s"override def asGeneric: ${gtraitName.name}[Any, $StatusException] = new ${gtraitName.name}[Any, $StatusException] {"
             )
             .indented(
+              _.print(service.getMethods().asScala.toVector) { (fp, method) =>
+                (
+                  fp.add(
+                    s"${methodSignature(method, contextType = Some("Any"), errorType = Some(StatusException))} = self.${method.name}(request)"
+                  )
+                )
+              }
+            )
+            .add("}")
+            .add(s"def transform(z: $Transform): ${gtraitName.name}[Any, $StatusException] = asGeneric.transform(z)")
+            .add(
+              s"def transform[C, E](z: $GTransform[Any, $StatusException, C, E]): ${gtraitName.name}[C, E] = asGeneric.transform(z)"
+            )
+        )
+        .add("}")
+        .add("")
+        .add(s"object ${traitName.name} {")
+        .indented(
+          _.add(
+            s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${traitName.fullName}] = new scalapb.zio_grpc.GenericBindable[${traitName.fullName}] {"
+          )
+            .indented(
               _.add(
-                s"""def bind[R, C](serviceImpl: ${ztraitName.fullName}[R, C], env: zio.Has[$RequestContext] => R with C): zio.URIO[R, $serverServiceDef] ="""
+                s"""def bind(serviceImpl: ${traitName.fullName}): zio.UIO[$serverServiceDef] = ${gtraitName.fullName}.genericBindable.bind(serviceImpl.asGeneric)"""
+              )
+            )
+            .add("}")
+        )
+        .add("}")
+        .add("")
+        .add(s"object ${gtraitName.name} {")
+        .indented(
+          _.add(
+            s"implicit val genericBindable: scalapb.zio_grpc.GenericBindable[${gtraitName.fullName}[$RequestContext, $StatusException]] = new scalapb.zio_grpc.GenericBindable[${gtraitName.fullName}[$RequestContext, $StatusException]] {"
+          )
+            .indented(
+              _.add(
+                s"""def bind(serviceImpl: ${gtraitName.fullName}[$RequestContext, $StatusException]): zio.UIO[$serverServiceDef] ="""
               ).indent
                 .add("zio.ZIO.runtime[Any].map {")
                 .indent
@@ -316,77 +394,164 @@ class ZioFilePrinter(
         )
         .add("}")
         .add("")
-        .add(
-          s"type ${clientServiceName.name} = _root_.zio.Has[${clientServiceName.name}.Service]"
-        )
+        .pipe(genClient)
+        .pipe(genClientWithResponseMetadata)
+
+    def genClientWithResponseMetadata(fp: FunctionalPrinter): FunctionalPrinter =
+      fp
         .add("")
-        .add("// accessor methods")
+        .add("// accessor with metadata methods")
         .add(
-          s"class ${accessorsClassName.name}[Context: zio.Tag](callOptions: zio.IO[$Status, $CallOptions]) extends scalapb.zio_grpc.CallOptionsMethods[${accessorsClassName.name}[Context]] {"
+          s"class ${accessorsWithResponseMetadataClassName.name}(transforms: $ClientTransform = $ClientTransform.identity) extends scalapb.zio_grpc.GeneratedClient[${accessorsWithResponseMetadataClassName.name}] {"
         )
         .indented(
-          _.add(s"def this() = this(zio.ZIO.succeed($CallOptions.DEFAULT))")
-            .print(service.getMethods().asScala.toVector)(printAccessor)
+          _.add(
+            s"def this(callOptionsFunc: $CallOptions => $CallOptions, metadataFunc: $SafeMetadata => zio.UIO[$SafeMetadata]) = this($ClientTransform.mapCallOptions(callOptionsFunc).andThen($ClientTransform.mapMetadataZIO(metadataFunc)))"
+          )
+            .print(service.getMethods().asScala.toVector)(printAccessorWithResponseMetadata)
             .add(
-              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]) = new ${accessorsClassName.name}(callOptions.flatMap(f))"
+              s"override def transform(t: $ClientTransform): ${accessorsWithResponseMetadataClassName.name} = new ${accessorsWithResponseMetadataClassName.name}(transforms.andThen(t))"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"object ${clientServiceName.name} extends ${accessorsClassName.name}[Any](zio.ZIO.succeed($CallOptions.DEFAULT)) {"
+          s"trait ${clientWithResponseMetadataServiceName.name} extends scalapb.zio_grpc.GeneratedClient[${clientWithResponseMetadataServiceName.name}] {"
+        )
+        .indented(
+          _.add("self =>")
+            .print(service.getMethods().asScala.toVector)(
+              printClientWithResponseMetadataMethodSignature
+            )
+        )
+        .add("}")
+        .add("")
+        .add(
+          s"object ${clientWithResponseMetadataServiceName.name} extends ${accessorsWithResponseMetadataClassName.name} {"
         )
         .indent
         .add(
-          s"trait ZService[R, Context] extends scalapb.zio_grpc.CallOptionsMethods[ZService[R, Context]] {"
+          s"private class ServiceStub(channel: $ZChannel, transforms: $ClientTransform)"
         )
+        .add(s"    extends ${clientWithResponseMetadataServiceName.name} {")
         .indented(
           _.print(service.getMethods().asScala.toVector)(
-            printClientMethodSignature(
-              inEnvType = "R0",
-              outEnvType = "R with Context"
-            )
+            printClientWithResponseMetadataImpl
           )
+            .add(
+              s"override def transform(t: $ClientTransform): ${clientWithResponseMetadataServiceName.name} = new ServiceStub(channel, transforms.compose(t))"
+            )
+        )
+        .add("}")
+        .add("")
+        .add(
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ClientTransform): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] = managedChannel.map {"
+        )
+        .add("  channel => new ServiceStub(channel, transforms)")
+        .add("}")
+        .add(
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          s"  scoped(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
+        )
+        .add("")
+        .add(
+          s"def live[Context](managedChannel: $ZManagedChannel, transforms: $ClientTransform): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          "  zio.ZLayer.scoped(scoped(managedChannel, transforms))"
+        )
+        .add(
+          s"def live[Context](managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientWithResponseMetadataServiceName.name}] ="
+        )
+        .add(
+          "  zio.ZLayer.scoped(scoped(managedChannel, options, metadata))"
+        )
+        .outdent
+        .add("}")
+
+    def genClient(fp: FunctionalPrinter): FunctionalPrinter =
+      fp
+        .add("")
+        .add("// accessor methods")
+        .add(
+          s"class ${accessorsClassName.name}(transforms: $ClientTransform = $ClientTransform.identity) extends scalapb.zio_grpc.GeneratedClient[${accessorsClassName.name}] {"
+        )
+        .indented(
+          _.add(
+            s"def this(callOptionsFunc: $CallOptions => $CallOptions, metadataFunc: $SafeMetadata => zio.UIO[$SafeMetadata]) = this($ClientTransform.mapCallOptions(callOptionsFunc).andThen($ClientTransform.mapMetadataZIO(metadataFunc)))"
+          )
+            .print(service.getMethods().asScala.toVector)(printAccessor)
+            .add(
+              s"override def transform(t: $ClientTransform): ${accessorsClassName.name} = new ${accessorsClassName.name}(transforms.andThen(t))"
+            )
+        )
+        .add("}")
+        .add("")
+        .add(
+          s"trait ${clientServiceName.name} extends scalapb.zio_grpc.GeneratedClient[${clientServiceName.name}] {"
+        )
+        .indented(
+          _.add("self =>")
+            .print(service.getMethods().asScala.toVector)(
+              printClientMethodSignature(
+                outEnvType = "Any"
+              )
+            )
             .add("")
             .add(
-              "// Returns a copy of the service with new default metadata",
-              s"def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C]",
-              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context]"
+              "// Returns a client that gives access to headers and trailers from server's response",
+              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name}"
             )
         )
         .add("}")
-        .add(s"type Service = ZService[Any, Any]")
-        .add(s"type Accessors[Context] = ${accessorsClassName.fullName}[Context]")
-        .call(clientTranformableService)
-        .add(
-          s"implicit def ops[R, C](service: ZService[R, C]): scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, R, C] = new scalapb.zio_grpc.TransformableService.TransformableServiceOps[ZService, R, C](service)"
-        )
-        .add("")
         .add("")
         .add(
-          s"private[this] class ServiceStub[R, Context](channel: $ZChannel[R], options: zio.IO[$Status, $CallOptions], headers: zio.ZIO[Context, $Status, $SafeMetadata])"
+          s"object ${clientServiceName.name} extends ${accessorsClassName.name} {"
         )
-        .add(s"    extends ${clientServiceName.name}.ZService[R, Context] {")
+        .indent
+        .add("")
+        .add(
+          s"private class ServiceStub(underlying: ${clientWithResponseMetadataServiceName.name})"
+        )
+        .add(s"    extends ${clientServiceName.name} {")
         .indented(
           _.print(service.getMethods().asScala.toVector)(
-            printClientImpl(envType = "R with Context")
+            printClientImpl(envType = "Any")
           )
             .add(
-              s"def mapCallOptionsM(f: $CallOptions => zio.IO[$Status, $CallOptions]): ZService[R, Context] = new ServiceStub(channel, options.flatMap(f), headers)",
-              s"override def withMetadataM[C](headersEffect: zio.ZIO[C, $Status, $SafeMetadata]): ZService[R, C] = new ServiceStub(channel, options, headersEffect)",
-              s"def withCallOptionsM(callOptions: zio.IO[$Status, $CallOptions]): ZService[R, Context] = new ServiceStub(channel, callOptions, headers)"
+              "// Returns a client that gives access to headers and trailers from server's response",
+              s"def withResponseMetadata: ${clientWithResponseMetadataServiceName.name} = underlying",
+              s"override def transform(t: $ClientTransform): ${clientServiceName.name} = new ServiceStub(underlying.transform(t))"
             )
         )
         .add("}")
         .add("")
         .add(
-          s"def managed[R, Context](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions] = zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata]=$SafeMetadata.make): zio.Managed[Throwable, ${clientServiceName.name}.ZService[R, Context]] = managedChannel.map {"
+          s"def scoped(managedChannel: $ZManagedChannel, transforms: $ClientTransform): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] ="
         )
-        .add("  channel => new ServiceStub[R, Context](channel, options, headers)")
-        .add("}")
+        .add(
+          s"  ${clientWithResponseMetadataServiceName.name}.scoped(managedChannel, transforms).map(client => new ServiceStub(client))"
+        )
+        .add(
+          s"def scoped(managedChannel: $ZManagedChannel, options: $CallOptions = $CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata]=$SafeMetadata.make): zio.ZIO[zio.Scope, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientServiceName.name}.scoped(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
+        )
         .add("")
         .add(
-          s"def live[R, Context: zio.Tag](managedChannel: $ZManagedChannel[R], options: zio.IO[$Status, $CallOptions]=zio.ZIO.succeed($CallOptions.DEFAULT), headers: zio.ZIO[Context, $Status, $SafeMetadata] = $SafeMetadata.make): zio.ZLayer[R, Throwable, zio.Has[${clientServiceName.name}.ZService[Any, Context]]] = zio.ZLayer.fromFunctionManaged((r: R) => managed[Any, Context](managedChannel.map(_.provide(r)), options, headers))"
+          s"def live(managedChannel: $ZManagedChannel, transforms: $ClientTransform): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientWithResponseMetadataServiceName.name}.live(managedChannel, transforms).map(clientEnv => zio.ZEnvironment(new ServiceStub(clientEnv.get)))"
+        )
+        .add(
+          s"def live(managedChannel: $ZManagedChannel, options: $CallOptions=$CallOptions.DEFAULT, metadata: zio.UIO[$SafeMetadata] = $SafeMetadata.make): zio.ZLayer[Any, Throwable, ${clientServiceName.name}] ="
+        )
+        .add(
+          s"  ${clientServiceName.name}.live(managedChannel, $ClientTransform.withCallOptions(options).andThen($ClientTransform.withMetadataZIO(metadata)))"
         )
         .outdent
         .add("}")
@@ -398,53 +563,111 @@ class ZioFilePrinter(
       val sigWithoutContext =
         clientMethodSignature(
           method,
-          inEnvType = "R0",
-          outEnvType = s"zio.Has[${clientServiceName.name}.ZService[Any, Context]] with Context"
+          contextType = s"${clientServiceName.name}"
         ) + " = "
-      val innerCall         = s"_.get.withCallOptionsM(callOptions).${method.name}(request)"
+      val innerCall         = s"_.transform(transforms).${method.name}(request)"
       val clientCall        = method.streamType match {
-        case StreamType.Unary           => s"_root_.zio.ZIO.accessM($innerCall)"
-        case StreamType.ClientStreaming => s"_root_.zio.ZIO.accessM($innerCall)"
+        case StreamType.Unary           =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}]($innerCall)"
+        case StreamType.ClientStreaming =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientServiceName.name}]($innerCall)"
         case StreamType.ServerStreaming =>
-          s"_root_.zio.stream.ZStream.accessStream($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}]($innerCall)"
         case StreamType.Bidirectional   =>
-          s"_root_.zio.stream.ZStream.accessStream($innerCall)"
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientServiceName.name}]($innerCall)"
       }
       fp.add(sigWithoutContext + clientCall)
+    }
+
+    def printAccessorWithResponseMetadata(
+        fp: FunctionalPrinter,
+        method: MethodDescriptor
+    ): FunctionalPrinter = {
+      val sigWithoutContext =
+        clientWithResponseMetadataSignature(
+          method,
+          envOutType = s"${clientWithResponseMetadataServiceName.name}"
+        ) + " = "
+      val innerCall         = s"_.transform(transforms).${method.name}(request)"
+      val clientCall        = method.streamType match {
+        case StreamType.Unary           =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}]($innerCall)"
+        case StreamType.ClientStreaming =>
+          s"_root_.zio.ZIO.serviceWithZIO[${clientWithResponseMetadataServiceName.name}]($innerCall)"
+        case StreamType.ServerStreaming =>
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}]($innerCall)"
+        case StreamType.Bidirectional   =>
+          s"_root_.zio.stream.ZStream.serviceWithStream[${clientWithResponseMetadataServiceName.name}]($innerCall)"
+      }
+      fp.add(sigWithoutContext + clientCall)
+    }
+
+    def printClientWithResponseMetadataImpl(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
+      val Req = method.inputType.scalaType
+      val Res = method.outputType.scalaType
+
+      val clientCall      = method.streamType match {
+        case StreamType.Unary           => s"$ClientCalls.withMetadata.unaryCall[$Req, $Res]"
+        case StreamType.ClientStreaming => s"$ClientCalls.withMetadata.clientStreamingCall[$Req, $Res]"
+        case StreamType.ServerStreaming => s"$ClientCalls.withMetadata.serverStreamingCall[$Req, $Res]"
+        case StreamType.Bidirectional   => s"$ClientCalls.withMetadata.bidiCall[$Req, $Res]"
+      }
+      val transformMethod = method.streamType match {
+        case StreamType.Unary | StreamType.ClientStreaming         => "effect"
+        case StreamType.ServerStreaming | StreamType.Bidirectional => "stream"
+      }
+      val makeMetadata    = method.streamType match {
+        case StreamType.Unary | StreamType.ClientStreaming         =>
+          s"$SafeMetadata.make"
+        case StreamType.ServerStreaming | StreamType.Bidirectional =>
+          s"zio.stream.ZStream.fromZIO($SafeMetadata.make)"
+      }
+      fp.add(
+        clientWithResponseMetadataSignature(
+          method,
+          envOutType = "Any"
+        ) + s" ="
+      ).indent
+        .add(s"$makeMetadata.flatMap { metadata =>")
+        .indented(
+          _.add(s"transforms.$transformMethod { context => ")
+            .indented(
+              _.add(
+                s"$clientCall("
+              )
+                .indented(
+                  _.add(s"channel,")
+                    .add(s"context.method.asInstanceOf[$methodDescriptor[$Req, $Res]],")
+                    .add("context.options,")
+                    .add("context.metadata,")
+                    .add("request")
+                )
+                .add(")")
+            )
+            .add(s"}($ClientCallContext(${method.grpcDescriptor.fullName}, $CallOptions.DEFAULT, metadata))")
+        )
+        .add("}")
+        .outdent
     }
 
     def printClientImpl(
         envType: String
     )(fp: FunctionalPrinter, method: MethodDescriptor): FunctionalPrinter = {
-      val clientCall = method.streamType match {
-        case StreamType.Unary           => s"$ClientCalls.unaryCall"
-        case StreamType.ClientStreaming => s"$ClientCalls.clientStreamingCall"
-        case StreamType.ServerStreaming => s"$ClientCalls.serverStreamingCall"
-        case StreamType.Bidirectional   => s"$ClientCalls.bidiCall"
+      val suffix = method.streamType match {
+        case StreamType.Unary | StreamType.ClientStreaming         =>
+          ".map(_.response)"
+        case StreamType.ServerStreaming | StreamType.Bidirectional =>
+          ".collect { case scalapb.zio_grpc.ResponseFrame.Message(message) => message }"
       }
-      val prefix     = method.streamType match {
-        case StreamType.Unary           => s"headers.zip(options).flatMap"
-        case StreamType.ClientStreaming => s"headers.zip(options).flatMap"
-        case StreamType.ServerStreaming =>
-          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
-        case StreamType.Bidirectional   =>
-          s"zio.stream.ZStream.fromEffect(headers.zip(options)).flatMap"
-      }
+
       fp.add(
         clientMethodSignature(
           method,
-          inEnvType = "R0",
-          outEnvType = envType
-        ) + s" = $prefix { case (headers, options) => $clientCall("
-      ).indent
-        .add(
-          s"channel, ${method.grpcDescriptor.fullName}, options,"
-        )
-        .add(s"headers,")
-        .add(s"request")
-        .outdent
-        .add(s")}")
+          contextType = envType
+        ) + s" = underlying.${method.name}(request)$suffix"
+      )
     }
+
     def printBindService(
         fp: FunctionalPrinter,
         method: MethodDescriptor
@@ -464,22 +687,22 @@ class ZioFilePrinter(
           s"${method.grpcDescriptor.fullName},"
         )
         .add(
-          s"$CH.$serverCall(runtime, (t: ${methodInType(method, inEnvType = "Any")})=>serviceImpl.${method.name}(t).provideSome(env))"
+          s"$CH.$serverCall(runtime, serviceImpl.${method.name}(_, _))"
         )
         .outdent
         .add(")")
     }
   }
 
-  def stream(res: String, envType: String) =
+  def stream(res: String, errType: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.stream.Stream[$Status, $res]"
-      case r     => s"_root_.zio.stream.ZStream[$r, $Status, $res]"
+      case "Any" => s"_root_.zio.stream.Stream[$errType, $res]"
+      case r     => s"_root_.zio.stream.ZStream[$r, $errType, $res]"
     }
 
-  def io(res: String, envType: String) =
+  def io(res: String, errType: String, envType: String) =
     envType match {
-      case "Any" => s"_root_.zio.IO[$Status, $res]"
-      case r     => s"_root_.zio.ZIO[$r, $Status, $res]"
+      case "Any" => s"_root_.zio.IO[$errType, $res]"
+      case r     => s"_root_.zio.ZIO[$r, $errType, $res]"
     }
 }

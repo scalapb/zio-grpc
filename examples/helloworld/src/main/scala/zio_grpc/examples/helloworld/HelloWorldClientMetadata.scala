@@ -3,19 +3,19 @@ package zio_grpc.examples.helloworld
 import io.grpc.examples.helloworld.helloworld.ZioHelloworld.GreeterClient
 import io.grpc.examples.helloworld.helloworld.HelloRequest
 import io.grpc.{
+  CallOptions,
   ManagedChannelBuilder,
   Metadata,
   MethodDescriptor,
-  CallOptions,
-  Status
+  StatusException
 }
-import zio.console._
+import zio.Console._
 import scalapb.zio_grpc.{SafeMetadata, ZClientInterceptor, ZManagedChannel}
 import zio._
 
 case class User(name: String)
 
-object HelloWorldClientMetadata extends zio.App {
+object HelloWorldClientMetadata extends zio.ZIOAppDefault {
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
@@ -27,7 +27,7 @@ object HelloWorldClientMetadata extends zio.App {
 
   // An effect that fetches a User from the environment and transforms it to
   // Metadata
-  def userEnvToMetadata: URIO[Has[User], SafeMetadata] =
+  def userEnvToMetadata: URIO[User, SafeMetadata] =
     ZIO.service[User].flatMap(userToMetadata)
 
   val channel =
@@ -36,63 +36,45 @@ object HelloWorldClientMetadata extends zio.App {
     )
 
   // Option 1: through layer and accessors
-  val clientLayer = GreeterClient.live(channel, headers = userEnvToMetadata)
+  val clientLayer = GreeterClient.live(channel)
 
-  type UserClient = Has[GreeterClient.ZService[Any, Has[User]]]
-
-  // The default accessors expect the client type that has no context. We need
-  // to set up accessors for the User context
-  object UserClient extends GreeterClient.Accessors[Has[User]]
-
-  def appLogic1: ZIO[UserClient with Console, Status, Unit] =
+  def appLogic1: ZIO[GreeterClient, StatusException, Unit] =
     for {
-      // With provideSomeLayer:
+      // With client accessor
       r1 <-
-        UserClient
+        GreeterClient
+          .withMetadataZIO(userToMetadata(User("user1")))
           .sayHello(HelloRequest("World"))
-          .provideSomeLayer[UserClient](ZLayer.succeed(User("user1")))
-      _ <- putStrLn(r1.message)
-
-      // With provide:
-      r2 <- UserClient.sayHello(HelloRequest("World")).provideSome {
-        (ct: UserClient) => ct ++ Has(User("user1"))
-      }
-      _ <- putStrLn(r2.message)
+      _ <- printLine(r1.message).orDie
     } yield ()
 
   // Option 2: through a managed client
-  val userClientManaged
-      : Managed[Throwable, GreeterClient.ZService[Any, Has[User]]] =
-    GreeterClient.managed(channel, headers = userEnvToMetadata)
+
+  // The metadata is fixed for the client, but can be overriden by
+  // `withMetadataZIO`, or mapped with `mapMetadataZIO` - see below.
+  val userClientManaged: ZIO[Scope, Throwable, GreeterClient] =
+    GreeterClient.scoped(channel, metadata = userToMetadata(User("user1")))
 
   def appLogic2 =
-    userClientManaged.use { client =>
-      for {
-        r1 <- client.sayHello(HelloRequest("World")).provide(Has(User("user1")))
-        _ <- putStrLn(r1.message)
-        r2 <- client.sayHello(HelloRequest("World")).provide(Has(User("user2")))
-        _ <- putStrLn(r2.message)
-      } yield ()
+    ZIO.scoped {
+      userClientManaged.flatMap { client =>
+        for {
+          r1 <-
+            client
+              .sayHello(HelloRequest("World"))
+          _ <- printLine(r1.message)
+          r2 <-
+            client
+              .withMetadataZIO(userToMetadata(User("user2")))
+              .sayHello(HelloRequest("World"))
+          _ <- printLine(r2.message)
+        } yield ()
+      }
     }
 
-  // Option 3: by changing the stub
-  val clientManaged = GreeterClient.managed(channel)
-  def appLogic3 =
-    clientManaged.use { client =>
-      for {
-        // Pass metadata effectfully
-        r1 <-
-          client
-            .withMetadataM(userToMetadata(User("hello")))
-            .sayHello(HelloRequest("World"))
-        _ <- putStrLn(r1.message)
-      } yield ()
-    }
-
-  final def run(args: List[String]) =
+  final def run =
     (
-      appLogic1.provideCustomLayer(clientLayer) *>
-        appLogic2 *>
-        appLogic3
+      appLogic1.provideLayer(clientLayer) *>
+        appLogic2
     ).exitCode
 }

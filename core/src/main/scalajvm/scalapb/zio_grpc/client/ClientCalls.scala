@@ -1,144 +1,175 @@
 package scalapb.zio_grpc.client
 
-import io.grpc.{CallOptions, MethodDescriptor, Status}
-import scalapb.zio_grpc.{SafeMetadata, ZChannel}
-import zio.stream.{Stream, ZStream}
-import zio.{Exit, ZIO}
+import io.grpc.{CallOptions, MethodDescriptor, StatusException}
+import scalapb.zio_grpc.{ResponseContext, ResponseFrame, SafeMetadata, ZChannel}
+import zio.stream.ZStream
+import zio.{Exit, IO, ZIO}
 
 object ClientCalls {
-  def exitHandler[R, Req, Res](
-      call: ZClientCall[R, Req, Res]
-  )(l: Any, ex: Exit[Status, Any]) = anyExitHandler(call)(l, ex)
+  object withMetadata {
 
-  // less type safe
-  def anyExitHandler[R, Req, Res](
-      call: ZClientCall[R, Req, Res]
-  ) =
-    (_: Any, ex: Exit[Any, Any]) => {
-      ZIO.when(!ex.succeeded) {
-        call.cancel("Interrupted").ignore
+    private def unaryCall[Req, Res](
+        call: ZClientCall[Req, Res],
+        headers: SafeMetadata,
+        req: Req
+    ): IO[StatusException, ResponseContext[Res]] =
+      ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+        call.start(listener, headers) *>
+          call.request(1) *>
+          call.sendMessage(req) *>
+          call.halfClose() *>
+          listener.getValue
       }
-    }
 
-  def unaryCall[R, Req, Res](
-      channel: ZChannel[R],
-      method: MethodDescriptor[Req, Res],
-      options: CallOptions,
-      headers: SafeMetadata,
-      req: Req
-  ): ZIO[R, Status, Res] =
-    channel
-      .newCall(method, options)
-      .flatMap(unaryCall(_, headers, req))
+    def unaryCall[Req, Res](
+        channel: ZChannel,
+        method: MethodDescriptor[Req, Res],
+        options: CallOptions,
+        headers: SafeMetadata,
+        req: Req
+    ): IO[StatusException, ResponseContext[Res]] =
+      channel
+        .newCall(method, options)
+        .flatMap(unaryCall(_, headers, req))
 
-  private def unaryCall[R, Req, Res](
-      call: ZClientCall[R, Req, Res],
-      headers: SafeMetadata,
-      req: Req
-  ): ZIO[R, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
-      call.start(listener, headers) *>
-        call.request(1) *>
-        call.sendMessage(req) *>
-        call.halfClose() *>
-        listener.getValue.map(_._2)
-    }
-
-  def serverStreamingCall[R, Req, Res](
-      channel: ZChannel[R],
-      method: MethodDescriptor[Req, Res],
-      options: CallOptions,
-      headers: SafeMetadata,
-      req: Req
-  ): ZStream[R, Status, Res] =
-    Stream
-      .fromEffect(channel.newCall(method, options))
-      .flatMap(serverStreamingCall(_, headers, req))
-
-  private def serverStreamingCall[R, Req, Res](
-      call: ZClientCall[R, Req, Res],
-      headers: SafeMetadata,
-      req: Req
-  ): ZStream[R, Status, Res] =
-    Stream
-      .bracketExit(
-        StreamingClientCallListener.make[R, Res](call)
-      )(anyExitHandler[R, Req, Res](call))
-      .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
-        Stream
-          .fromEffect(
-            call.start(listener, headers) *>
+    private def serverStreamingCall[Req, Res](
+        call: ZClientCall[Req, Res],
+        headers: SafeMetadata,
+        req: Req
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream
+        .acquireReleaseExitWith(
+          StreamingClientCallListener.make[Res](call)
+        )(anyExitHandler[Req, Res](call))
+        .flatMap { (listener: StreamingClientCallListener[Res]) =>
+          ZStream.unwrap(
+            (call.start(listener, headers) *>
               call.request(1) *>
               call.sendMessage(req) *>
-              call.halfClose()
+              call.halfClose()).as(listener.stream)
           )
-          .drain ++ listener.stream
+        }
+
+    def serverStreamingCall[Req, Res](
+        channel: ZChannel,
+        method: MethodDescriptor[Req, Res],
+        options: CallOptions,
+        headers: SafeMetadata,
+        req: Req
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream.unwrap(
+        channel
+          .newCall(method, options)
+          .map(serverStreamingCall(_, headers, req))
+      )
+
+    private def clientStreamingCall[Req, Res](
+        call: ZClientCall[Req, Res],
+        headers: SafeMetadata,
+        req: ZStream[Any, StatusException, Req]
+    ): IO[StatusException, ResponseContext[Res]] =
+      ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
+        val processRequestStream = req.runForeach(call.sendMessage) *> call.halfClose()
+        val getResult            = listener.getValue
+
+        call.start(listener, headers) *>
+          call.request(1) *>
+          processRequestStream &>
+          getResult
       }
 
-  def clientStreamingCall[R, R0, Req, Res](
-      channel: ZChannel[R],
+    def clientStreamingCall[Req, Res](
+        channel: ZChannel,
+        method: MethodDescriptor[Req, Res],
+        options: CallOptions,
+        headers: SafeMetadata,
+        req: ZStream[Any, StatusException, Req]
+    ): IO[StatusException, ResponseContext[Res]] =
+      channel
+        .newCall(method, options)
+        .flatMap(clientStreamingCall(_, headers, req))
+
+    private def bidiCall[Req, Res](
+        call: ZClientCall[Req, Res],
+        headers: SafeMetadata,
+        req: ZStream[Any, StatusException, Req]
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream
+        .acquireReleaseExitWith(
+          StreamingClientCallListener.make[Res](call)
+        )(anyExitHandler(call))
+        .flatMap { (listener: StreamingClientCallListener[Res]) =>
+          val init              = call.start(listener, headers) *> call.request(1)
+          val process           = req.runForeach(call.sendMessage)
+          val finish            = call.halfClose()
+          val sendRequestStream = ZStream.execute(init *> process *> finish)
+          sendRequestStream.merge(listener.stream, ZStream.HaltStrategy.Right)
+        }
+
+    def bidiCall[Req, Res](
+        channel: ZChannel,
+        method: MethodDescriptor[Req, Res],
+        options: CallOptions,
+        headers: SafeMetadata,
+        req: ZStream[Any, StatusException, Req]
+    ): ZStream[Any, StatusException, ResponseFrame[Res]] =
+      ZStream.unwrap(
+        channel
+          .newCall(method, options)
+          .map(bidiCall(_, headers, req))
+      )
+  }
+
+  def exitHandler[Req, Res](
+      call: ZClientCall[Req, Res]
+  )(l: Any, ex: Exit[StatusException, Any]) = anyExitHandler(call)(l, ex)
+
+  // less type safe
+  def anyExitHandler[Req, Res](
+      call: ZClientCall[Req, Res]
+  ) =
+    (_: Any, ex: Exit[Any, Any]) =>
+      ZIO.when(!ex.isSuccess) {
+        call.cancel("Interrupted").ignore
+      }
+
+  def unaryCall[Req, Res](
+      channel: ZChannel,
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[R0, Status, Req]
-  ): ZIO[R with R0, Status, Res] =
-    channel
-      .newCall(method, options)
-      .flatMap(
-        clientStreamingCall(
-          _,
-          headers,
-          req
-        )
-      )
+      req: Req
+  ): IO[StatusException, Res] =
+    withMetadata.unaryCall(channel, method, options, headers, req).map(_.response)
 
-  private def clientStreamingCall[R, R0, Req, Res](
-      call: ZClientCall[R, Req, Res],
-      headers: SafeMetadata,
-      req: ZStream[R0, Status, Req]
-  ): ZIO[R with R0, Status, Res] =
-    ZIO.bracketExit(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
-      val callStream   = req.tap(call.sendMessage).drain ++ ZStream.fromEffect(call.halfClose()).drain
-      val resultStream = ZStream.fromEffect(listener.getValue)
-
-      call.start(listener, headers) *>
-        call.request(1) *>
-        callStream
-          .merge(resultStream)
-          .runCollect
-          .map(res => res.last._2)
-    }
-
-  def bidiCall[R, R0, Req, Res](
-      channel: ZChannel[R],
+  def serverStreamingCall[Req, Res](
+      channel: ZChannel,
       method: MethodDescriptor[Req, Res],
       options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[R0, Status, Req]
-  ): ZStream[R with R0, Status, Res] =
-    Stream
-      .fromEffect(
-        channel.newCall(method, options)
-      )
-      .flatMap(bidiCall(_, headers, req))
+      req: Req
+  ): ZStream[Any, StatusException, Res] =
+    withMetadata
+      .serverStreamingCall(channel, method, options, headers, req)
+      .collect { case ResponseFrame.Message(x) => x }
 
-  private def bidiCall[R, R0, Req, Res](
-      call: ZClientCall[R, Req, Res],
+  def clientStreamingCall[Req, Res](
+      channel: ZChannel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
       headers: SafeMetadata,
-      req: ZStream[R0, Status, Req]
-  ): ZStream[R with R0, Status, Res] =
-    Stream
-      .bracketExit(
-        StreamingClientCallListener.make[R, Res](call)
-      )(anyExitHandler(call))
-      .flatMap { (listener: StreamingClientCallListener[R, Res]) =>
-        val init              = Stream
-          .fromEffect(
-            call.start(listener, headers) *>
-              call.request(1)
-          )
-        val sendRequestStream = (init ++ req.tap(call.sendMessage) ++ Stream
-          .fromEffect(call.halfClose())).drain
-        sendRequestStream.merge(listener.stream)
-      }
+      req: ZStream[Any, StatusException, Req]
+  ): IO[StatusException, Res] =
+    withMetadata.clientStreamingCall(channel, method, options, headers, req).map(_.response)
+
+  def bidiCall[Req, Res](
+      channel: ZChannel,
+      method: MethodDescriptor[Req, Res],
+      options: CallOptions,
+      headers: SafeMetadata,
+      req: ZStream[Any, StatusException, Req]
+  ): ZStream[Any, StatusException, Res] =
+    withMetadata
+      .bidiCall(channel, method, options, headers, req)
+      .collect { case ResponseFrame.Message(x) => x }
 }

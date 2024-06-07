@@ -2,7 +2,7 @@ package scalapb.zio_grpc.server
 
 import zio._
 import io.grpc.ServerCall.Listener
-import io.grpc.Status
+import io.grpc.{Status, StatusException}
 import zio.stream.Stream
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
@@ -10,89 +10,126 @@ import zio.stream.ZStream
 import scalapb.zio_grpc.RequestContext
 import io.grpc.Metadata
 import scalapb.zio_grpc.SafeMetadata
+import zio.stm.TSemaphore
+import zio.stream.ZSink
+import zio.stream.ZChannel
+import scalapb.zio_grpc.GIO
 
-class ZServerCallHandler[R, Req, Res](
-    runtime: Runtime[R],
-    mkDriver: (ZServerCall[Res], RequestContext) => URIO[R, CallDriver[R, Req]]
+class ZServerCallHandler[Req, Res](
+    runtime: Runtime[Any],
+    mkListener: (ZServerCall[Res], RequestContext) => UIO[Listener[Req]]
 ) extends ServerCallHandler[Req, Res] {
   def startCall(
       call: ServerCall[Req, Res],
       headers: Metadata
   ): Listener[Req] = {
-    val zioCall = new ZServerCall(call)
-    val runner  = for {
-      driver <- SafeMetadata.fromMetadata(headers) >>= { md =>
-                  mkDriver(zioCall, RequestContext.fromServerCall(md, call))
-                }
-      // Why forkDaemon? we need the driver to keep runnning in the background after we return a listener
-      // back to grpc-java. If it was just fork, the call to unsafeRun would not return control, so grpc-java
-      // won't have a listener to call on.  The driver awaits on the calls to the listener to pass to the user's
-      // service.
-      _      <- driver.run.forkDaemon
-    } yield driver.listener
+    val runner = for {
+      responseMetadata <- SafeMetadata.make
+      canSend          <- TSemaphore.make(1).commit
+      zioCall           = new ZServerCall(call, canSend)
+      md               <- SafeMetadata.fromMetadata(headers)
+      listener         <- mkListener(zioCall, RequestContext.fromServerCall(md, responseMetadata, call))
+    } yield listener
 
-    runtime.unsafeRun(runner)
+    Unsafe.unsafe { implicit u =>
+      runtime.unsafe.run(runner).getOrThrowFiberFailure()
+    }
   }
 }
 
 object ZServerCallHandler {
-  def unaryInput[R, Req, Res](
-      runtime: Runtime[R],
-      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[R, Status, Unit]
-  ): ServerCallHandler[Req, Res] =
-    new ZServerCallHandler(runtime, CallDriver.makeUnaryInputCallDriver(impl))
+  private[zio_grpc] val queueSizeProp = "zio_grpc.backpressure_queue_size"
 
-  def streamingInput[R, Req, Res](
-      runtime: Runtime[R],
+  val backpressureQueueSize: IO[StatusException, Int] =
+    ZIO
+      .config(zio.Config.int("backpressure_queue_size").nested("zio_grpc").withDefault(16))
+      .mapError { (e: zio.Config.Error) =>
+        Status.INTERNAL.withDescription(s"$queueSizeProp: ${e.getMessage}").asException()
+      }
+
+  def unaryInput[Req, Res](
+      runtime: Runtime[Any],
+      impl: (Req, RequestContext, ZServerCall[Res]) => ZIO[Any, StatusException, Unit]
+  ): ServerCallHandler[Req, Res] =
+    new ZServerCallHandler(runtime, ListenerDriver.makeUnaryInputListener(impl, runtime))
+
+  def streamingInput[Req, Res](
+      runtime: Runtime[Any],
       impl: (
-          Stream[Status, Req],
+          Stream[StatusException, Req],
           RequestContext,
           ZServerCall[Res]
-      ) => ZIO[R, Status, Unit]
+      ) => ZIO[Any, StatusException, Unit]
   ): ServerCallHandler[Req, Res] =
     new ZServerCallHandler(
       runtime,
-      CallDriver.makeStreamingInputCallDriver(impl)
+      ListenerDriver.makeStreamingInputListener(impl)
     )
 
   def unaryCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZIO[Has[RequestContext], Status, Res]
+      impl: (Req, RequestContext) => ZIO[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
-    unaryInput(
+    unaryInput[Req, Res](
       runtime,
       (req, requestContext, call) =>
-        impl(req)
-          .provide(Has(requestContext))
+        impl(req, requestContext)
           .zipLeft(call.sendHeaders(new Metadata))
-          .flatMap[Any, Status, Unit](call.sendMessage)
+          .flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Req => ZStream[Has[RequestContext], Status, Res]
+      impl: (Req, RequestContext) => ZStream[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
-    unaryInput(
+    unaryInput[Req, Res](
       runtime,
-      (req: Req, metadata: RequestContext, call: ZServerCall[Res]) =>
-        call.sendHeaders(new Metadata) *> impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req: Req, requestContext: RequestContext, call: ZServerCall[Res]) =>
+        serverStreamingWithBackpressure(call, impl(req, requestContext))
     )
 
   def clientStreamingCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZIO[Has[RequestContext], Status, Res]
+      impl: (Stream[StatusException, Req], RequestContext) => ZIO[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
-    streamingInput(
+    streamingInput[Req, Res](
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).flatMap[Any, Status, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req, requestContext)
+          .zipLeft(call.sendHeaders(new Metadata))
+          .flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
       runtime: Runtime[Any],
-      impl: Stream[Status, Req] => ZStream[Has[RequestContext], Status, Res]
+      impl: (Stream[StatusException, Req], RequestContext) => ZStream[Any, StatusException, Res]
   ): ServerCallHandler[Req, Res] =
-    streamingInput(
+    streamingInput[Req, Res](
       runtime,
-      (req, metadata, call) => impl(req).provide(Has(metadata)).foreach(call.sendMessage)
+      (req, requestContext, call) => serverStreamingWithBackpressure(call, impl(req, requestContext))
     )
+
+  def serverStreamingWithBackpressure[Res](
+      call: ZServerCall[Res],
+      stream: ZStream[Any, StatusException, Res]
+  ): ZIO[Any, StatusException, Unit] = {
+    val backpressureSink = {
+      def go(sendHeaders: Boolean): ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
+        ZChannel.readWithCause(
+          xs =>
+            ZChannel.fromZIO(call.sendHeaders(new Metadata).when(sendHeaders)) *>
+              ZChannel.fromZIO(GIO.attempt(xs.foreach(call.call.sendMessage))) *>
+              ZChannel.suspend(if (call.call.isReady()) go(false) else ZChannel.fromZIO(call.awaitReady) *> go(false)),
+          c => ZChannel.failCause(c),
+          _ => ZChannel.unit
+        )
+
+      ZSink.fromChannel(go(true))
+    }
+
+    for {
+      queueSize <- backpressureQueueSize
+      _         <- (if (queueSize > 0) stream.buffer(queueSize) else stream).run(backpressureSink)
+    } yield ()
+  }
 }

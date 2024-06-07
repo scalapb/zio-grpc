@@ -101,6 +101,13 @@ def sayHelloAgain(request: HelloRequest) =
   ZIO.succeed(HelloReply(s"Hello again, ${request.name}"))
 ```
 
+The example project includes another implementation of this service which you will need to change in order for the project to compile. Open `src/main/scala/zio_grpc/examples/helloworld/GreeterWithDatabase.scala` and add the same method to the `GreeterWithDatabase` class:
+
+```scala
+def sayHelloAgain(request: HelloRequest) =
+  ZIO.succeed(HelloReply(s"Hello again, ${request.name}"))
+```
+
 ### Update the client
 
 Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and update the definition of the `myAppLogic` method in `GreeterImpl`:
@@ -109,9 +116,9 @@ Open `src/main/scala/zio_grpc/examples/helloworld/HelloWorldClient.scala`, and u
 def myAppLogic =
   for {
     r <- GreeterClient.sayHello(HelloRequest("World"))
-    _ <- putStrLn(r.message)
+    _ <- printLine(r.message)
     s <- GreeterClient.sayHelloAgain(HelloRequest("World"))
-    _ <- putStrLn(s.message)
+    _ <- printLine(s.message)
   } yield ()
 ```
 

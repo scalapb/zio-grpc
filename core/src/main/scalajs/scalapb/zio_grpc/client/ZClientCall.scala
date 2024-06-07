@@ -1,19 +1,16 @@
 package scalapb.zio_grpc.client
 
-import zio.ZIO
-import io.grpc.Status
+import zio.IO
+import io.grpc.StatusException
 import scalapb.zio_grpc.SafeMetadata
 
-trait ZClientCall[-R, Req, Res] extends Any {
-  def provide(r: R): ZClientCall[Any, Req, Res] = ???
-}
+trait ZClientCall[Req, Res] extends Any
 
 object ZClientCall {
-  // def apply[R, Req, Res](s: io.grpc.ClientCall[Req, Res]): ZClientCall[R, Req, Res] = ???
-  def apply[R, Req, Res](s: String): ZClientCall[R, Req, Res] = ???
+  def apply[Req, Res](s: String): ZClientCall[Req, Res] = ???
 
-  def headersTransformer[R, Req, Res](
-      clientCall: ZClientCall[R, Req, Res],
-      fetchHeaders: SafeMetadata => ZIO[R, Status, SafeMetadata]
+  def headersTransformer[Req, Res](
+      clientCall: ZClientCall[Req, Res],
+      fetchHeaders: SafeMetadata => IO[StatusException, SafeMetadata]
   ) = ???
 }

@@ -2,77 +2,120 @@ package examples
 
 import examples.greeter.ZioGreeter.{Greeter, ZGreeter}
 import examples.greeter._
-import zio.clock
-import zio.clock.Clock
-import zio.console.Console
-import zio.{App, Schedule, IO, ZIO}
-import zio.console
-import zio.duration._
+import zio._
 import zio.stream.Stream
 import io.grpc.Metadata
 import io.grpc.ServerBuilder
-import zio.blocking._
-import zio.console._
-import io.grpc.Status
-import zio.Managed
-import zio.stream.ZSink
+import zio.Console._
+import io.grpc.{Status, StatusException}
 import scalapb.zio_grpc.Server
-import zio.Layer
-import zio.ZLayer
-import zio.Has
-import zio.ZManaged
 import scalapb.zio_grpc.SafeMetadata
 import scalapb.zio_grpc.RequestContext
-import zio.URIO
 import scalapb.zio_grpc.ServerLayer
 
+case class User(name: String)
+
+// UserRepo service, used to resolve the user id that is provided to us
+// by looking into a user database.
+trait UserRepo {
+  def findUser(name: String): ZIO[Any, StatusException, User]
+}
+
+// This is our "real" implementation of the service.
+case class UserRepoImpl() extends UserRepo {
+  def findUser(name: String): ZIO[Any, StatusException, User] = name match {
+    case "john" => ZIO.succeed(User("John"))
+    case _ =>
+      ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!").asException)
+  }
+}
+
+object UserRepo {
+  val layer = ZLayer.succeed(UserRepoImpl())
+}
+
+// GreetingsRepo is a service that returns an appropriate greeting to
+// any given user.
+trait GreetingsRepo {
+  def greetingForUser(user: User): ZIO[Any, StatusException, String]
+}
+
+// An implementation of the service.
+case class GreetingsRepoImpl() extends GreetingsRepo {
+  def greetingForUser(user: User): ZIO[Any, StatusException, String] =
+    ZIO.succeed("Hello ${user.name}")
+}
+
+object GreetingsRepo {
+  val layer = ZLayer.succeed(GreetingsRepoImpl())
+}
+
 object GreeterServiceWithMetadata {
-  case class User(name: String)
 
-  // Each request gets a User as a context parameter.
-  class LiveService(clock: Clock.Service) extends ZGreeter[Any, Has[User]] {
-    def greet(req: Request): ZIO[Has[User], Status, Response] =
+  // Each request gets a User as a context parameter. The service itself
+  // depends on a GreetingsRepo service.
+  case class GreeterImpl(greetingsRepo: GreetingsRepo) extends ZGreeter[User] {
+    def greet(req: Request, user: User): ZIO[Any, StatusException, Response] =
       for {
-        name <- ZIO.service[User].map(_.name)
-      } yield Response(s"Hello ${name}, req: ${req}")
+        greeting <- greetingsRepo.greetingForUser(user)
+      } yield Response(s"${greeting}, req: ${req}")
 
-    def points(request: Request): Stream[Status, Point] = ???
+    def points(request: Request, user: User): Stream[StatusException, Point] =
+      ???
 
     def bidi(
-        request: Stream[Status, Point]
-    ): Stream[Status, Response] = ???
+        request: Stream[StatusException, Point],
+        user: User
+    ): Stream[StatusException, Response] = ???
   }
 
   val UserKey =
     Metadata.Key.of("user-key", io.grpc.Metadata.ASCII_STRING_MARSHALLER)
 
-  // Imagine this resolves an authenticated User instance from the Metadata.
-  def findUser(rc: RequestContext): IO[Status, User] =
-    rc.metadata.get(UserKey).flatMap {
-      case Some(name) => IO.succeed(User(name))
-      case _          => IO.fail(Status.UNAUTHENTICATED.withDescription("No access!"))
-    }
+  // Fetches the user-key from the request's metadata and looks it up in the UserRepo.
+  // We trust here that the user is who they claim to be...
+  def findUser(
+      userRepo: UserRepo,
+      rc: RequestContext
+  ): IO[StatusException, User] =
+    for {
+      name <- rc.metadata
+        .get(UserKey)
+        .someOrFail(
+          Status.UNAUTHENTICATED
+            .withDescription("No user-key header provided")
+            .asException
+        )
+      user <- userRepo.findUser(name)
+    } yield user
 
-  val live: ZLayer[Clock, Nothing, Has[ZGreeter[Any, Has[RequestContext]]]] =
-    ZLayer.fromService { c: Clock.Service =>
-      new LiveService(c).transformContextM(findUser(_))
-    }
+  val layer
+      : ZLayer[UserRepo with GreetingsRepo, Nothing, ZGreeter[RequestContext]] =
+    ZLayer.fromFunction((userRepo: UserRepo, greetingsRepo: GreetingsRepo) =>
+      GreeterImpl(greetingsRepo).transformContextZIO(findUser(userRepo, _))
+    )
 }
 
-object ExampleServerWithMetadata extends App {
-  def serverWait: ZIO[Console with Clock, Throwable, Unit] =
+object ExampleServerWithMetadata extends ZIOAppDefault {
+
+  def serverWait: ZIO[Any, Throwable, Unit] =
     for {
-      _ <- putStrLn("Server is running. Press Ctrl-C to stop.")
-      _ <- (putStr(".") *> ZIO.sleep(1.second)).forever
+      _ <- printLine("Server is running. Press Ctrl-C to stop.")
+      _ <- (print(".") *> ZIO.sleep(1.second)).forever
     } yield ()
 
-  def serverLive(port: Int): Layer[Throwable, Server] =
-    ServerLayer.fromServiceLayer(
-      ServerBuilder.forPort(port)
-    )(Clock.live >>> GreeterServiceWithMetadata.live)
-
-  def run(args: List[String]) = myAppLogic.exitCode
+  def serverLive(
+      port: Int
+  ): ZLayer[UserRepo with GreetingsRepo, Throwable, Server] =
+    ServerLayer.fromServiceLayer(ServerBuilder.forPort(port))(
+      GreeterServiceWithMetadata.layer
+    )
 
   val myAppLogic =
-    serverWait.provideLayer(serverLive(8080) ++ Console.live ++ Clock.live)
+    serverWait.provideLayer(
+      (UserRepo.layer ++ GreetingsRepo.layer) >>>
+        serverLive(8080)
+    )
+
+  def run = myAppLogic.exitCode
 }

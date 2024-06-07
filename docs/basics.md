@@ -171,7 +171,7 @@ There are two parts to making our `RouteGuide` service do its job:
   clients and return the service responses.
 
 You can find our example `RouteGuide` server in
-[scalapb/zio-grpc/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
+[scalapb/zio-grpc/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala](https://github.com/scalapb/zio-grpc/blob/master/examples/routeguide/src/main/scala/zio_grpc/examples/routeguide/RouteGuideServer.scala).
 Let's take a closer look at how it works.
 
 ### Implementing ZRouteGuide
@@ -204,9 +204,9 @@ S.example("routeguide/RouteGuideServer.scala", "findFeature")
 The `getFeature()` method takes the request (of type `Point`), and returns a ZIO
 effect that represents the work of computing the response. The value that is returned represents
 a suspended effect: nothing actually happens until ZIO runtime
-ultimately runs the effect. The type of the effect is `ZIO[ZEnv, Status, Feature]` which means
+ultimately runs the effect. The type of the effect is `ZIO[ZEnv, StatusException, Feature]` which means
 it is a computation:
-* can fail with value of type `Status` (this type comes from grpc-java and represents a gRPC status code).
+* can fail with value of type `StatusException` (this type comes from grpc-java and contains gRPC status information).
 * can succeed with value of type `Feature`.
 * requires an environment of type `ZEnv` to run.
 
@@ -227,8 +227,8 @@ S.example("routeguide/RouteGuideServer.scala", "listFeatures")
 ```
 
 Like the simple RPC, this method gets a request object (the `Rectangle` in which
-our client wants to find `Feature`s) and returns a `ZStream[ZEnv, Status, Feature]`, which represents an effectful stream that can produce, provided an environment of type
- `ZEnv` zero or more elements of type `Feature` and fail with a value of type of `Status`.
+our client wants to find `Feature`s) and returns a `ZStream[ZEnv, StatusException, Feature]`, which represents an effectful stream that can produce, provided an environment of type
+ `ZEnv` zero or more elements of type `Feature` and fail with a exception of type `StatusException`.
 
  This time, the stream does not need the environment and can not ever fail (since
  our database is a constant in the same process!)
@@ -255,7 +255,7 @@ effect that results in a `RouteSummary`.
 adding up the distance between successive pair of points, we will use `zipWithPrevious`
 that gives us a pair `(Option[Point], Point)` where the left element represents the previous element in the stream (which is initially None).
 
-The `fold` method gives us a `IO[Status, RouteSummary]`. Using the `timed` method we are getting a new ZIO effect that upon success gives us the a tuple `(zio.duration.Duration, RouteSummary)` where the duration represents the time it took to process
+The `fold` method gives us a `IO[StatusException, RouteSummary]`. Using the `timed` method we are getting a new ZIO effect that upon success gives us the a tuple `(zio.duration.Duration, RouteSummary)` where the duration represents the time it took to process
 the effect thus far. We then use `map` to turn it back to a `RouteSummary` that contains the elapsed time in seconds.
 
 ### Bidirectional streaming RPC
@@ -327,16 +327,16 @@ that return an effect or a stream that needs a client in the environment to be r
 
 ```scala
 def getFeature(req: Point):
-  ZIO[RouteGuideClient, Status, Feature]
+  ZIO[RouteGuideClient, StatusException, Feature]
 
 def listFeatures(req: Rectangle):
-  ZStream[RouteGuideClient, Status, Feature]
+  ZStream[RouteGuideClient, StatusException, Feature]
 
-def recordRoute[R0](req: ZStream[R0, Status, Point]):
-  ZIO[RouteGuideClient with R0, Status, RouteSummary]
+def recordRoute[R0](req: ZStream[R0, StatusException, Point]):
+  ZIO[RouteGuideClient with R0, StatusException, RouteSummary]
 
-def routeChat[R0](req: ZStream[R0, Status, RouteNote]):
-  ZStream[RouteGuideClient with R0, Status, RouteNote]
+def routeChat[R0](req: ZStream[R0, StatusException, RouteNote]):
+  ZStream[RouteGuideClient with R0, StatusException, RouteNote]
 ```
 
 ### Simple RPC
@@ -350,7 +350,7 @@ S.example("routeguide/RouteGuideClientApp.scala", "getFeature")
 We create and populate a request protocol buffer object (in our case
 `Point`), pass it to the `getFeature()` method on our accessor, and get
 back an effect that needs a `RouteGuideClient` environment. We chain
-the response with a call to `putStrLn` to print the result on the console,
+the response with a call to `printLine` to print the result on the console,
 and we catch the `NOT_FOUND` response and print an error. All other errors
 are not handled at this level and will "bubble up" up to the program's `exitCode` handler.
 

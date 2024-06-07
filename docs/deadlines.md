@@ -18,19 +18,17 @@ the time the outbound call is made.
 
 ## Setting timeout for all requests
 
-To set the same timeout for all requests, it is possible to provide an effect that produces `CallOptions`
-when constructing the client. This effect is invoked before each request, and can determine the deadline
-relative to the system clock at the time the effect is executed.
+To set the same timeout for all requests, it is possible to provide a `ClientTransform` when constructing the
+client. This transformation is invoked before each request, and can determine the deadline relative to the
+system clock at the time the effect is executed.
 
 ```scala mdoc
 import myexample.testservice.ZioTestservice.ServiceNameClient
 import myexample.testservice.{Request, Response}
-import scalapb.zio_grpc.{ZManagedChannel, SafeMetadata}
+import scalapb.zio_grpc.{ZManagedChannel, ClientTransform}
 import io.grpc.ManagedChannelBuilder
-import io.grpc.CallOptions
-import java.util.concurrent.TimeUnit
 import zio._
-import zio.console._
+import zio.Console._
 
 val channel = ZManagedChannel(
   ManagedChannelBuilder
@@ -41,14 +39,12 @@ val channel = ZManagedChannel(
 // create layer:
 val clientLayer = ServiceNameClient.live(
   channel,
-  options=ZIO.effectTotal(
-    CallOptions.DEFAULT.withDeadlineAfter(3000, TimeUnit.MILLISECONDS)),
-  headers=SafeMetadata.make)
+  ClientTransform.withTimeoutMillis(3000))
 
 val myAppLogicNeedsEnv = for {
   // use layer through accessor methods:
   res <- ServiceNameClient.unary(Request())
-  _ <- putStrLn(res.toString)
+  _ <- printLine(res.toString)
 } yield ()
 ```
 
@@ -61,8 +57,8 @@ for each request like this:
 ServiceNameClient.withTimeoutMillis(3000).unary(Request())
 ```
 
-Clients provide (through the `CallOptionsMethods` trait) a number of methods that make it possible
-to specify a deadline or a timeout for each request:
+Clients provide (through the `GeneratedClient` trait) a number of methods that makes it possible to
+specify a deadline or a timeout for each request:
 
 ```scala
 // Provide a new absolute deadline
@@ -77,8 +73,11 @@ def withTimeoutMillis(millis: Long): Service
 // Replace the call options with the provided call options
 def withCallOptions(callOptions: CallOptions): Service
 
-// Effectfully update the CallOptions for this service
-def mapCallOptionsM(f: CallOptions => zio.IO[Status, CallOptions]): Service
+// update the CallOptions for this service
+def mapCallOptions(f: CallOptions => CallOptions): Service
+
+// update the request Metadata for this service
+def mapMetadataZIO(f: SafeMetadata => UIO[SafeMetadata]): Service
 ```
 
 If you are using a client instance, the above methods are available to provide you with a new
@@ -86,13 +85,14 @@ client that has a modified `CallOptions` effect. Making the copy of those client
 be safely done for each individual call:
 
 ```scala mdoc
-val clientManaged = ServiceNameClient.managed(channel)
+val clientScoped = ServiceNameClient.scoped(channel)
 
-val myAppLogic = for {
-  res <- clientManaged.use(
-    client =>
-      client.withTimeoutMillis(3000).unary(Request())
-            .mapError(_.asRuntimeException)
-  )
-} yield res
+val myAppLogic = ZIO.scoped {
+  clientScoped.flatMap { client =>
+    for {
+      res <- client
+               .withTimeoutMillis(3000).unary(Request())
+    } yield res
+  }
+}
 ```

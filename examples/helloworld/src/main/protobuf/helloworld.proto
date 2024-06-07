@@ -26,6 +26,11 @@ service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
 
+service Welcomer {
+  // Sends a welcome message
+  rpc Welcome (HelloRequest) returns (HelloReply) {}
+}
+
 // The request message containing the user's name.
 message HelloRequest {
   string name = 1;

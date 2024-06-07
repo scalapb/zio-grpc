@@ -1,13 +1,9 @@
 package scalapb.zio_grpc.client
 
-import zio.Runtime
-import zio.Ref
-
-import io.grpc.ClientCall
-import io.grpc.{Metadata, Status}
-import zio.Promise
-import zio.IO
+import zio.{IO, Promise, Ref, Runtime, Unsafe}
+import io.grpc.{ClientCall, Metadata, Status, StatusException}
 import UnaryCallState._
+import scalapb.zio_grpc.ResponseContext
 
 sealed trait UnaryCallState[+Res]
 
@@ -24,54 +20,64 @@ object UnaryCallState {
 class UnaryClientCallListener[Res](
     runtime: Runtime[Any],
     state: Ref[UnaryCallState[Res]],
-    promise: Promise[Status, (Metadata, Res)]
+    promise: Promise[StatusException, ResponseContext[Res]]
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
-    runtime.unsafeRun(
-      state
-        .update({
-          case Initial                => HeadersReceived(headers)
-          case HeadersReceived(_)     => Failure("onHeaders already called")
-          case ResponseReceived(_, _) => Failure("onHeaders already called")
-          case f @ Failure(_)         => f
-        })
-        .unit
-    )
-
-  override def onMessage(message: Res): Unit =
-    runtime.unsafeRun(
-      state
-        .update({
-          case Initial                  => Failure("onMessage called before onHeaders")
-          case HeadersReceived(headers) => ResponseReceived(headers, message)
-          case ResponseReceived(_, _)   =>
-            Failure("onMessage called more than once for unary call")
-          case f @ Failure(_)           => f
-        })
-        .unit
-    )
-
-  override def onClose(status: Status, trailers: Metadata): Unit =
-    runtime.unsafeRun {
-      for {
-        s <- state.get
-        _ <- if (!status.isOk) promise.fail(status)
-             else
-               s match {
-                 case ResponseReceived(headers, message) =>
-                   promise.succeed((headers, message))
-                 case Failure(errorMessage)              =>
-                   promise.fail(Status.INTERNAL.withDescription(errorMessage))
-                 case _                                  =>
-                   promise.fail(
-                     Status.INTERNAL.withDescription("No data received")
-                   )
-               }
-      } yield ()
+    Unsafe.unsafe { implicit u =>
+      runtime.unsafe
+        .run(
+          state.update {
+            case Initial                => HeadersReceived(headers)
+            case HeadersReceived(_)     => Failure("onHeaders already called")
+            case ResponseReceived(_, _) => Failure("onHeaders already called")
+            case f @ Failure(_)         => f
+          }.unit
+        )
+        .getOrThrowFiberFailure()
     }
 
-  def getValue: IO[Status, (Metadata, Res)] = promise.await
+  override def onMessage(message: Res): Unit =
+    Unsafe.unsafe { implicit u =>
+      runtime.unsafe
+        .run(
+          state.update {
+            case Initial                  => Failure("onMessage called before onHeaders")
+            case HeadersReceived(headers) => ResponseReceived(headers, message)
+            case ResponseReceived(_, _)   =>
+              Failure("onMessage called more than once for unary call")
+            case f @ Failure(_)           => f
+          }.unit
+        )
+        .getOrThrowFiberFailure()
+    }
+
+  override def onClose(status: Status, trailers: Metadata): Unit =
+    Unsafe.unsafe { implicit u =>
+      runtime.unsafe
+        .run {
+          for {
+            s <- state.get
+            _ <- if (!status.isOk) promise.fail(new StatusException(status, trailers))
+                 else
+                   s match {
+                     case ResponseReceived(headers, message) =>
+                       promise.succeed(ResponseContext(headers, message, trailers))
+                     case Failure(errorMessage)              =>
+                       promise.fail(
+                         Status.INTERNAL.withDescription(errorMessage).asException()
+                       )
+                     case _                                  =>
+                       promise.fail(
+                         Status.INTERNAL.withDescription("No data received").asException()
+                       )
+                   }
+          } yield ()
+        }
+        .getOrThrowFiberFailure()
+    }
+
+  def getValue: IO[StatusException, ResponseContext[Res]] = promise.await
 }
 
 object UnaryClientCallListener {
@@ -79,6 +85,6 @@ object UnaryClientCallListener {
     for {
       runtime <- zio.ZIO.runtime[Any]
       state   <- Ref.make[UnaryCallState[Res]](Initial)
-      promise <- Promise.make[Status, (Metadata, Res)]
+      promise <- Promise.make[StatusException, ResponseContext[Res]]
     } yield new UnaryClientCallListener[Res](runtime, state, promise)
 }
