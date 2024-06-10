@@ -1,7 +1,6 @@
 package scalapb.zio_grpc
 
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
-import scalapb.zio_grpc.ZManagedChannel
 import scalapb.grpc.Channels
 import zio.test._
 import org.scalajs.dom

@@ -10,8 +10,12 @@ import zio._
 
 class ZChannel(
     private[zio_grpc] val channel: ManagedChannel,
+    private[zio_grpc] val prefetch: Option[Int],
     interceptors: Seq[ZClientInterceptor]
 ) {
+  def this(channel: ManagedChannel, interceptors: Seq[ZClientInterceptor]) =
+    this(channel, None, interceptors)
+
   def newCall[Req, Res](
       methodDescriptor: MethodDescriptor[Req, Res],
       options: CallOptions
@@ -44,8 +48,26 @@ object ZChannel {
       interceptors: Seq[ZClientInterceptor],
       timeout: Duration
   ): RIO[Scope, ZChannel] =
-    ZIO
-      .acquireRelease(
-        ZIO.attempt(new ZChannel(builder.build(), interceptors))
-      )(channel => channel.shutdown().ignore *> channel.awaitTermination(timeout).ignore)
+    scoped(builder, interceptors, timeout, None)
+
+  /** Create a scoped channel that will be shutdown when the scope closes.
+    *
+    * @param builder
+    *   The channel builder to use to create the channel.
+    * @param interceptors
+    *   The client call interceptors to use.
+    * @param timeout
+    *   The maximum amount of time to wait for the channel to shutdown.
+    * @param prefetch
+    *   Enables backpressure for streaming responses and sets the number of messages to prefetch.
+    * @return
+    */
+  def scoped(
+      builder: => ManagedChannelBuilder[_],
+      interceptors: Seq[ZClientInterceptor],
+      timeout: Duration,
+      prefetch: Option[Int]
+  ): RIO[Scope, ZChannel] = ZIO.acquireRelease(
+    ZIO.attempt(new ZChannel(builder.build(), prefetch.map(_.max(1)), interceptors))
+  )(channel => channel.shutdown().ignore *> channel.awaitTermination(timeout).ignore)
 }
