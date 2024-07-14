@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.3
+* Add configurable backpressure to streaming clients.
+
 ## 0.6.1
 * Only buffer stream if queue size is positive (#578, #580)
 

@@ -5,12 +5,16 @@ import zio.ZIO
 
 object ZManagedChannel {
   def apply(
-      builder: => ManagedChannelBuilder[_],
+      builder: => ManagedChannelBuilder[?],
+      prefetch: Option[Int],
       interceptors: Seq[ZClientInterceptor]
-  ): ZManagedChannel =
-    ZIO.acquireRelease(ZIO.attempt(new ZChannel(builder.build(), interceptors)))(
-      _.shutdown().ignore
-    )
+  ): ZManagedChannel = ZIO.acquireRelease(
+    ZIO.attempt(new ZChannel(builder.build(), prefetch.map(_.max(1)), interceptors))
+  )(_.shutdown().ignore)
 
-  def apply(builder: ManagedChannelBuilder[_]): ZManagedChannel = apply(builder, Nil)
+  def apply(builder: => ManagedChannelBuilder[?], interceptors: Seq[ZClientInterceptor]): ZManagedChannel =
+    apply(builder, None, interceptors)
+
+  def apply(builder: ManagedChannelBuilder[?]): ZManagedChannel =
+    apply(builder, None, Nil)
 }
