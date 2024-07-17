@@ -116,16 +116,16 @@ object ClientCalls {
 
   def exitHandler[Req, Res](
       call: ZClientCall[Req, Res]
-  )(l: Any, ex: Exit[StatusException, Any]) = anyExitHandler(call)(l, ex)
+  )(l: Any, ex: Exit[StatusException, Any]) =
+    ZIO.when(!ex.isSuccess) {
+      anyExitHandler(call)(l, ex)
+    }
 
   // less type safe
   def anyExitHandler[Req, Res](
       call: ZClientCall[Req, Res]
   ) =
-    (_: Any, ex: Exit[Any, Any]) =>
-      ZIO.when(!ex.isSuccess) {
-        call.cancel("Interrupted").ignore
-      }
+    (_: Any, ex: Exit[Any, Any]) => call.cancel("Interrupted").ignore
 
   def unaryCall[Req, Res](
       channel: ZChannel,
