@@ -122,8 +122,7 @@ object ClientCalls {
   def anyExitHandler[Req, Res](
       call: ZClientCall[Req, Res]
   ) =
-    (_: Any, ex: Exit[Any, Any]) =>
-      call.cancel("Interrupted").ignore
+    (_: Any, ex: Exit[Any, Any]) => call.cancel("Interrupted").ignore
 
   def unaryCall[Req, Res](
       channel: ZChannel,
