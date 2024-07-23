@@ -33,15 +33,13 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
     ).asJava
   ).asJava
 
-  val clientLayer: ZLayer[Server, Nothing, TestServiceClient] =
-    ZLayer.scoped[Server] {
-      for {
-        ss     <- ZIO.service[Server]
-        port   <- ss.port.orDie
-        ch      = ManagedChannelBuilder.forAddress("localhost", port).defaultServiceConfig(serviceConfig).usePlaintext()
-        client <- TestServiceClient.scoped(ZManagedChannel(ch)).orDie
-      } yield client
-    }
+  def clientLayer(prefetch: Option[Int]): ZLayer[Server, Nothing, TestServiceClient] =
+    ZLayer.scoped[Server](for {
+      ss     <- ZIO.service[Server]
+      port   <- ss.port.orDie
+      ch      = ManagedChannelBuilder.forAddress("localhost", port).defaultServiceConfig(serviceConfig).usePlaintext()
+      client <- TestServiceClient.scoped(ZManagedChannel(ch, prefetch, Nil)).orDie
+    } yield client)
 
   def unarySuiteJVM =
     suite("unary request")(
@@ -260,17 +258,24 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
       }
     )
 
-  val layers = TestServiceImpl.live >>>
-    (TestServiceImpl.any ++ serverLayer) >>>
-    (TestServiceImpl.any ++ clientLayer ++ Annotations.live)
+  type Deps = Server with TestServiceImpl with Annotations
 
-  def spec =
-    suite("TestServiceSpec")(
+  def spec = suite("TestServiceSpec")(
+    suite("without prefetch")(
       unarySuite,
       unarySuiteJVM,
       serverStreamingSuite,
       serverStreamingSuiteJVM,
       clientStreamingSuite,
       bidiStreamingSuite
-    ).provideLayer(layers.orDie)
+    ).provideSomeLayer[Deps](clientLayer(None)),
+    suite("with prefetch = 2")(
+      unarySuite,
+      unarySuiteJVM,
+      serverStreamingSuite,
+      serverStreamingSuiteJVM,
+      clientStreamingSuite,
+      bidiStreamingSuite
+    ).provideSomeLayer[Deps](clientLayer(Some(2)))
+  ).provide(serverLayer, TestServiceImpl.live, Annotations.live)
 }
