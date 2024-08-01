@@ -71,6 +71,7 @@ class ZioFilePrinter(
   val ZManagedChannel     = "scalapb.zio_grpc.ZManagedChannel"
   val ZChannel            = "scalapb.zio_grpc.ZChannel"
   val GTransform          = "scalapb.zio_grpc.GTransform"
+  val RTransform          = "scalapb.zio_grpc.RTransform"
   val Transform           = "scalapb.zio_grpc.Transform"
   val Nanos               = "java.util.concurrent.TimeUnit.NANOSECONDS"
   val serverServiceDef    = "_root_.io.grpc.ServerServiceDefinition"
@@ -246,48 +247,24 @@ class ZioFilePrinter(
       )
     }
 
-    def printClientWithResponseMetadataTransform(
+    def printServerRTransform(
         fp: FunctionalPrinter,
         method: MethodDescriptor
     ): FunctionalPrinter = {
       val delegate = s"self.${method.name}"
-      val newImpl  = method.streamType match {
-        case StreamType.Unary           =>
-          s"f.effect($delegate(request))"
-        case StreamType.ServerStreaming =>
-          s"f.stream($delegate(request))"
-        case StreamType.ClientStreaming =>
-          s"f.effect($delegate(request))"
-        case StreamType.Bidirectional   =>
-          s"f.stream($delegate(request))"
-      }
-      fp.add(
-        clientWithResponseMetadataSignature(
-          method,
-          "Any"
-        ) + " = " + newImpl
-      )
-    }
+      val reqType  = methodInType(method, StatusException)
 
-    def printClientTransform(
-        fp: FunctionalPrinter,
-        method: MethodDescriptor
-    ): FunctionalPrinter = {
-      val delegate = s"self.${method.name}"
-      val newImpl  = method.streamType match {
-        case StreamType.Unary           =>
-          s"f.effect($delegate(request))"
-        case StreamType.ServerStreaming =>
-          s"f.stream($delegate(request))"
-        case StreamType.ClientStreaming =>
-          s"f.effect($delegate(request))"
-        case StreamType.Bidirectional   =>
-          s"f.stream($delegate(request))"
+      val newImpl = method.streamType match {
+        case StreamType.Unary | StreamType.ClientStreaming         =>
+          s"f.effect((req: $reqType, ctx) => $delegate(req, ctx))(request, context)"
+        case StreamType.ServerStreaming | StreamType.Bidirectional =>
+          s"f.stream((req: $reqType, ctx) => $delegate(req, ctx))(request, context)"
       }
       fp.add(
-        clientMethodSignature(
+        methodSignature(
           method,
-          contextType = "Any"
+          contextType = Some("Context1"),
+          errorType = Some("Error1")
         ) + " = " + newImpl
       )
     }
@@ -298,6 +275,15 @@ class ZioFilePrinter(
       ).indented(
         _.print(service.getMethods().asScala.toVector)(
           printServerTransform
+        )
+      ).add("}")
+
+    def printRTransformMethod(fp: FunctionalPrinter): FunctionalPrinter =
+      fp.add(
+        s"def transform[Context1, Error1](f: $RTransform[Context, Error, Context1, Error1]): ${gtraitName.fullName}[Context1, Error1] = new ${gtraitName.fullName}[Context1, Error1] {"
+      ).indented(
+        _.print(service.getMethods().asScala.toVector)(
+          printServerRTransform
         )
       ).add("}")
 
@@ -314,6 +300,8 @@ class ZioFilePrinter(
           )
           .add("")
           .call(printGTransformMethod)
+          .add("")
+          .call(printRTransformMethod)
       ).add("}")
         .add("")
         .add(
