@@ -23,7 +23,7 @@ To get this project running:
 3. On a different tab, start envoyproxy in a docker container:
 
    ```
-   $ docker-compose up
+   $ docker compose up
    ```
 
 4. In a browser open `index.html` in this directory. In Google Chrome, you can open a file by pressing
