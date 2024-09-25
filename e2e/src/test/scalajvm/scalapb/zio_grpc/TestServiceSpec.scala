@@ -1,6 +1,7 @@
 package scalapb.zio_grpc
 
 import io.grpc.{ManagedChannelBuilder, ServerBuilder, Status, StatusException}
+import scala.jdk.CollectionConverters._
 import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
@@ -16,11 +17,27 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
   val serverLayer: ZLayer[TestServiceImpl, Throwable, Server] =
     ServerLayer.fromEnvironment[TestServiceImpl.Service](ServerBuilder.forPort(0))
 
+  // https://github.com/grpc/proposal/blob/master/A6-client-retries.md
+  val serviceConfig = Map(
+    "methodConfig" -> List(
+      Map(
+        "name"        -> List(Map("service" -> "scalapb.zio_grpc.TestService", "method" -> "Unary").asJava).asJava,
+        "retryPolicy" -> Map[String, Any](
+          "maxAttempts"          -> "5",
+          "initialBackoff"       -> "0.1s",
+          "maxBackoff"           -> "30s",
+          "backoffMultiplier"    -> "1",
+          "retryableStatusCodes" -> List("UNAVAILABLE").asJava
+        ).asJava
+      ).asJava
+    ).asJava
+  ).asJava
+
   def clientLayer(prefetch: Option[Int]): ZLayer[Server, Nothing, TestServiceClient] =
     ZLayer.scoped[Server](for {
       ss     <- ZIO.service[Server]
       port   <- ss.port.orDie
-      ch      = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext()
+      ch      = ManagedChannelBuilder.forAddress("localhost", port).defaultServiceConfig(serviceConfig).usePlaintext()
       client <- TestServiceClient.scoped(ZManagedChannel(ch, prefetch, Nil)).orDie
     } yield client)
 
@@ -46,7 +63,12 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
           // The timeout below protects the test from getting hang if the call is discarded by grpc.
           exit <- TestServiceImpl.awaitExit.timeout(3.seconds)
         } yield assert(r)(fails(hasStatusCode(Status.DEADLINE_EXCEEDED))) && assert(exit.get.isInterrupted)(isTrue)
-      } @@ flaky(100) @@ withLiveClock
+      } @@ flaky(100) @@ withLiveClock,
+      test("let clients retry") {
+        assertZIO(TestServiceClient.unary(Request(Request.Scenario.UNAVAILABLE, in = 12)).exit) {
+          fails(hasStatusCode(Status.UNAVAILABLE) && hasDescription("5"))
+        }
+      }
     )
 
   def serverStreamingSuiteJVM =

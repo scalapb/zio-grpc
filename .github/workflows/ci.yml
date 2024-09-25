@@ -49,9 +49,9 @@ jobs:
     - name: Run grpc-web e2e test
       if: ${{ matrix.scala != 3 }}
       run: |
-        docker-compose -f ./examples/fullapp/docker-compose.yaml up -d
+        docker compose -f ./examples/fullapp/docker-compose.yaml up -d
         sbt e2eWebJS${{matrix.scala}}/fastOptJS/webpack e2eWebJVM${{matrix.scala}}/test
-        docker-compose -f ./examples/fullapp/docker-compose.yaml down
+        docker compose -f ./examples/fullapp/docker-compose.yaml down
 
     - name: Examples
       run: |

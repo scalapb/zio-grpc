@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.6.3
+* Delay sending response headers until the first message is ready.
 * Add configurable backpressure to streaming clients.
 
 ## 0.6.1
