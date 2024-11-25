@@ -20,4 +20,4 @@ addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.1.8")
 
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.5.3")
 
-addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.10.0")
+addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.10.1")
