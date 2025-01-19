@@ -33,6 +33,8 @@ jobs:
           ~/.cache/ms-playwright
         key: ${{ runner.os }}-sbt-${{matrix.scala}}-${{ hashFiles('**/*.sbt') }}
 
+    - uses: sbt/setup-sbt@v1
+
     - name: Formatting
       run: |
         sbt scalafmtCheck Test/scalafmtCheck scalafmtSbtCheck
