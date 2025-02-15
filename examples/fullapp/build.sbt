@@ -1,6 +1,6 @@
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
-ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / scalaVersion := "2.13.16"
 
 ThisBuild / cancelable := true
 
@@ -11,8 +11,8 @@ val grpcVersion = "1.64.0"
 lazy val protos = crossProject(JSPlatform, JVMPlatform)
   .in(file("protos"))
   .settings(
-    Compile / PB.targets := Seq(
-      scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,
+    Compile / PB.targets      := Seq(
+      scalapb.gen(grpc = true)          -> (Compile / sourceManaged).value,
       scalapb.zio_grpc.ZioCodeGenerator -> (Compile / sourceManaged).value
     ),
     Compile / PB.protoSources := Seq(
