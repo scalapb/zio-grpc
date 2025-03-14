@@ -24,7 +24,7 @@ jobs:
           node-version: "18.16.1"
 
     - name: Mount caches
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.sbt
