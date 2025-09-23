@@ -9,34 +9,33 @@ class StreamingClientCallListener[Res](
     prefetch: Option[Int],
     runtime: Runtime[Any],
     call: ZClientCall[?, Res],
-    queue: Queue[ResponseFrame[Res]],
-    buffered: Ref[Int]
+    queue: Queue[ResponseFrame[Res]]
 ) extends ClientCall.Listener[Res] {
-  private val increment = if (prefetch.isDefined) buffered.update(_ + 1) else ZIO.unit
-  private val fetchOne  = if (prefetch.isDefined) ZIO.unit else call.request(1)
-  private val fetchMore = prefetch match {
-    case None    => ZIO.unit
-    case Some(n) => buffered.get.flatMap(b => call.request(n - b).when(n > b))
-  }
+  private val fetchOne =
+    ZIO.whenDiscard(prefetch.isEmpty)(call.request(1))
+
+  private def fetchMore(n: Int) =
+    ZIO.whenDiscard(prefetch.isDefined)(call.request(n))
 
   private def unsafeRun(task: IO[Any, Unit]): Unit =
     Unsafe.unsafe(implicit u => runtime.unsafe.run(task).getOrThrowFiberFailure())
 
-  private def handle(promise: Promise[StatusException, Unit])(
-      chunk: Chunk[ResponseFrame[Res]]
-  ) = (chunk.lastOption match {
-    case Some(ResponseFrame.Trailers(status, trailers)) =>
-      val exit = if (status.isOk) Exit.unit else Exit.fail(new StatusException(status, trailers))
-      promise.done(exit) *> queue.shutdown
-    case _                                              =>
-      buffered.update(_ - chunk.size) *> fetchMore
-  }).as(chunk)
+  private def handle(promise: Promise[StatusException, Unit])(chunk: Chunk[ResponseFrame[Res]]) =
+    ZIO.unlessDiscard(chunk.isEmpty)(chunk.last match {
+      case ResponseFrame.Trailers(status, trailers) =>
+        val exit =
+          if (status.isOk) Exit.unit
+          else Exit.fail(new StatusException(status, trailers))
+        promise.done(exit) *> queue.shutdown
+      case _                                        =>
+        fetchMore(chunk.size)
+    })
 
   override def onHeaders(headers: Metadata): Unit =
-    unsafeRun(queue.offer(ResponseFrame.Headers(headers)) *> increment)
+    unsafeRun(queue.offer(ResponseFrame.Headers(headers)).unit)
 
   override def onMessage(message: Res): Unit =
-    unsafeRun(queue.offer(ResponseFrame.Message(message)) *> increment *> fetchOne)
+    unsafeRun(queue.offer(ResponseFrame.Message(message)) *> fetchOne)
 
   override def onClose(status: Status, trailers: Metadata): Unit =
     unsafeRun(queue.offer(ResponseFrame.Trailers(status, trailers)).unit)
@@ -45,15 +44,14 @@ class StreamingClientCallListener[Res](
     ZStream.fromZIO(Promise.make[StatusException, Unit]).flatMap { promise =>
       ZStream
         .fromQueue(queue, prefetch.getOrElse(ZStream.DefaultChunkSize))
-        .mapChunksZIO(handle(promise))
+        .tapChunks(handle(promise))
         .concat(ZStream.execute(promise.await))
     }
 }
 
 object StreamingClientCallListener {
   def make[Res](call: ZClientCall[?, Res], prefetch: Option[Int]): UIO[StreamingClientCallListener[Res]] = for {
-    runtime  <- ZIO.runtime[Any]
-    queue    <- Queue.unbounded[ResponseFrame[Res]]
-    buffered <- Ref.make(0)
-  } yield new StreamingClientCallListener(prefetch, runtime, call, queue, buffered)
+    runtime <- ZIO.runtime[Any]
+    queue   <- Queue.unbounded[ResponseFrame[Res]]
+  } yield new StreamingClientCallListener(prefetch, runtime, call, queue)
 }

@@ -5,38 +5,37 @@ package scalapb.zio_grpc;
 import "scalapb/scalapb.proto";
 
 message Request {
-    enum Scenario {
-        OK = 0;
-        ERROR_NOW = 1; // fail with an error
-        ERROR_AFTER = 2; // for server streaming, error after two responses
-        DELAY = 3; // do not return a response. for testing cancellations
-        DIE = 4; // fail
-        UNAVAILABLE = 5; // fail with UNAVAILABLE, to test client retries
-    }
-    Scenario scenario = 1;
-    int32 in = 2;
+  enum Scenario {
+    OK = 0;
+    ERROR_NOW = 1;    // fail with an error
+    ERROR_AFTER = 2;  // for server streaming, error after two responses
+    DELAY = 3;        // do not return a response, to test cancellations
+    LARGE_STREAM = 4; // stream of large elements, to test backpressure
+    DIE = 5;          // fail
+    UNAVAILABLE = 6;  // fail with UNAVAILABLE, to test client retries
+  }
+  Scenario scenario = 1;
+  int32 in = 2;
 }
 
-message Response {
-    string out = 1;
-}
+message Response { string out = 1; }
 
 message ResponseTypeMapped {
-    option (scalapb.message).type = "scalapb.zio_grpc.WrappedString";
+  option (scalapb.message).type = "scalapb.zio_grpc.WrappedString";
 
-    string out = 1;
+  string out = 1;
 }
 
 service TestService {
-    rpc Unary(Request) returns (Response);
+  rpc Unary(Request) returns (Response);
 
-    rpc UnaryTypeMapped(Request) returns (ResponseTypeMapped);
+  rpc UnaryTypeMapped(Request) returns (ResponseTypeMapped);
 
-    rpc ServerStreaming(Request) returns (stream Response);
+  rpc ServerStreaming(Request) returns (stream Response);
 
-    rpc ServerStreamingTypeMapped(Request) returns (stream ResponseTypeMapped);
+  rpc ServerStreamingTypeMapped(Request) returns (stream ResponseTypeMapped);
 
-    rpc ClientStreaming(stream Request) returns (Response);
+  rpc ClientStreaming(stream Request) returns (Response);
 
-    rpc BidiStreaming(stream Request) returns (stream Response);
+  rpc BidiStreaming(stream Request) returns (stream Response);
 }

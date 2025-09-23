@@ -15,7 +15,7 @@ object EarlyClientStreamingResponseSpec extends ZIOSpecDefault {
       s"${if (bidi) "bidi" else "client streaming"}: ${if (fail) "failure" else "success"}, ${if (infinite) "infinite"
         else "finite"} input"
     ) {
-      ZIO.scoped {
+      ZIO.scoped[Any] {
         for {
           closed     <- Promise.make[Nothing, Unit]
           runtime    <- ZIO.runtime[Any]
