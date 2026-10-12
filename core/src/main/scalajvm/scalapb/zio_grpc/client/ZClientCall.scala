@@ -19,7 +19,8 @@ trait ZClientCall[Req, Res] extends Any {
 
   def halfClose(): IO[StatusException, Unit]
 
-  def isReady: zio.UIO[Boolean]
+  /** Legacy implementations without readiness notifications remain always ready. */
+  def isReady: zio.UIO[Boolean] = zio.ZIO.succeed(true)
   def sendMessage(message: Req): IO[StatusException, Unit]
 }
 
@@ -35,7 +36,7 @@ class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends 
 
   def halfClose(): GIO[Unit] = GIO.attempt(call.halfClose())
 
-  def isReady: zio.UIO[Boolean] = zio.ZIO.succeed(call.isReady)
+  override def isReady: zio.UIO[Boolean] = zio.ZIO.succeed(call.isReady)
 
   def sendMessage(message: Req): GIO[Unit] =
     GIO.attempt(call.sendMessage(message))
