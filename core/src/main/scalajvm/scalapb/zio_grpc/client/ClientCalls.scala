@@ -3,7 +3,7 @@ package scalapb.zio_grpc.client
 import io.grpc.{CallOptions, MethodDescriptor, StatusException}
 import scalapb.zio_grpc.{ResponseContext, ResponseFrame, SafeMetadata, ZChannel}
 import zio.stream.ZStream
-import zio.{Exit, IO, ZIO}
+import zio.{Exit, IO, Promise, UIO, ZIO}
 
 object ClientCalls {
   object withMetadata {
@@ -60,13 +60,37 @@ object ClientCalls {
     ): ZStream[Any, StatusException, ResponseFrame[Res]] =
       ZStream.unwrap(channel.newCall(method, options).map(serverStreamingCall(_, headers, channel.prefetch, req)))
 
+    private def sendMessageWithBackpressure[Req, Res](
+        call: ZClientCall[Req, Res],
+        onReadySignal: UIO[Promise[Nothing, Unit]],
+        isClosed: UIO[Boolean],
+        msg: Req
+    ): IO[StatusException, Unit] =
+      ZIO.suspendSucceed {
+        onReadySignal.flatMap { ready =>
+          call.isReady.flatMap {
+            case true  => call.sendMessage(msg)
+            case false =>
+              isClosed.flatMap {
+                case true  =>
+                  ZIO.never
+                case false =>
+                  ready.await *> sendMessageWithBackpressure(call, onReadySignal, isClosed, msg)
+              }
+          }
+        }
+      }
+
     private def clientStreamingCall[Req, Res](
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
         req: ZStream[Any, StatusException, Req]
     ): IO[StatusException, ResponseContext[Res]] =
       ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
-        val processRequestStream = req.runForeach(call.sendMessage) *> call.halfClose()
+        val processRequestStream =
+          req.runForeach(msg =>
+            sendMessageWithBackpressure(call, listener.onReadySignal, listener.isClosed, msg)
+          ) *> call.halfClose()
         val getResult            = listener.getValue
 
         call.start(listener, headers) *>
@@ -98,7 +122,8 @@ object ClientCalls {
         )(anyExitHandler(call))
         .flatMap { (listener: StreamingClientCallListener[Res]) =>
           val init              = call.start(listener, headers) *> call.request(prefetch.getOrElse(1))
-          val process           = req.runForeach(call.sendMessage)
+          val process           =
+            req.runForeach(msg => sendMessageWithBackpressure(call, listener.onReadySignal, listener.isClosed, msg))
           val finish            = call.halfClose()
           val sendRequestStream = ZStream.execute(init *> process *> finish)
           sendRequestStream.merge(listener.stream, ZStream.HaltStrategy.Right)

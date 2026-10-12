@@ -10,7 +10,9 @@ class StreamingClientCallListener[Res](
     runtime: Runtime[Any],
     call: ZClientCall[?, Res],
     queue: Queue[ResponseFrame[Res]],
-    buffered: Ref[Int]
+    buffered: Ref[Int],
+    ready: Ref[Promise[Nothing, Unit]],
+    closed: Ref[Boolean]
 ) extends ClientCall.Listener[Res] {
   private val increment = if (prefetch.isDefined) buffered.update(_ + 1) else ZIO.unit
   private val fetchOne  = if (prefetch.isDefined) ZIO.unit else call.request(1)
@@ -32,6 +34,13 @@ class StreamingClientCallListener[Res](
       buffered.update(_ - chunk.size) *> fetchMore
   }).as(chunk)
 
+  override def onReady(): Unit =
+    unsafeRun {
+      Promise.make[Nothing, Unit].flatMap { next =>
+        ready.getAndSet(next).flatMap(_.succeed(()).unit)
+      }
+    }
+
   override def onHeaders(headers: Metadata): Unit =
     unsafeRun(queue.offer(ResponseFrame.Headers(headers)) *> increment)
 
@@ -39,7 +48,10 @@ class StreamingClientCallListener[Res](
     unsafeRun(queue.offer(ResponseFrame.Message(message)) *> increment *> fetchOne)
 
   override def onClose(status: Status, trailers: Metadata): Unit =
-    unsafeRun(queue.offer(ResponseFrame.Trailers(status, trailers)).unit)
+    unsafeRun(
+      closed.set(true) *> ready.get.flatMap(_.succeed(())) *>
+        queue.offer(ResponseFrame.Trailers(status, trailers)).unit
+    )
 
   def stream: ZStream[Any, StatusException, ResponseFrame[Res]] =
     ZStream.fromZIO(Promise.make[StatusException, Unit]).flatMap { promise =>
@@ -48,6 +60,10 @@ class StreamingClientCallListener[Res](
         .mapChunksZIO(handle(promise))
         .concat(ZStream.execute(promise.await))
     }
+
+  def onReadySignal: UIO[Promise[Nothing, Unit]] = ready.get
+
+  def isClosed: UIO[Boolean] = closed.get
 }
 
 object StreamingClientCallListener {
@@ -55,5 +71,8 @@ object StreamingClientCallListener {
     runtime  <- ZIO.runtime[Any]
     queue    <- Queue.unbounded[ResponseFrame[Res]]
     buffered <- Ref.make(0)
-  } yield new StreamingClientCallListener(prefetch, runtime, call, queue, buffered)
+    ready0   <- Promise.make[Nothing, Unit]
+    ready    <- Ref.make[Promise[Nothing, Unit]](ready0)
+    closed   <- Ref.make(false)
+  } yield new StreamingClientCallListener(prefetch, runtime, call, queue, buffered, ready, closed)
 }

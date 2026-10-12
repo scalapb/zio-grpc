@@ -1,6 +1,6 @@
 package scalapb.zio_grpc.client
 
-import zio.{IO, Promise, Ref, Runtime, Unsafe}
+import zio.{IO, Promise, Ref, Runtime, UIO, Unsafe}
 import io.grpc.{ClientCall, Metadata, Status, StatusException}
 import UnaryCallState._
 import scalapb.zio_grpc.ResponseContext
@@ -20,7 +20,9 @@ object UnaryCallState {
 class UnaryClientCallListener[Res](
     runtime: Runtime[Any],
     state: Ref[UnaryCallState[Res]],
-    promise: Promise[StatusException, ResponseContext[Res]]
+    promise: Promise[StatusException, ResponseContext[Res]],
+    ready: Ref[Promise[Nothing, Unit]],
+    closed: Ref[Boolean]
 ) extends ClientCall.Listener[Res] {
 
   override def onHeaders(headers: Metadata): Unit =
@@ -52,11 +54,24 @@ class UnaryClientCallListener[Res](
         .getOrThrowFiberFailure()
     }
 
+  override def onReady(): Unit =
+    Unsafe.unsafe { implicit u =>
+      runtime.unsafe
+        .run {
+          Promise.make[Nothing, Unit].flatMap { next =>
+            ready.getAndSet(next).flatMap(_.succeed(()))
+          }
+        }
+        .getOrThrowFiberFailure()
+    }
+
   override def onClose(status: Status, trailers: Metadata): Unit =
     Unsafe.unsafe { implicit u =>
       runtime.unsafe
         .run {
           for {
+            _ <- closed.set(true)
+            _ <- ready.get.flatMap(_.succeed(()))
             s <- state.get
             _ <- if (!status.isOk) promise.fail(new StatusException(status, trailers))
                  else
@@ -78,6 +93,10 @@ class UnaryClientCallListener[Res](
     }
 
   def getValue: IO[StatusException, ResponseContext[Res]] = promise.await
+
+  def onReadySignal: UIO[Promise[Nothing, Unit]] = ready.get
+
+  def isClosed: UIO[Boolean] = closed.get
 }
 
 object UnaryClientCallListener {
@@ -86,5 +105,8 @@ object UnaryClientCallListener {
       runtime <- zio.ZIO.runtime[Any]
       state   <- Ref.make[UnaryCallState[Res]](Initial)
       promise <- Promise.make[StatusException, ResponseContext[Res]]
-    } yield new UnaryClientCallListener[Res](runtime, state, promise)
+      ready0  <- Promise.make[Nothing, Unit]
+      ready   <- Ref.make[Promise[Nothing, Unit]](ready0)
+      closed  <- Ref.make(false)
+    } yield new UnaryClientCallListener[Res](runtime, state, promise, ready, closed)
 }

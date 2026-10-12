@@ -19,6 +19,7 @@ trait ZClientCall[Req, Res] extends Any {
 
   def halfClose(): IO[StatusException, Unit]
 
+  def isReady: zio.UIO[Boolean]
   def sendMessage(message: Req): IO[StatusException, Unit]
 }
 
@@ -33,6 +34,8 @@ class ZClientCallImpl[Req, Res](private val call: ClientCall[Req, Res]) extends 
     GIO.attempt(call.cancel(message, null))
 
   def halfClose(): GIO[Unit] = GIO.attempt(call.halfClose())
+
+  def isReady: zio.UIO[Boolean] = zio.ZIO.succeed(call.isReady)
 
   def sendMessage(message: Req): GIO[Unit] =
     GIO.attempt(call.sendMessage(message))
@@ -57,6 +60,8 @@ object ZClientCall {
       delegate.cancel(message)
 
     override def halfClose(): IO[StatusException, Unit] = delegate.halfClose()
+
+    override def isReady: zio.UIO[Boolean] = delegate.isReady
 
     override def sendMessage(message: Req): IO[StatusException, Unit] =
       delegate.sendMessage(message)
