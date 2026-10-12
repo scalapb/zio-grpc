@@ -19,6 +19,7 @@ jobs:
           java-version: 11
           distribution: temurin
           cache: sbt
+    - uses: sbt/setup-sbt@v1
     - name: Update docs
       run: |
         git config --global user.name "ZIO-gRPC Docs"

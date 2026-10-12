@@ -1,6 +1,6 @@
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
-ThisBuild / scalaVersion := "2.13.14"
+ThisBuild / scalaVersion := "2.13.15"
 
 ThisBuild / cancelable := true
 

@@ -6,48 +6,54 @@ import zio.stream.ZStream
 import zio._
 
 class StreamingClientCallListener[Res](
+    prefetch: Option[Int],
     runtime: Runtime[Any],
-    call: ZClientCall[_, Res],
-    queue: Queue[ResponseFrame[Res]]
+    call: ZClientCall[?, Res],
+    queue: Queue[ResponseFrame[Res]],
+    buffered: Ref[Int]
 ) extends ClientCall.Listener[Res] {
+  private val increment = if (prefetch.isDefined) buffered.update(_ + 1) else ZIO.unit
+  private val fetchOne  = if (prefetch.isDefined) ZIO.unit else call.request(1)
+  private val fetchMore = prefetch match {
+    case None    => ZIO.unit
+    case Some(n) => buffered.get.flatMap(b => call.request(n - b).when(n > b))
+  }
+
+  private def unsafeRun(task: IO[Any, Unit]): Unit =
+    Unsafe.unsafe(implicit u => runtime.unsafe.run(task).getOrThrowFiberFailure())
+
+  private def handle(promise: Promise[StatusException, Unit])(
+      chunk: Chunk[ResponseFrame[Res]]
+  ) = (chunk.lastOption match {
+    case Some(ResponseFrame.Trailers(status, trailers)) =>
+      val exit = if (status.isOk) Exit.unit else Exit.fail(new StatusException(status, trailers))
+      promise.done(exit) *> queue.shutdown
+    case _                                              =>
+      buffered.update(_ - chunk.size) *> fetchMore
+  }).as(chunk)
 
   override def onHeaders(headers: Metadata): Unit =
-    Unsafe.unsafe { implicit u =>
-      runtime.unsafe
-        .run(
-          queue
-            .offer(ResponseFrame.Headers(headers))
-            .unit
-        )
-        .getOrThrowFiberFailure()
-    }
+    unsafeRun(queue.offer(ResponseFrame.Headers(headers)) *> increment)
 
   override def onMessage(message: Res): Unit =
-    Unsafe.unsafe { implicit u =>
-      runtime.unsafe.run(queue.offer(ResponseFrame.Message(message)) *> call.request(1)).getOrThrowFiberFailure()
-    }
+    unsafeRun(queue.offer(ResponseFrame.Message(message)) *> increment *> fetchOne)
 
   override def onClose(status: Status, trailers: Metadata): Unit =
-    Unsafe.unsafe { implicit u =>
-      runtime.unsafe.run(queue.offer(ResponseFrame.Trailers(status, trailers)).unit).getOrThrowFiberFailure()
-    }
+    unsafeRun(queue.offer(ResponseFrame.Trailers(status, trailers)).unit)
 
   def stream: ZStream[Any, StatusException, ResponseFrame[Res]] =
-    ZStream
-      .fromQueue(queue)
-      .tap {
-        case ResponseFrame.Trailers(status, trailers) =>
-          queue.shutdown *> ZIO.when(!status.isOk)(ZIO.fail(new StatusException(status, trailers)))
-        case _                                        => ZIO.unit
-      }
+    ZStream.fromZIO(Promise.make[StatusException, Unit]).flatMap { promise =>
+      ZStream
+        .fromQueue(queue, prefetch.getOrElse(ZStream.DefaultChunkSize))
+        .mapChunksZIO(handle(promise))
+        .concat(ZStream.execute(promise.await))
+    }
 }
 
 object StreamingClientCallListener {
-  def make[Res](
-      call: ZClientCall[_, Res]
-  ): UIO[StreamingClientCallListener[Res]] =
-    for {
-      runtime <- zio.ZIO.runtime[Any]
-      queue   <- Queue.unbounded[ResponseFrame[Res]]
-    } yield new StreamingClientCallListener(runtime, call, queue)
+  def make[Res](call: ZClientCall[?, Res], prefetch: Option[Int]): UIO[StreamingClientCallListener[Res]] = for {
+    runtime  <- ZIO.runtime[Any]
+    queue    <- Queue.unbounded[ResponseFrame[Res]]
+    buffered <- Ref.make(0)
+  } yield new StreamingClientCallListener(prefetch, runtime, call, queue, buffered)
 }
