@@ -15,8 +15,6 @@ ThisBuild / versionScheme := Some("early-semver")
 
 publish / skip := true
 
-sonatypeProfileName := "com.thesamet"
-
 inThisBuild(
   List(
     organization := "com.thesamet.scalapb.zio-grpc",
