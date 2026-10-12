@@ -69,7 +69,7 @@ object ClientCalls {
         RequestStreamSender.make(call, listener).flatMap { sender =>
           // Initialization must finish before either side can complete the call. A successful
           // half-close only finishes sending; the server still owns the final RPC result.
-          call.start(sender.listener, headers) *>
+          call.start(sender, headers) *>
             call.request(1) *>
             (sender.send(req) *> ZIO.never).raceFirst(listener.getValue)
         }
@@ -99,7 +99,7 @@ object ClientCalls {
         .flatMap { (listener: StreamingClientCallListener[Res]) =>
           ZStream.unwrap {
             RequestStreamSender.make(call, listener).flatMap { sender =>
-              (call.start(sender.listener, headers) *> call.request(prefetch.getOrElse(1))).as {
+              (call.start(sender, headers) *> call.request(prefetch.getOrElse(1))).as {
                 ZStream.execute(sender.send(req)).merge(listener.stream, ZStream.HaltStrategy.Right)
               }
             }
