@@ -37,30 +37,27 @@ object RouteGuideClientApp extends ZIOAppDefault {
 
   val features = RouteGuideServer.featuresDatabase.feature
 
-  /** Sends numPoints randomly chosen points from [[features]] with a variable
-    * delay in between. Prints the statistics when they are sent from the
-    * server.
+  /** Sends numPoints randomly chosen points from [[features]] with a variable delay in between. Prints the statistics
+    * when they are sent from the server.
     */
   // start: recordRoute
   def recordRoute(numPoints: Int) =
     for {
       summary <- RouteGuideClient.recordRoute(
-        ZStream
-          .repeatZIO(
-            nextIntBetween(0, features.size).map(features(_).getLocation)
-          )
-          .tap(p =>
-            printLine(s"Visiting (${p.latitude}, ${p.longitude})").orDie
-          )
-          .schedule(Schedule.spaced(300.millis))
-          .take(numPoints)
-      )
-      _ <- printLine(
-        s"Finished trip with ${summary.pointCount} points. " +
-          s"Passed ${summary.featureCount} features. " +
-          s"Travelled ${summary.distance} meters. " +
-          s"It took ${summary.elapsedTime} seconds."
-      )
+                   ZStream
+                     .repeatZIO(
+                       nextIntBetween(0, features.size).map(features(_).getLocation)
+                     )
+                     .tap(p => printLine(s"Visiting (${p.latitude}, ${p.longitude})").orDie)
+                     .schedule(Schedule.spaced(300.millis))
+                     .take(numPoints)
+                 )
+      _       <- printLine(
+                   s"Finished trip with ${summary.pointCount} points. " +
+                     s"Passed ${summary.featureCount} features. " +
+                     s"Travelled ${summary.distance} meters. " +
+                     s"It took ${summary.elapsedTime} seconds."
+                 )
     } yield ()
   // end: recordRoute
 

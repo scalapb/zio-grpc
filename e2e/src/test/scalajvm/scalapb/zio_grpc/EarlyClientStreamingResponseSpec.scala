@@ -26,8 +26,10 @@ object EarlyClientStreamingResponseSpec extends ZIOSpecDefault {
                           .addMethod(
                             method,
                             new ServerCallHandler[Request, Response] {
-                              override def startCall(call: ServerCall[Request, Response], headers: Metadata)
-                                  : ServerCall.Listener[Request] = {
+                              override def startCall(
+                                  call: ServerCall[Request, Response],
+                                  headers: Metadata
+                              ): ServerCall.Listener[Request] = {
                                 call.request(1)
                                 new ServerCall.Listener[Request] {
                                   override def onMessage(request: Request): Unit = {
