@@ -16,7 +16,7 @@ addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.4.0")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.21.1")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.1.8")
+addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.2.0")
 
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.9.2")
 
