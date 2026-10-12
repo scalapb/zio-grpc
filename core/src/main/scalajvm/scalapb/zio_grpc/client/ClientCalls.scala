@@ -1,9 +1,17 @@
 package scalapb.zio_grpc.client
 
-import io.grpc.{CallOptions, MethodDescriptor, StatusException}
+import io.grpc.{
+  CallOptions,
+  ClientCall,
+  ForwardingClientCallListener,
+  Metadata,
+  MethodDescriptor,
+  Status,
+  StatusException
+}
 import scalapb.zio_grpc.{ResponseContext, ResponseFrame, SafeMetadata, ZChannel}
 import zio.stream.ZStream
-import zio.{Exit, IO, ZIO}
+import zio.{Exit, IO, Promise, Queue, UIO, Unsafe, ZIO}
 
 object ClientCalls {
   object withMetadata {
@@ -60,19 +68,62 @@ object ClientCalls {
     ): ZStream[Any, StatusException, ResponseFrame[Res]] =
       ZStream.unwrap(channel.newCall(method, options).map(serverStreamingCall(_, headers, channel.prefetch, req)))
 
+    // Initialize the call before returning the interruptible request-sending effect.
+    // Only calls with streaming requests allocate readiness and closure signals.
+    private def startStreamingRequest[Req, Res](
+        call: ZClientCall[Req, Res],
+        listener: ClientCall.Listener[Res],
+        headers: SafeMetadata,
+        responseDemand: Int,
+        input: ZStream[Any, StatusException, Req]
+    ): IO[StatusException, IO[StatusException, Unit]] =
+      for {
+        runtime <- ZIO.runtime[Any]
+        ready   <- Queue.sliding[Unit](1)
+        closed  <- Promise.make[Nothing, Unit]
+        _       <- call.start(
+                     new ForwardingClientCallListener.SimpleForwardingClientCallListener[Res](listener) {
+                       private def unsafeRun(effect: UIO[Any]): Unit =
+                         Unsafe.unsafe { implicit unsafe =>
+                           runtime.unsafe.run(effect).getOrThrowFiberFailure()
+                           ()
+                         }
+
+                       override def onReady(): Unit = unsafeRun(ready.offer(()))
+
+                       override def onClose(status: Status, trailers: Metadata): Unit = {
+                         // Stop input even when downstream response consumption is blocked.
+                         unsafeRun(closed.succeed(()))
+                         listener.onClose(status, trailers)
+                       }
+                     },
+                     headers
+                   )
+        _       <- call.request(responseDemand)
+      } yield {
+        def sendMessage(message: Req): IO[StatusException, Unit] =
+          call.isReady.flatMap {
+            case true  => call.sendMessage(message)
+            // Retain notifications arriving between isReady and take; recheck stale ones.
+            case false => ready.take *> sendMessage(message)
+          }
+
+        (input.runForeach(sendMessage) *> call.halfClose().unlessZIO(closed.isDone)).unit
+          .raceFirst(closed.await)
+          .unlessZIO(closed.isDone)
+          .unit
+      }
+
     private def clientStreamingCall[Req, Res](
         call: ZClientCall[Req, Res],
         headers: SafeMetadata,
         req: ZStream[Any, StatusException, Req]
     ): IO[StatusException, ResponseContext[Res]] =
       ZIO.acquireReleaseExitWith(UnaryClientCallListener.make[Res])(exitHandler(call)) { listener =>
-        val processRequestStream = req.runForeach(call.sendMessage) *> call.halfClose()
-        val getResult            = listener.getValue
-
-        call.start(listener, headers) *>
-          call.request(1) *>
-          processRequestStream &>
-          getResult
+        startStreamingRequest(call, listener, headers, 1, req).flatMap { send =>
+          // Finishing input only half-closes the call; the server owns the final result.
+          (send *> ZIO.never).raceFirst(listener.getValue)
+        }
       }
 
     def clientStreamingCall[Req, Res](
@@ -97,11 +148,11 @@ object ClientCalls {
           StreamingClientCallListener.make[Res](call, prefetch)
         )(anyExitHandler(call))
         .flatMap { (listener: StreamingClientCallListener[Res]) =>
-          val init              = call.start(listener, headers) *> call.request(prefetch.getOrElse(1))
-          val process           = req.runForeach(call.sendMessage)
-          val finish            = call.halfClose()
-          val sendRequestStream = ZStream.execute(init *> process *> finish)
-          sendRequestStream.merge(listener.stream, ZStream.HaltStrategy.Right)
+          ZStream.unwrap {
+            startStreamingRequest(call, listener, headers, prefetch.getOrElse(1), req).map { send =>
+              ZStream.execute(send).merge(listener.stream, ZStream.HaltStrategy.Right)
+            }
+          }
         }
 
     def bidiCall[Req, Res](
