@@ -8,6 +8,8 @@ import scalapb.zio_grpc.testservice.Request.Scenario
 import zio.stream.{Stream, ZStream}
 import zio.ZEnvironment
 
+import java.util.concurrent.atomic.AtomicInteger
+
 package object server {
 
   import zio.Schedule
@@ -22,17 +24,22 @@ package object server {
         exit: zio.Promise[Nothing, Exit[StatusException, Response]]
     )(clock: Clock, console: Console)
         extends testservice.ZioTestservice.TestService {
+      val rpcRunsCounter: AtomicInteger = new AtomicInteger(0)
+
       def unary(request: Request): ZIO[Any, StatusException, Response] =
-        (requestReceived.succeed(()) *> (request.scenario match {
-          case Scenario.OK        =>
-            ZIO.succeed(
-              Response(out = "Res" + request.in.toString)
-            )
-          case Scenario.ERROR_NOW =>
+        (requestReceived.succeed(()) *> ZIO.succeed(rpcRunsCounter.incrementAndGet()) *> (request.scenario match {
+          case Scenario.OK          =>
+            ZIO.succeed(Response(out = "Res" + request.in.toString))
+          case Scenario.ERROR_NOW   =>
             ZIO.fail(Status.INTERNAL.withDescription("FOO!").asException())
-          case Scenario.DELAY     => ZIO.never
-          case Scenario.DIE       => ZIO.die(new RuntimeException("FOO"))
-          case _                  => ZIO.fail(Status.UNKNOWN.asException())
+          case Scenario.DELAY       =>
+            ZIO.never
+          case Scenario.DIE         =>
+            ZIO.die(new RuntimeException("FOO"))
+          case Scenario.UNAVAILABLE =>
+            ZIO.fail(Status.UNAVAILABLE.withDescription(rpcRunsCounter.get().toString).asException())
+          case _                    =>
+            ZIO.fail(Status.UNKNOWN.asException())
         })).onExit(exit.succeed(_))
 
       def unaryTypeMapped(request: Request): ZIO[Any, StatusException, WrappedString] =
@@ -42,14 +49,15 @@ package object server {
           request: Request
       ): ZStream[Any, StatusException, Response] =
         ZStream
-          .acquireReleaseExitWith(requestReceived.succeed(())) { (_, ex) =>
-            ex.foldExit(
-              failed =>
-                if (failed.isInterrupted || failed.isInterruptedOnly)
-                  exit.succeed(Exit.fail(Status.CANCELLED.asException()))
-                else exit.succeed(Exit.fail(Status.UNKNOWN.asException())),
-              _ => exit.succeed(Exit.succeed(Response()))
-            )
+          .acquireReleaseExitWith(requestReceived.succeed(()) *> ZIO.succeed(rpcRunsCounter.incrementAndGet())) {
+            (_, ex) =>
+              ex.foldExit(
+                failed =>
+                  if (failed.isInterrupted || failed.isInterruptedOnly)
+                    exit.succeed(Exit.fail(Status.CANCELLED.asException()))
+                  else exit.succeed(Exit.fail(Status.UNKNOWN.asException())),
+                _ => exit.succeed(Exit.succeed(Response()))
+              )
           }
           .flatMap { _ =>
             request.scenario match {
@@ -78,15 +86,14 @@ package object server {
       def clientStreaming(
           request: Stream[StatusException, Request]
       ): ZIO[Any, StatusException, Response] =
-        requestReceived.succeed(()) *>
+        requestReceived.succeed(()) *> ZIO.succeed(rpcRunsCounter.incrementAndGet()) *>
           request
             .runFoldZIO(0)((state, req) =>
               req.scenario match {
                 case Scenario.OK        => ZIO.succeed(state + req.in)
                 case Scenario.DELAY     => delayReceived.succeed(()) *> ZIO.never
                 case Scenario.DIE       => ZIO.die(new RuntimeException("foo"))
-                case Scenario.ERROR_NOW =>
-                  ZIO.fail((Status.INTERNAL.withDescription("InternalError").asException()))
+                case Scenario.ERROR_NOW => ZIO.fail((Status.INTERNAL.withDescription("InternalError").asException()))
                 case _: Scenario        => ZIO.fail(Status.UNKNOWN.asException())
               }
             )
@@ -96,7 +103,7 @@ package object server {
       def bidiStreaming(
           request: Stream[StatusException, Request]
       ): Stream[StatusException, Response] =
-        (ZStream.fromZIO(requestReceived.succeed(())).drain ++
+        (ZStream.fromZIO(requestReceived.succeed(()) *> ZIO.succeed(rpcRunsCounter.incrementAndGet())).drain ++
           (request.flatMap { r =>
             r.scenario match {
               case Scenario.OK        =>

@@ -1,4 +1,4 @@
 object Version {
-  val zio  = "2.0.19"
-  val grpc = "1.59.1"
+  val zio  = "2.1.13"
+  val grpc = "1.64.0"
 }

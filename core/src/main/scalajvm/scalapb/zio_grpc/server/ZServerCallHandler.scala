@@ -72,7 +72,10 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     unaryInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusException, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req, requestContext)
+          .zipLeft(call.sendHeaders(new Metadata))
+          .flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def serverStreamingCallHandler[Req, Res](
@@ -91,7 +94,10 @@ object ZServerCallHandler {
   ): ServerCallHandler[Req, Res] =
     streamingInput[Req, Res](
       runtime,
-      (req, requestContext, call) => impl(req, requestContext).flatMap[Any, StatusException, Unit](call.sendMessage)
+      (req, requestContext, call) =>
+        impl(req, requestContext)
+          .zipLeft(call.sendHeaders(new Metadata))
+          .flatMap[Any, StatusException, Unit](call.sendMessage)
     )
 
   def bidiCallHandler[Req, Res](
@@ -108,16 +114,17 @@ object ZServerCallHandler {
       stream: ZStream[Any, StatusException, Res]
   ): ZIO[Any, StatusException, Unit] = {
     val backpressureSink = {
-      def go: ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
+      def go(metadata: Option[Metadata]): ZChannel[Any, ZNothing, Chunk[Res], Any, StatusException, Chunk[Res], Unit] =
         ZChannel.readWithCause(
           xs =>
-            ZChannel.fromZIO(GIO.attempt(xs.foreach(call.call.sendMessage))) *>
-              ZChannel.suspend(if (call.call.isReady()) go else ZChannel.fromZIO(call.awaitReady) *> go),
+            ZChannel.fromZIO(ZIO.foreachDiscard(metadata)(call.sendHeaders)) *>
+              ZChannel.fromZIO(GIO.attempt(xs.foreach(call.call.sendMessage))) *>
+              ZChannel.suspend(if (call.call.isReady()) go(None) else ZChannel.fromZIO(call.awaitReady) *> go(None)),
           c => ZChannel.failCause(c),
           _ => ZChannel.unit
         )
 
-      ZSink.fromChannel(go)
+      ZSink.fromChannel(go(Some(new Metadata)))
     }
 
     for {

@@ -37,13 +37,14 @@ final class SafeMetadata private (
 object SafeMetadata {
   def make: UIO[SafeMetadata] = fromMetadata(new Metadata)
 
-  def make(pairs: (String, String)*): UIO[SafeMetadata] = {
-    val md = new Metadata
-    pairs.foreach { case (key, value) =>
-      md.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value)
+  def make(pairs: (String, String)*): UIO[SafeMetadata] =
+    ZIO.suspendSucceed {
+      val md = new Metadata
+      pairs.foreach { case (key, value) =>
+        md.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value)
+      }
+      SafeMetadata.fromMetadata(md)
     }
-    SafeMetadata.fromMetadata(md)
-  }
 
   /** Creates a new SafeMetadata by taking ownership of the given metadata. The provided metadata should not be used
     * after calling this method.

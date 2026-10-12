@@ -1,8 +1,8 @@
-scalaVersion := "2.13.10"
+scalaVersion := "2.13.15"
 
 resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
-val grpcVersion = "1.50.1"
+val grpcVersion = "1.64.0"
 
 Compile / PB.targets := Seq(
   scalapb.gen(grpc = true) -> (Compile / sourceManaged).value,

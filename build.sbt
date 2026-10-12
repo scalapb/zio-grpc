@@ -1,11 +1,11 @@
 import Settings.stdSettings
 import org.scalajs.linker.interface.ModuleInitializer
 
-val Scala3 = "3.3.1"
+val Scala3 = "3.3.6"
 
-val Scala213 = "2.13.10"
+val Scala213 = "2.13.15"
 
-val Scala212 = "2.12.18"
+val Scala212 = "2.12.20"
 
 val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
@@ -64,7 +64,7 @@ lazy val core = projectMatrix
       .settings(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0" % "test"
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.6.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.4.2"
       )
@@ -118,7 +118,7 @@ lazy val e2eProtos =
       settings = Seq(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.5.0"
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.6.0"
         )
       )
     )
@@ -144,7 +144,15 @@ lazy val e2e =
     .in(file("e2e"))
     .dependsOn(core, e2eProtos)
     .defaultAxes()
-    .jvmPlatform(ScalaVersions)
+    .jvmPlatform(
+      ScalaVersions,
+      settings = Seq(
+        libraryDependencies ++= Seq(
+          "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
+          "io.grpc"               % "grpc-netty"           % Version.grpc
+        )
+      )
+    )
     .customRow(
       true,
       ScalaVersions,
@@ -162,10 +170,8 @@ lazy val e2e =
       Defaults.itSettings,
       publish / skip       := true,
       libraryDependencies ++= Seq(
-        "dev.zio"              %% "zio-test"             % Version.zio % "test,it",
-        "dev.zio"              %% "zio-test-sbt"         % Version.zio % "test,it",
-        "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-        "io.grpc"               % "grpc-netty"           % Version.grpc
+        "dev.zio" %%% "zio-test"     % Version.zio % "test,it",
+        "dev.zio" %%% "zio-test-sbt" % Version.zio % "test,it"
       ),
       Compile / run / fork := true,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
@@ -181,7 +187,7 @@ lazy val e2eWeb =
       scalaVersions = ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
-          "com.microsoft.playwright" % "playwright"   % "1.40.0"    % Test,
+          "com.microsoft.playwright" % "playwright"   % "1.45.0"    % Test,
           "dev.zio"                %%% "zio-test"     % Version.zio % Test,
           "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
         ),

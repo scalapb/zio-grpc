@@ -1,7 +1,7 @@
 package scalapb.zio_grpc.server
 
 import io.grpc.ServerCall.Listener
-import io.grpc.{Metadata, Status, StatusException}
+import io.grpc.{Status, StatusException}
 import zio._
 import zio.stream.{Stream, ZStream}
 import scalapb.zio_grpc.RequestContext
@@ -27,7 +27,6 @@ object ListenerDriver {
     (
       call.request(2) *>
         completed.await *>
-        call.sendHeaders(new Metadata) *>
         request.await flatMap writeResponse
     ).onExit(ex => call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
       .ignore
@@ -40,7 +39,7 @@ object ListenerDriver {
         new Listener[Req] {
           override def onCancel(): Unit =
             Unsafe.unsafe { implicit u =>
-              runtime.unsafe.run(fiber.interrupt.unit).getOrThrowFiberFailure()
+              runtime.unsafe.run(fiber.interruptFork.unit).getOrThrowFiberFailure()
             }
 
           override def onHalfClose(): Unit =
@@ -113,7 +112,6 @@ object ListenerDriver {
       .collectWhileSome
 
     (call.request(1) *>
-      call.sendHeaders(new Metadata) *>
       writeResponse(requestStream))
       .onExit(ex => call.close(ListenerDriver.exitToStatus(ex), requestContext.responseMetadata.metadata).ignore)
       .ignore
@@ -122,7 +120,7 @@ object ListenerDriver {
         new Listener[Req] {
           override def onCancel(): Unit =
             Unsafe.unsafe { implicit u =>
-              runtime.unsafe.run(fiber.interrupt.unit).getOrThrowFiberFailure()
+              runtime.unsafe.run(fiber.interruptFork.unit).getOrThrowFiberFailure()
             }
 
           override def onHalfClose(): Unit =
