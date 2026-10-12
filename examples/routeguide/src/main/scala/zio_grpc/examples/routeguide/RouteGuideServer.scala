@@ -31,8 +31,8 @@ class RouteGuideService(
       .orElseFail(Status.NOT_FOUND.asException())
   // end: getFeature
 
-  /** Streams all features contained within the given bounding {@link
-    * Rectangle}.
+  /** Streams all features contained within the given bounding {@link Rectangle}
+    * .
     *
     * @param request
     *   the bounding rectangle for the requested features.
