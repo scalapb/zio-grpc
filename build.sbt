@@ -62,7 +62,7 @@ lazy val core = projectMatrix
       .settings(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.6.0" % "test"
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.7.0" % "test"
         ),
         Compile / npmDependencies += "grpc-web" -> "1.4.2"
       )
@@ -116,7 +116,7 @@ lazy val e2eProtos =
       settings = Seq(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.6.0"
+          "io.github.cquiroz"            %%% "scala-java-time" % "2.7.0"
         )
       )
     )
