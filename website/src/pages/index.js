@@ -9,7 +9,7 @@ import styles from './styles.module.css';
 const features = [
   {
     imageUrl: 'img/start-quickly-and-scale.svg',
-    title: <>Start Quickly and Scale</>,
+    title: 'Start Quickly and Scale',
     description: (
       <>
         Build your first gRPC server in minutes and
@@ -19,7 +19,7 @@ const features = [
   },
   {
     imageUrl: 'img/functional-and-type-safe.svg',
-    title: <>Functional and Type-safe</>,
+    title: 'Functional and Type-safe',
     description: (
       <>
         Use the power of Functional Programming and the Scala compiler
@@ -28,7 +28,7 @@ const features = [
     ),
   },
   {
-    title: <>Stream with ZStream</>,
+    title: 'Stream with ZStream',
     imageUrl: 'img/stream-with-zstream.svg',
     description: (
       <>
@@ -38,7 +38,7 @@ const features = [
     ),
   },
   {
-    title: <>Highly Concurrent</>,
+    title: 'Highly Concurrent',
     imageUrl: 'img/highly-concurrent.svg',
     description: (
       <>
@@ -48,7 +48,7 @@ const features = [
     ),
   },
   {
-    title: <>Safe Cancellations</>,
+    title: 'Safe Cancellations',
     imageUrl: 'img/safe-cancellations.svg',
     description: (
       <>
@@ -57,7 +57,7 @@ const features = [
     ),
   },
   {
-    title: <>Browser Ready</>,
+    title: 'Browser Ready',
     imageUrl: 'img/browser-ready.svg',
     description: (
       <>
@@ -92,7 +92,7 @@ function Home() {
       description="ZIO gRPC lets you write purely functional gRPC services in Scala using ZIO.">
       <header className={clsx('hero hero--primary', styles.heroBanner)}>
         <div className="container">
-          <img src={img} width="80%"/>
+          <img src={img} width="80%" alt="ZIO gRPC"/>
           <p className="hero__subtitle">{siteConfig.tagline}</p>
           <div className={styles.buttons}>
             <Link
