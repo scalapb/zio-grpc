@@ -1,7 +1,7 @@
 import Settings.stdSettings
 import org.scalajs.linker.interface.ModuleInitializer
 
-val Scala3 = "3.9.0"
+val Scala3 = "3.3.8"
 
 val Scala213 = "2.13.18"
 
