@@ -1,17 +1,14 @@
-{pkgs ? import <nixpkgs> {
-  config = {
-    packageOverrides = pkgs: {
-      sbt = pkgs.sbt.override { jre = pkgs.openjdk11; };
-    };
-  };
-}} :
+{ pkgs ? import ./nix/pkgs.nix }:
 pkgs.mkShell {
-  buildInputs = [
-    pkgs.sbt
-    pkgs.openjdk11
-    pkgs.nodejs
-
-    # keep this line if you use bash
-    pkgs.bashInteractive
+  packages = with pkgs; [
+    (sbt.override { jre = jdk21; })
+    jdk21
+    nodejs_24
+    yarn
+    git
+    bashInteractive
   ];
+
+  # The protoc binary downloaded by sbt-protoc needs libstdc++ on NixOS.
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ];
 }

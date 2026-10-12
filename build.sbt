@@ -9,8 +9,6 @@ val Scala212 = "2.12.21"
 
 val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
-
 ThisBuild / versionScheme := Some("early-semver")
 
 publish / skip := true
@@ -31,6 +29,14 @@ inThisBuild(
       )
     )
   )
+)
+
+lazy val browserSettings = Seq(
+  Compile / npmResolutions += "grpc-web" -> Version.grpcWeb,
+  Test / npmResolutions += "grpc-web"    -> Version.grpcWeb,
+  webpack / version                      := Version.webpack,
+  webpackCliVersion                      := "7.2.3",
+  startWebpackDevServer / version        := Version.webpackDevServer
 )
 
 lazy val core = projectMatrix
@@ -59,12 +65,15 @@ lazy val core = projectMatrix
     ScalaVersions,
     Seq(VirtualAxis.js),
     _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+      .settings(browserSettings)
       .settings(
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
           "io.github.cquiroz"            %%% "scala-java-time" % "2.7.0" % "test"
         ),
-        Compile / npmDependencies += "grpc-web" -> "1.4.2"
+        // ScalaPB grpc-web 0.7.0 publishes an exact 1.4.2 dependency. Keep our
+        // published range compatible; CI explicitly exercises the newer runtime.
+        Compile / npmDependencies += "grpc-web" -> ">=1.4.2 <3"
       )
   )
 
@@ -145,6 +154,8 @@ lazy val e2e =
     .jvmPlatform(
       ScalaVersions,
       settings = Seq(
+        Test / fork := true,
+        Test / javaOptions ++= Seq("-Xmx2G", "-XX:MaxDirectMemorySize=512m"),
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
           "io.grpc"               % "grpc-netty"           % Version.grpc
@@ -156,9 +167,10 @@ lazy val e2e =
       ScalaVersions,
       Seq(VirtualAxis.js),
       _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+        .settings(browserSettings)
         .settings(
           scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
-          Compile / npmDependencies += "grpc-web" -> "1.4.2",
+          Compile / npmDependencies += "grpc-web" -> Version.grpcWeb,
           scalaJSUseMainModuleInitializer         := true
         )
     )
@@ -175,6 +187,8 @@ lazy val e2e =
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
     )
 
+lazy val installPlaywright = taskKey[Unit]("Install Chromium matching the Java Playwright dependency")
+
 lazy val e2eWeb =
   projectMatrix
     .in(file("e2e-web"))
@@ -185,13 +199,26 @@ lazy val e2eWeb =
       scalaVersions = ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
-          "com.microsoft.playwright" % "playwright"   % "1.45.1"    % Test,
-          "dev.zio"                %%% "zio-test"     % Version.zio % Test,
-          "dev.zio"                 %% "zio-test-sbt" % Version.zio % Test
+          "com.microsoft.playwright" % "playwright"   % Version.playwright % Test,
+          "dev.zio"                %%% "zio-test"     % Version.zio        % Test,
+          "dev.zio"                 %% "zio-test-sbt" % Version.zio        % Test
         ),
-        buildInfoKeys := Seq(
+        buildInfoKeys     := Seq(
           scalaBinaryVersion
-        )
+        ),
+        installPlaywright := {
+          val args = Seq("install") ++
+            (if (sys.env.get("PLAYWRIGHT_INSTALL_DEPS").contains("true")) Seq("--with-deps") else Nil) ++
+            Seq("chromium")
+          (Test / runner).value
+            .run(
+              "com.microsoft.playwright.CLI",
+              (Test / fullClasspath).value.files,
+              args,
+              streams.value.log
+            )
+            .get
+        }
       )
     )
     .customRow(
@@ -199,15 +226,14 @@ lazy val e2eWeb =
       ScalaVersions,
       Seq(VirtualAxis.js),
       _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+        .settings(browserSettings)
         .settings(
           scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
-          Compile / npmDependencies += "grpc-web" -> "1.4.2",
+          Compile / npmDependencies += "grpc-web" -> Version.grpcWeb,
           scalaJSUseMainModuleInitializer         := true,
           libraryDependencies ++= Seq(
             "dev.zio" %%% "zio-test" % Version.zio
-          ),
-          webpack / version                       := "5.88.0",
-          startWebpackDevServer / version         := "4.15.1"
+          )
         )
     )
     .settings(stdSettings)
@@ -237,7 +263,6 @@ lazy val benchmarks =
           "scalapb.zio_grpc.ZioCodeGenerator$"
         )                        -> (Compile / sourceManaged).value
       ),
-      PB.protocVersion     := "3.13.0",
       codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value
     )
 
