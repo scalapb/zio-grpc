@@ -1,8 +1,8 @@
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.7")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.6")
 
-libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.17"
+libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.14"
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 
