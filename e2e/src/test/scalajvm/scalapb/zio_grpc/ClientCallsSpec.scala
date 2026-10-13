@@ -32,9 +32,9 @@ object ClientCallsSpec extends ZIOSpecDefault {
                        .retry(Schedule.recurs(2))
                        .exit
         } yield
-        // There was a bug, when call.start was invoked multiple times, so this test was failing
-        // with 'already started' instead of 'io exception'
-        assert(res)(fails(hasDescription("io exception")))
+          // There was a bug, when call.start was invoked multiple times, so this test was failing
+          // with 'already started' instead of 'io exception'
+          assert(res)(fails(hasDescription("io exception")))
       }
     )
 

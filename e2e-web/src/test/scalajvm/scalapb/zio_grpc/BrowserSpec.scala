@@ -20,16 +20,17 @@ object BrowserSpec extends ZIOSpecDefault {
       test("all tests should pass")(
         for {
           pw <- ZIO.service[Playwright]
-          _  <- ZIO.attemptBlocking {
-                  val browser  = pw.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true))
-                  val page     = browser.newPage()
-                  val htmlFile = java.nio.file.Paths.get("").toAbsolutePath().toString
-                  page.navigate(
-                    s"file:///${htmlFile}/e2e-web/index.html?port=8080&scalaVersion=${buildinfo.BuildInfo.scalaBinaryVersion}"
-                  )
-                  assertThat(page.getByTestId("log"))
-                    .containsText(". 0 tests failed", new ContainsTextOptions().setTimeout(5000))
-                }
+          _  <-
+            ZIO.attemptBlocking {
+              val browser  = pw.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true))
+              val page     = browser.newPage()
+              val htmlFile = java.nio.file.Paths.get("").toAbsolutePath().toString
+              page.navigate(
+                s"file:///${htmlFile}/e2e-web/index.html?port=8080&scalaVersion=${buildinfo.BuildInfo.scalaBinaryVersion}"
+              )
+              assertThat(page.getByTestId("log"))
+                .containsText(". 0 tests failed", new ContainsTextOptions().setTimeout(5000))
+            }
         } yield assertTrue(true)
       )
     ).provideLayer(serverLayer ++ playwright)
