@@ -1,5 +1,5 @@
 {
-  "version-0.5.x/someSidebar": [
+  "someSidebar": [
     {
       "collapsed": true,
       "type": "category",
@@ -7,15 +7,15 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.5.x/intro"
+          "id": "intro"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/quickstart"
+          "id": "quickstart"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/basics"
+          "id": "basics"
         }
       ]
     },
@@ -26,31 +26,31 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.5.x/installation"
+          "id": "installation"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/generated-code"
+          "id": "generated-code"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/context"
+          "id": "context"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/decorating"
+          "id": "decorating"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/deadlines"
+          "id": "deadlines"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/scala.js"
+          "id": "scala.js"
         },
         {
           "type": "doc",
-          "id": "version-0.5.x/backpressure"
+          "id": "backpressure"
         }
       ]
     }

@@ -1,70 +1,67 @@
 name: Release
+# Called only after CI succeeds for the exact commit being published.
 on:
-  push:
-    branches: [master]
-    tags: ["*"]
+  workflow_call:
 permissions:
   contents: read
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: maven-publish-${{ github.ref }}
+      cancel-in-progress: false
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '16.x'
-    - name: Set up JDK 11
-      uses: actions/setup-java@v4
-      with:
-          java-version: 11
-          distribution: temurin
-          cache: sbt
-    - uses: sbt/setup-sbt@v1
-    - uses: olafurpg/setup-gpg@v3
-    - name: Publish ${{ github.ref }}
-      run: sbt ci-release
-      env:
-        PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-        PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-build
+      - name: Check publishing credentials
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+        run: |
+          for name in SONATYPE_USERNAME SONATYPE_PASSWORD PGP_SECRET PGP_PASSPHRASE; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing $name"; exit 1; fi
+          done
+      - uses: olafurpg/setup-gpg@v3
+      - name: Publish to Central Portal
+        run: sbt ci-release
+        env:
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
 
   docs:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     concurrency:
       group: documentation-deploy
       cancel-in-progress: false
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '16.x'
-    - name: Set up JDK 11
-      uses: actions/setup-java@v4
-      with:
-          java-version: 11
-          distribution: temurin
-          cache: sbt
-    - uses: sbt/setup-sbt@v1
-    - name: Generate documentation
-      run: sbt docs/mdoc
-    - name: Build website
-      working-directory: website
-      run: |
-        yarn install --frozen-lockfile
-        yarn build
-    - uses: actions/upload-pages-artifact@v4
-      with:
-        path: website/build
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-build
+      - name: Generate documentation
+        run: sbt docs/mdoc
+      - name: Build website
+        working-directory: website
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: website/build
 
   deploy-docs:
     needs: docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       pages: write
@@ -76,18 +73,18 @@ jobs:
       group: github-pages
       cancel-in-progress: false
     steps:
-    - name: Check current master
-      id: current
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)
-        if [[ "$current_sha" == "$GITHUB_SHA" ]]; then
-          echo "deploy=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "Skipping documentation deployment for superseded master commit"
-        fi
-    - name: Deploy documentation
-      if: steps.current.outputs.deploy == 'true'
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Check current master
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)
+          if [[ "$current_sha" == "$GITHUB_SHA" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping documentation deployment for superseded master commit"
+          fi
+      - name: Deploy documentation
+        if: steps.current.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4

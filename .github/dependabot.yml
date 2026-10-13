@@ -1,6 +1,23 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    groups:
+      docusaurus:
+        patterns: ['@docusaurus/*', '@mdx-js/*', 'react', 'react-dom', 'prism-react-renderer']
+      website:
+        patterns: ['*']
+        update-types: [minor, patch]
+  - package-ecosystem: docker-compose
+    directory: /examples/fullapp
+    schedule:
+      interval: weekly
