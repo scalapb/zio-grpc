@@ -9,6 +9,7 @@ This library enables you to write purely functional [gRPC](https://grpc.io/) ser
 ## Documentation
 
 * [ZIO gRPC homepage](https://scalapb.github.io/zio-grpc)
+* [Changelog](CHANGELOG.md)
 
 ## Highlights
 
