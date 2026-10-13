@@ -1,5 +1,3 @@
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
-
 ThisBuild / scalaVersion := "2.13.18"
 
 ThisBuild / cancelable := true
@@ -50,7 +48,13 @@ lazy val webapp = project
   .settings(
     scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.0.0"
+      "io.github.cquiroz" %%% "scala-java-time" % "2.7.0"
     ),
+    Compile / npmDependencies += "grpc-web" -> "2.1.1",
+    Compile / npmResolutions += "grpc-web" -> "2.1.1",
+    Test / npmResolutions += "grpc-web" -> "2.1.1",
+    webpack / version := "5.111.1",
+    webpackCliVersion := "7.2.3",
+    startWebpackDevServer / version := "6.0.0",
     scalaJSUseMainModuleInitializer := true
   )

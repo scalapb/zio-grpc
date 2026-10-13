@@ -13,3 +13,6 @@ examples/project/metals.sbt
 website/node_modules
 website/build
 website/i18n/en.json
+
+website/.docusaurus
+.direnv

@@ -1,0 +1,28 @@
+name: Set up build
+description: Install the shared JVM, sbt and Node toolchain
+inputs:
+  java:
+    description: JDK version
+    default: '11'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v6
+      with:
+        java-version: ${{ inputs.java }}
+        distribution: temurin
+        cache: sbt
+    - name: Read sbt version
+      id: sbt-version
+      shell: bash
+      run: echo "version=$(sed -n 's/^sbt.version=//p' project/build.properties)" >> "$GITHUB_OUTPUT"
+    - uses: sbt/setup-sbt@v1
+      with:
+        sbt-runner-version: ${{ steps.sbt-version.outputs.version }}
+        disk-cache: 'false'
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+    - name: Install Yarn
+      shell: bash
+      run: npm install --global yarn@1.22.22

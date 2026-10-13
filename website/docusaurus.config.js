@@ -80,10 +80,11 @@ module.exports = {
       ],
       copyright: `Copyright © ${new Date().getFullYear()} <a href="https://www.linkedin.com/in/nadav-samet/">Nadav Samet</a>`,
     },
+    docs: { sidebar: { autoCollapseCategories: false } },
     prism: {
       additionalLanguages: ['java', 'protobuf', 'scala'],
-      theme: require('prism-react-renderer/themes/nightOwlLight'),
-      darkTheme: require('prism-react-renderer/themes/dracula')
+      theme: require('prism-react-renderer').themes.nightOwlLight,
+      darkTheme: require('prism-react-renderer').themes.dracula
     }
   },
   presets: [
@@ -92,7 +93,6 @@ module.exports = {
       {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          sidebarCollapsible: false,
           // Please change this to your repo.
           // editUrl: 'https://github.com/scalapb/zio-grpc/edit/master/foo/docs/',
           path: '../zio-grpc-docs/target/mdoc',
@@ -116,9 +116,6 @@ module.exports = {
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
-        },
-        googleAnalytics: {
-          trackingID: 'UA-346180-20'
         },
       },
     ]

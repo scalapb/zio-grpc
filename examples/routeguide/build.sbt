@@ -1,7 +1,5 @@
 scalaVersion := "2.13.18"
 
-resolvers ++= Resolver.sonatypeOssRepos("snapshots")
-
 val grpcVersion = "1.84.2"
 
 Compile / PB.targets := Seq(
