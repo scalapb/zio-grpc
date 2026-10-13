@@ -49,22 +49,42 @@ jobs:
       - uses: ./.github/actions/setup-build
       - name: Generate documentation
         run: sbt docs/mdoc
-      - name: Deploy documentation
+      - name: Build website
         working-directory: website
-        env:
-          TOKEN: ${{ secrets.DEPLOY_KEY }}
-          USE_SSH: 'true'
-          GIT_USER: git
         run: |
-          # A slower older CI run must not overwrite newer documentation.
-          if [[ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]]; then
-            echo "Skipping documentation deployment for superseded master commit"
-            exit 0
-          fi
-          git config --global user.name "ZIO-gRPC Docs"
-          git config --global user.email "zio-grpc-docs@users.noreply.github.com"
-          eval "$(ssh-agent -s)"
-          trap 'ssh-agent -k' EXIT
-          printf '%s\n' "$TOKEN" | ssh-add -
           yarn install --frozen-lockfile
-          yarn deploy
+          yarn build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: website/build
+
+  deploy-docs:
+    needs: docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Check current master
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)
+          if [[ "$current_sha" == "$GITHUB_SHA" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping documentation deployment for superseded master commit"
+          fi
+      - name: Deploy documentation
+        if: steps.current.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
