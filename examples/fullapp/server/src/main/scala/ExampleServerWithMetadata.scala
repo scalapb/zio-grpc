@@ -25,7 +25,7 @@ trait UserRepo {
 case class UserRepoImpl() extends UserRepo {
   def findUser(name: String): ZIO[Any, StatusException, User] = name match {
     case "john" => ZIO.succeed(User("John"))
-    case _ =>
+    case _      =>
       ZIO.fail(Status.UNAUTHENTICATED.withDescription("No access!").asException)
   }
 }

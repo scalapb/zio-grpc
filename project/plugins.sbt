@@ -2,7 +2,7 @@ addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.8")
 
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.21"
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.6")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
 
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.12.1")
 
@@ -14,8 +14,8 @@ addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.4.0")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.21.1")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.1.8")
+addSbtPlugin("com.thesamet" % "sbt-protoc-gen-project" % "0.2.0")
 
-addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.5.4")
+addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.9.2")
 
 addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.11.0")
