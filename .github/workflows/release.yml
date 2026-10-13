@@ -3,6 +3,8 @@ on:
   push:
     branches: [master]
     tags: ["*"]
+permissions:
+  contents: read
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -20,20 +22,6 @@ jobs:
           distribution: temurin
           cache: sbt
     - uses: sbt/setup-sbt@v1
-    - name: Update docs
-      run: |
-        git config --global user.name "ZIO-gRPC Docs"
-        git config --global user.email "zio-grpc-docs@users.noreply.github.com"
-        eval "$(ssh-agent -s)"
-        echo "$TOKEN" | ssh-add -
-        sbt docs/mdoc
-        cd website
-        yarn install
-        yarn deploy
-      env:
-         TOKEN: ${{secrets.DEPLOY_KEY}}
-         USE_SSH: true
-         GIT_USER: git
     - uses: olafurpg/setup-gpg@v3
     - name: Publish ${{ github.ref }}
       run: sbt ci-release
@@ -42,3 +30,64 @@ jobs:
         PGP_SECRET: ${{ secrets.PGP_SECRET }}
         SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+
+  docs:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: documentation-deploy
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '16.x'
+    - name: Set up JDK 11
+      uses: actions/setup-java@v4
+      with:
+          java-version: 11
+          distribution: temurin
+          cache: sbt
+    - uses: sbt/setup-sbt@v1
+    - name: Generate documentation
+      run: sbt docs/mdoc
+    - name: Build website
+      working-directory: website
+      run: |
+        yarn install --frozen-lockfile
+        yarn build
+    - uses: actions/upload-pages-artifact@v4
+      with:
+        path: website/build
+
+  deploy-docs:
+    needs: docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+    - name: Check current master
+      id: current
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)
+        if [[ "$current_sha" == "$GITHUB_SHA" ]]; then
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Skipping documentation deployment for superseded master commit"
+        fi
+    - name: Deploy documentation
+      if: steps.current.outputs.deploy == 'true'
+      id: deployment
+      uses: actions/deploy-pages@v4
