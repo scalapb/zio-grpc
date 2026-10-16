@@ -44,8 +44,7 @@ object ClientCompatibilitySpec extends ZIOSpecDefault {
       for {
         runtime <- ZIO.runtime[Any]
         queue   <- Queue.unbounded[ResponseFrame[String]]
-        count   <- Ref.make(0)
-        listener = new StreamingClientCallListener(None, runtime, new LegacyCall, queue, count)
+        listener = new StreamingClientCallListener(None, runtime, new LegacyCall, queue)
         _       <- ZIO.succeed {
                      listener.onReady()
                      listener.onHeaders(new Metadata)

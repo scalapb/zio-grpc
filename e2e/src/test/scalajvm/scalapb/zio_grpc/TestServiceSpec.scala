@@ -6,7 +6,7 @@ import scalapb.zio_grpc.server.TestServiceImpl
 import scalapb.zio_grpc.testservice.Request.Scenario
 import scalapb.zio_grpc.testservice.ZioTestservice.TestServiceClient
 import scalapb.zio_grpc.testservice._
-import zio.{durationInt, Fiber, Queue, ZIO, ZLayer}
+import zio._
 import zio.stream.{Stream, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect.{flaky, timeout, withLiveClock}
@@ -20,7 +20,7 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
   // https://github.com/grpc/proposal/blob/master/A6-client-retries.md
   val serviceConfig = Map(
     "methodConfig" -> List(
-      Map(
+      Map[String, Object](
         "name"        -> List(Map("service" -> "scalapb.zio_grpc.TestService", "method" -> "Unary").asJava).asJava,
         "retryPolicy" -> Map[String, Any](
           "maxAttempts"          -> "5",
@@ -71,21 +71,30 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
       }
     )
 
-  def serverStreamingSuiteJVM =
+  def serverStreamingSuiteJVM(backpressure: Boolean) =
     suite("server streaming request")(
       test("catches client cancellations") {
         assertZIO(for {
           fb   <- TestServiceClient
-                    .serverStreaming(
-                      Request(Request.Scenario.DELAY, in = 12)
-                    )
-                    .runCollect
+                    .serverStreaming(Request(Request.Scenario.DELAY, in = 12))
+                    .runDrain
                     .fork
           _    <- TestServiceImpl.awaitReceived
           _    <- fb.interrupt
           exit <- TestServiceImpl.awaitExit
         } yield exit)(fails(hasStatusCode(Status.CANCELLED)))
-      }
+      },
+      test(if (backpressure) "backpressures" else "does not backpressure") {
+        assertZIO(for {
+          _    <- TestServiceClient
+                    .serverStreaming(Request(Request.Scenario.LARGE_STREAM, in = 100))
+                    .take(5)
+                    // Sleep for real to give the server enough time to send a lot of data
+                    .tap(_ => Live.live(ZIO.sleep(100.millis)))
+                    .runDrain
+          sent <- TestServiceImpl.responsesSent
+        } yield sent)(if (backpressure) isLessThan(50) else equalTo(100))
+      } @@ TestAspect.ignore // this test doesn't work well on CI because it depends on timing
     )
 
   def clientStreamingSuite =
@@ -265,7 +274,7 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
       unarySuite,
       unarySuiteJVM,
       serverStreamingSuite,
-      serverStreamingSuiteJVM,
+      serverStreamingSuiteJVM(backpressure = false),
       clientStreamingSuite,
       bidiStreamingSuite
     ).provideSomeLayer[Deps](clientLayer(None)),
@@ -273,7 +282,7 @@ object TestServiceSpec extends ZIOSpecDefault with CommonTestServiceSpec {
       unarySuite,
       unarySuiteJVM,
       serverStreamingSuite,
-      serverStreamingSuiteJVM,
+      serverStreamingSuiteJVM(backpressure = true),
       clientStreamingSuite,
       bidiStreamingSuite
     ).provideSomeLayer[Deps](clientLayer(Some(2)))
