@@ -3,7 +3,7 @@ description: Install the shared JVM, sbt and Node toolchain
 inputs:
   java:
     description: JDK version
-    default: '11'
+    default: '17'
 runs:
   using: composite
   steps:
