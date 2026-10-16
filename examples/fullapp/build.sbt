@@ -4,7 +4,7 @@ ThisBuild / cancelable := true
 
 ThisBuild / connectInput := true
 
-val grpcVersion = "1.84.2"
+val grpcVersion = "1.84.3"
 
 lazy val protos = crossProject(JSPlatform, JVMPlatform)
   .in(file("protos"))
