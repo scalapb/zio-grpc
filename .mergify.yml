@@ -13,10 +13,11 @@ pull_request_rules:
         users: [thesamet]
       label:
         add: [dependency-update]
-  - name: merge reviewed scala-steward PRs
+  - name: merge scala-steward PRs
     conditions:
       - author=scala-steward
-      - "#approved-reviews-by>=1"
+      # Keep the sbt 1.x update out while migrating to sbt 2.0.
+      - number!=755
       - check-success=ci-passed
     actions:
       queue:

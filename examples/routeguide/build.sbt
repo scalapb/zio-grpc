@@ -10,7 +10,7 @@ Compile / PB.targets := Seq(
 libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % grpcVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-  "com.thesamet.scalapb" %% "scalapb-json4s" % "0.12.0"
+  "com.thesamet.scalapb" %% "scalapb-json4s" % "0.12.3"
 )
 
 run / fork := true

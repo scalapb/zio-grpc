@@ -9,7 +9,11 @@ the linked diffs contain the complete history. The 0.5.x line uses ZIO 1; 0.6.x 
 
 Add changes for the next release under **Unreleased**.
 
-## [Unreleased](https://github.com/scalapb/zio-grpc/compare/v0.6.3...master)
+## [Unreleased](https://github.com/scalapb/zio-grpc/compare/v0.6.4...master)
+
+No changes yet.
+
+## [0.6.4](https://github.com/scalapb/zio-grpc/compare/v0.6.3...v0.6.4) - 2026-10-15
 
 ### Added
 
