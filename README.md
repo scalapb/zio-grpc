@@ -19,7 +19,7 @@ This library enables you to write purely functional [gRPC](https://grpc.io/) ser
 
 ## Development
 
-ZIO 2.1.27 requires Java 17 or newer. Scala 3 stays on the 3.3 LTS line.
+The build uses sbt 2.0.10 and requires Java 17 or newer. Scala 3 stays on the 3.3 LTS line.
 CI tests Scala 2.12, 2.13 and 3.3 on JDK 17,
 with an additional JDK 21 job. Node 24 and Yarn 1.22.22 are used for JavaScript
 and documentation builds.
@@ -36,7 +36,9 @@ continue to use the published version declared in their `project/plugins.sbt`.
 
 For browser integration tests, start Envoy with
 `docker compose -f examples/fullapp/docker-compose.yaml up -d --wait`, then run
-`sbt e2eWebJS2_13/fastOptJS/webpack e2eWebJVM2_13/test` inside the Playwright Nix
+`npm ci`, `sbt e2eWebJS2_13/fastLinkJS`,
+`npm run bundle -- --entry ./e2e-web/target/js-2.13/main/main.js --output-path "$PWD/e2e-web/target/js-2.13/bundle"`,
+and `sbt e2eWebJVM2_13/testFull` inside the Playwright Nix
 shell. Outside Nix, first run `PLAYWRIGHT_INSTALL_DEPS=true sbt e2eWebJVM2_13/installPlaywright` on a supported Linux distribution. Stop Envoy
 with `docker compose -f examples/fullapp/docker-compose.yaml down` afterward.
 Replace `2_13` with `2_12` or `3` for the other Scala versions.

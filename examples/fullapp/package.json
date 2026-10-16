@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "scripts": {
+    "bundle": "webpack --mode development"
+  },
+  "dependencies": {
+    "grpc-web": "2.1.1"
+  },
+  "devDependencies": {
+    "webpack": "5.111.1",
+    "webpack-cli": "7.2.3"
+  }
+}

@@ -8,10 +8,12 @@ requests will be proxied to a gRPC server running on port 9000.
 
 To get this project running:
 
-1. In SBT, build the client:
+1. From this directory, build and bundle the client:
 
    ```
-   sbt:fullapp> webapp/fastOptJS/webpack
+   sbt webapp/fastLinkJS
+   npm ci
+   npm run bundle -- --entry ./webapp/target/main/main.js --output-path "$PWD/webapp/target/bundle"
    ```
 
 2. Run the gRPC server:

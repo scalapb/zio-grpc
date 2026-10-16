@@ -26,3 +26,6 @@ runs:
     - name: Install Yarn
       shell: bash
       run: npm install --global yarn@1.22.22
+    - name: Install JavaScript build dependencies
+      shell: bash
+      run: npm ci

@@ -17,6 +17,13 @@ updates:
       website:
         patterns: ['*']
         update-types: [minor, patch]
+  - package-ecosystem: npm
+    directories: [/, /examples/fullapp]
+    schedule:
+      interval: weekly
+    groups:
+      browser:
+        patterns: ['*']
   - package-ecosystem: docker-compose
     directory: /examples/fullapp
     schedule:

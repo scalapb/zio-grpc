@@ -1,5 +1,4 @@
 import Settings.stdSettings
-import org.scalajs.linker.interface.ModuleInitializer
 
 val Scala3 = "3.3.8"
 
@@ -9,34 +8,28 @@ val Scala212 = "2.12.21"
 
 val ScalaVersions = Seq(Scala212, Scala213, Scala3)
 
-ThisBuild / versionScheme := Some("early-semver")
+versionScheme := Some("early-semver")
 
-publish / skip := true
+LocalRootProject / publish / skip := true
 
-inThisBuild(
-  List(
-    organization := "com.thesamet.scalapb.zio-grpc",
-    homepage     := Some(url("https://github.com/scalapb/zio-grpc")),
-    licenses     := List(
-      "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
-    ),
-    developers   := List(
-      Developer(
-        "thesamet",
-        "Nadav Samet",
-        "thesamet@gmail.com",
-        url("https://www.thesamet.com")
-      )
+Seq(
+  organization := "com.thesamet.scalapb.zio-grpc",
+  homepage     := Some(uri("https://github.com/scalapb/zio-grpc")),
+  licenses     := List(
+    "Apache-2.0" -> uri("http://www.apache.org/licenses/LICENSE-2.0")
+  ),
+  developers   := List(
+    Developer(
+      "thesamet",
+      "Nadav Samet",
+      "thesamet@gmail.com",
+      uri("https://www.thesamet.com")
     )
   )
 )
 
 lazy val browserSettings = Seq(
-  Compile / npmResolutions += "grpc-web" -> Version.grpcWeb,
-  Test / npmResolutions += "grpc-web"    -> Version.grpcWeb,
-  webpack / version                      := Version.webpack,
-  webpackCliVersion                      := "7.2.3",
-  startWebpackDevServer / version        := Version.webpackDevServer
+  scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) }
 )
 
 lazy val core = projectMatrix
@@ -46,10 +39,10 @@ lazy val core = projectMatrix
   .settings(
     name := "zio-grpc-core",
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio"          % Version.zio,
-      "dev.zio" %%% "zio-streams"  % Version.zio,
-      "dev.zio" %%% "zio-test"     % Version.zio % "test",
-      "dev.zio" %%% "zio-test-sbt" % Version.zio % "test"
+      "dev.zio" %% "zio"          % Version.zio,
+      "dev.zio" %% "zio-streams"  % Version.zio,
+      "dev.zio" %% "zio-test"     % Version.zio % "test",
+      "dev.zio" %% "zio-test-sbt" % Version.zio % "test"
     )
   )
   .jvmPlatform(
@@ -64,16 +57,13 @@ lazy val core = projectMatrix
     true,
     ScalaVersions,
     Seq(VirtualAxis.js),
-    _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+    _.enablePlugins(ScalaJSPlugin)
       .settings(browserSettings)
       .settings(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.7.0" % "test"
-        ),
-        // ScalaPB grpc-web 0.7.0 publishes an exact 1.4.2 dependency. Keep our
-        // published range compatible; CI explicitly exercises the newer runtime.
-        Compile / npmDependencies += "grpc-web" -> ">=1.4.2 <3"
+          "com.thesamet.scalapb.grpcweb" %% "scalapb-grpcweb" % "0.7.0",
+          "io.github.cquiroz"            %% "scala-java-time" % "2.7.0" % "test"
+        )
       )
   )
 
@@ -93,6 +83,8 @@ lazy val codeGen = projectMatrix
   .jvmPlatform(scalaVersions = ScalaVersions)
 
 lazy val codeGenJVM212 = codeGen.jvm(Scala212)
+
+lazy val codeGenJVM3 = codeGen.jvm(Scala3)
 
 lazy val protocGenZio = protocGenProject("protoc-gen-zio", codeGenJVM212)
   .settings(
@@ -124,14 +116,13 @@ lazy val e2eProtos =
       ScalaVersions,
       settings = Seq(
         libraryDependencies ++= Seq(
-          "com.thesamet.scalapb.grpcweb" %%% "scalapb-grpcweb" % "0.7.0",
-          "io.github.cquiroz"            %%% "scala-java-time" % "2.7.0"
+          "com.thesamet.scalapb.grpcweb" %% "scalapb-grpcweb" % "0.7.0",
+          "io.github.cquiroz"            %% "scala-java-time" % "2.7.0"
         )
       )
     )
     .settings(stdSettings)
     .settings(
-      Defaults.itSettings,
       crossScalaVersions   := Seq(Scala212, Scala213),
       publish / skip       := true,
       Compile / PB.targets := Seq(
@@ -143,7 +134,7 @@ lazy val e2eProtos =
       libraryDependencies ++= Seq(
         "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
       ),
-      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value
+      codeGenClasspath     := (codeGenJVM3 / Compile / fullClasspath).value
     )
 
 lazy val e2e =
@@ -158,7 +149,8 @@ lazy val e2e =
         Test / javaOptions ++= Seq("-Xmx2G", "-XX:MaxDirectMemorySize=512m"),
         libraryDependencies ++= Seq(
           "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-          "io.grpc"               % "grpc-netty"           % Version.grpc
+          "io.grpc"               % "grpc-netty"           % Version.grpc,
+          "io.grpc"               % "grpc-inprocess"       % Version.grpc % Test
         )
       )
     )
@@ -166,22 +158,19 @@ lazy val e2e =
       true,
       ScalaVersions,
       Seq(VirtualAxis.js),
-      _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+      _.enablePlugins(ScalaJSPlugin)
         .settings(browserSettings)
         .settings(
           scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
-          Compile / npmDependencies += "grpc-web" -> Version.grpcWeb,
-          scalaJSUseMainModuleInitializer         := true
+          scalaJSUseMainModuleInitializer := true
         )
     )
-    .configs(IntegrationTest)
     .settings(stdSettings)
     .settings(
-      Defaults.itSettings,
       publish / skip       := true,
       libraryDependencies ++= Seq(
-        "dev.zio" %%% "zio-test"     % Version.zio % "test,it",
-        "dev.zio" %%% "zio-test-sbt" % Version.zio % "test,it"
+        "dev.zio" %% "zio-test"     % Version.zio % "test",
+        "dev.zio" %% "zio-test-sbt" % Version.zio % "test"
       ),
       Compile / run / fork := true,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
@@ -200,20 +189,20 @@ lazy val e2eWeb =
       settings = Seq(
         libraryDependencies ++= Seq(
           "com.microsoft.playwright" % "playwright"   % Version.playwright % Test,
-          "dev.zio"                %%% "zio-test"     % Version.zio        % Test,
+          "dev.zio"                 %% "zio-test"     % Version.zio        % Test,
           "dev.zio"                 %% "zio-test-sbt" % Version.zio        % Test
         ),
         buildInfoKeys     := Seq(
           scalaBinaryVersion
         ),
-        installPlaywright := {
+        installPlaywright := Def.uncached {
           val args = Seq("install") ++
             (if (sys.env.get("PLAYWRIGHT_INSTALL_DEPS").contains("true")) Seq("--with-deps") else Nil) ++
             Seq("chromium")
           (Test / runner).value
             .run(
               "com.microsoft.playwright.CLI",
-              (Test / fullClasspath).value.files,
+              (Test / fullClasspath).value.map(a => fileConverter.value.toPath(a.data)),
               args,
               streams.value.log
             )
@@ -225,14 +214,17 @@ lazy val e2eWeb =
       true,
       ScalaVersions,
       Seq(VirtualAxis.js),
-      _.enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+      _.enablePlugins(ScalaJSPlugin)
         .settings(browserSettings)
         .settings(
+          Compile / fastLinkJS / scalaJSLinkerOutputDirectory :=
+            (LocalRootProject / baseDirectory).value / "e2e-web" / "target" / s"js-${scalaBinaryVersion.value}" / "main"
+        )
+        .settings(
           scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
-          Compile / npmDependencies += "grpc-web" -> Version.grpcWeb,
-          scalaJSUseMainModuleInitializer         := true,
+          scalaJSUseMainModuleInitializer := true,
           libraryDependencies ++= Seq(
-            "dev.zio" %%% "zio-test" % Version.zio
+            "dev.zio" %% "zio-test" % Version.zio
           )
         )
     )
@@ -263,7 +255,7 @@ lazy val benchmarks =
           "scalapb.zio_grpc.ZioCodeGenerator$"
         )                        -> (Compile / sourceManaged).value
       ),
-      codeGenClasspath     := (codeGenJVM212 / Compile / fullClasspath).value
+      codeGenClasspath     := (codeGenJVM3 / Compile / fullClasspath).value
     )
 
 lazy val docs = project
@@ -274,8 +266,9 @@ lazy val docs = project
     scalaVersion                                       := Scala213,
     publish / skip                                     := true,
     moduleName                                         := "zio-grpc-docs",
+    mdocOut                                            := (LocalRootProject / baseDirectory).value / "zio-grpc-docs" / "target" / "mdoc",
     mdocVariables                                      := Map(
-      "sbtProtocVersion" -> "1.0.8",
+      "sbtProtocVersion" -> "1.1.0-RC2",
       "grpcVersion"      -> Version.grpc,
       "zioGrpcVersion"   -> "0.6.3",
       "scalapbVersion"   -> scalapb.compiler.Version.scalapbVersion
@@ -291,6 +284,6 @@ lazy val docs = project
         "scalapb.zio_grpc.ZioCodeGenerator$"
       )                        -> (Compile / sourceManaged).value
     ),
-    codeGenClasspath                                   := (codeGenJVM212 / Compile / fullClasspath).value
+    codeGenClasspath                                   := (codeGenJVM3 / Compile / fullClasspath).value
   )
   .enablePlugins(MdocPlugin, DocusaurusPlugin)
