@@ -16,3 +16,5 @@ website/i18n/en.json
 
 website/.docusaurus
 .direnv
+
+node_modules/

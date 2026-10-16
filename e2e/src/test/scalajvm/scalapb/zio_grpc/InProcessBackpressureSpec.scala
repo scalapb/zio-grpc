@@ -10,7 +10,7 @@ import zio.stream.ZStream
 import zio.test._
 import io.grpc.inprocess.InProcessChannelBuilder
 
-object BackpressureSpec extends ZIOSpecDefault {
+object InProcessBackpressureSpec extends ZIOSpecDefault {
   val server =
     ServerLayer.fromEnvironment[ZioTestservice.TestService](
       InProcessServerBuilder.forName("backpressure-test").directExecutor()
@@ -51,7 +51,7 @@ object BackpressureSpec extends ZIOSpecDefault {
     }
 
   val spec =
-    suite("BackpressureSpec")(
+    suite("InProcessBackpressureSpec")(
       test("Slow client") {
         for {
           _ <- ZioTestservice.TestServiceClient.serverStreaming(Request(Request.Scenario.OK)).foreach { response =>

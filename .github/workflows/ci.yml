@@ -26,7 +26,7 @@ jobs:
         with:
           java: ${{ matrix.java }}
       - name: JVM and Scala.js tests
-        run: sbt coreJVM${{ matrix.scala }}/test e2eJVM${{ matrix.scala }}/test coreJS${{ matrix.scala }}/test
+        run: sbt "coreJVM${{ matrix.scala }}/testFull; e2eJVM${{ matrix.scala }}/testFull; coreJS${{ matrix.scala }}/testFull"
 
   browser:
     strategy:
@@ -45,7 +45,11 @@ jobs:
       - name: Browser integration tests
         run: |
           docker compose -f examples/fullapp/docker-compose.yaml up -d --wait
-          sbt e2eWebJS${{ matrix.scala }}/fastOptJS/webpack e2eWebJVM${{ matrix.scala }}/test
+          sbt e2eWebJS${{ matrix.scala }}/fastLinkJS
+          scala_version="${{ matrix.scala }}"
+          scala_version="${scala_version//_/.}"
+          npm run bundle -- --entry "./e2e-web/target/js-$scala_version/main/main.js" --output-path "$PWD/e2e-web/target/js-$scala_version/bundle"
+          sbt e2eWebJVM${{ matrix.scala }}/testFull
       - name: Envoy logs
         if: failure()
         run: docker compose -f examples/fullapp/docker-compose.yaml logs
@@ -62,7 +66,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-build
       - name: Formatting and generated documentation
-        run: sbt scalafmtCheckAll scalafmtSbtCheck docs/mdoc
+        run: sbt "scalafmtCheckAll; scalafmtSbtCheck; docs/mdoc"
       - name: Examples against this checkout
         run: .github/workflows/test_examples.sh
       - name: Website

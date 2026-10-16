@@ -28,9 +28,9 @@ libraryDependencies +=
 Then, add the following lines to your `build.sbt`:
 
 ```scala
-PB.targets in Compile := Seq(
-    scalapb.gen(grpc = true) -> (sourceManaged in Compile).value / "scalapb",
-    scalapb.zio_grpc.ZioCodeGenerator -> (sourceManaged in Compile).value / "scalapb"
+Compile / PB.targets := Seq(
+    scalapb.gen(grpc = true) -> (Compile / sourceManaged).value / "scalapb",
+    scalapb.zio_grpc.ZioCodeGenerator -> (Compile / sourceManaged).value / "scalapb"
 )
 
 libraryDependencies ++= Seq(

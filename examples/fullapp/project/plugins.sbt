@@ -1,6 +1,6 @@
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
 
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.8")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.1.0-RC2")
 
 val zioGrpcVersion = sys.props.getOrElse("zio.grpc.version", "0.6.3")
 
@@ -13,5 +13,3 @@ libraryDependencies ++= Seq(
 addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.22.0")
 
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.4.0")
-
-addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.21.1")

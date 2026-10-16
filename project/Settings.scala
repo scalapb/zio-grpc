@@ -1,5 +1,5 @@
-import sbt._
-import Keys._
+import sbt.{given, *}
+import Keys.*
 
 object Settings {
   val stdOptions =

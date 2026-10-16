@@ -15,7 +15,7 @@
         var scalaVersion = new URLSearchParams(window.location.search).get("scalaVersion")
         if (/^\d(\.\d+)?$/.test(scalaVersion)) {
             var scriptElement = document.createElement("script");
-            scriptElement.src = "./target/js-" + scalaVersion + "/scalajs-bundler/main/e2eweb-fastopt-bundle.js";
+            scriptElement.src = "./target/js-" + scalaVersion + "/bundle/main.js";
             document.body.appendChild(scriptElement);
         } else {
             document.body.innerHTML = "scalaVersion query parameter is invalid.";
