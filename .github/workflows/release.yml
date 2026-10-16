@@ -54,7 +54,7 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn build
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: website/build
 
@@ -87,4 +87,4 @@ jobs:
       - name: Deploy documentation
         if: steps.current.outputs.deploy == 'true'
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
