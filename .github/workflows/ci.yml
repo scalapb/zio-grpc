@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         scala: [2_12, 2_13, '3']
-        java: ['11']
+        java: ['17']
         include:
           - scala: '2_13'
             java: '21'

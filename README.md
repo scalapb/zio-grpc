@@ -19,7 +19,8 @@ This library enables you to write purely functional [gRPC](https://grpc.io/) ser
 
 ## Development
 
-Scala 3 stays on the 3.3 LTS line. CI tests Scala 2.12, 2.13 and 3.3 on JDK 11,
+ZIO 2.1.27 requires Java 17 or newer. Scala 3 stays on the 3.3 LTS line.
+CI tests Scala 2.12, 2.13 and 3.3 on JDK 17,
 with an additional JDK 21 job. Node 24 and Yarn 1.22.22 are used for JavaScript
 and documentation builds.
 
