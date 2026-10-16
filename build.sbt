@@ -196,17 +196,20 @@ lazy val e2eWeb =
           scalaBinaryVersion
         ),
         installPlaywright := Def.uncached {
-          val args = Seq("install") ++
+          val args           = Seq("install") ++
             (if (sys.env.get("PLAYWRIGHT_INSTALL_DEPS").contains("true")) Seq("--with-deps") else Nil) ++
             Seq("chromium")
-          (Test / runner).value
-            .run(
-              "com.microsoft.playwright.CLI",
-              (Test / fullClasspath).value.map(a => fileConverter.value.toPath(a.data)),
-              args,
-              streams.value.log
+          val classpath      = (Test / fullClasspath).value
+            .map(a => fileConverter.value.toPath(a.data).toString)
+            .mkString(java.io.File.pathSeparator)
+          val javaExecutable = file(sys.props("java.home")) / "bin" / "java"
+          val exitCode       = scala.sys.process
+            .Process(
+              Seq(javaExecutable.getAbsolutePath, "-cp", classpath, "com.microsoft.playwright.CLI") ++ args,
+              (LocalRootProject / baseDirectory).value
             )
-            .get
+            .!
+          require(exitCode == 0, s"Playwright installation failed with exit code $exitCode")
         }
       )
     )
