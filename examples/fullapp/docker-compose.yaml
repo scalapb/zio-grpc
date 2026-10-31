@@ -1,6 +1,6 @@
 services:
   envoy:
-    image: envoyproxy/envoy:v1.39.3
+    image: envoyproxy/envoy:v1.40.2
     volumes:
       - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml
     extra_hosts:
